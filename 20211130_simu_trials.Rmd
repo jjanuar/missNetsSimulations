@@ -1,0 +1,10 @@
+---
+title: "20211130_simu_trials"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Here's a first pass at simulating some networks, probably Bernoulli ones, and figuring out how I'm going to generate some missing data indicators (also probably some Bernoulli related thing?)
