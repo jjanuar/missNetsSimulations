@@ -8,3 +8,178 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 Here's a first pass at simulating some networks, probably Bernoulli ones, and figuring out how I'm going to generate some missing data indicators (also probably some Bernoulli related thing?)
+
+```{r packages, eval = T, warning = F, error = F, message = F}
+# some packages
+library(sna)
+
+```
+
+
+## Some resources
+
+[This stats exchange](https://stats.stackexchange.com/questions/184741/how-to-simulate-the-different-types-of-missing-data) describes a way to simulate MCAR/MAR/MNAR with some wrangling tricks, but I'm not sure how to apply this to networks.
+
+[Huisman(2009)](https://www.cmu.edu/joss/content/articles/volume10/huisman.pdf) goes over a general way to investigate missing data in networks, but no code AFAIK.
+
+
+## Item non-response
+
+Let's start with generating a Bernoulli graph
+
+```{r berngraph}
+## ---- fix a seed FOR NOW for some replicability
+set.seed(123)
+
+# using the rgraph() function
+testGraph = rgraph(n = 15,            # 15 nodes
+                   m = 1,             # 1 generated graph
+                   tprob = 0.5,       # tie probability/density of 0.5
+                   mode = 'digraph')  # directed for now
+
+## how do I even start with degrading this adjacency matrix?
+# first let's start with a sum of ties
+sum(testGraph)
+
+# let's see it
+gplot(testGraph, xlab = "Test")
+
+# if it's undirected, divide by 2 for the number of unique ties.
+
+# set a proportion of missingness
+propMiss = 0.1                        # say 10% of ties are missing.
+
+# I can very roughly use a uniform distribution to generate # of ties to be thresholded with the missing proportion
+# e.g.,
+missThresh = matrix(data = runif(15^2, min = 0, max = 1),
+                    nrow = 15,
+                    ncol = 15)
+
+# TODO: not sure how I'm going to handle unit non-response (completely missing actor/node and thus completely missing their ties)
+
+# on the other hand, item non-response should be fairly straightforward (e.g., missing responses from observed actor)
+
+# index which ties are going to be missing
+missTies = missThresh <= propMiss
+
+# then we degrade
+degradedGraph = testGraph             # copy the network to the one we're going to wreck
+
+# and we punch holes in it
+degradedGraph[which(testGraph == 1 & missTies)] = NA 
+
+# let's see the plot
+gplot(degradedGraph, xlab = "Degraded")
+
+# side by side?
+par(mfrow = c(1,2))   # 1 row, 2 columns
+gplot(testGraph, xlab = "Test")
+gplot(degradedGraph, xlab = "Degraded")
+
+
+##---it's hard to see an effect, but let's try replicating the code to a higher missingness proportion---
+
+# set a proportion of missingness
+propMiss = 0.5                        # say 50% of ties are missing.
+
+# use the same missing threshold matrix
+# index which ties are going to be missing
+missTies = missThresh <= propMiss
+
+# then we degrade
+degradedGraph = testGraph             # copy the network to the one we're going to wreck
+
+# and we punch holes in it
+degradedGraph[which(testGraph == 1 & missTies)] = NA 
+
+# let's see the plot
+gplot(degradedGraph, xlab = "Degraded, propMiss = 0.5")
+
+# side by side?
+par(mfrow = c(1,2))   # 1 row, 2 columns
+gplot(testGraph, xlab = "Test")
+gplot(degradedGraph, xlab = "Degraded")
+
+
+```
+
+Seems like the effect is a lot more apparent now. 
+
+We can calculate statistics like this and compare:
+
+```{r statCalcs}
+## an example with mean degree
+sum(testGraph)/nrow(testGraph)
+
+# compared with the degraded network
+sum(degradedGraph, na.rm = T)/nrow(degradedGraph)
+
+# a notable decrease
+# and with this 'systematic' (not really, but we can control the proportion of missingness) change, we can plot distributions.
+
+# but I'll leave this proof of concept here for the time being (can be extended to any network statistic)
+# and try make the code a bit more functional.
+
+```
+
+```{r functionalDegradation}
+## let's try turning the network degradation into a function so it's easier to recursively do.
+
+degradeNet <- function(graph, propMiss){
+  
+  ## degradeNet(graph, propMiss) takes a graph and replaces the observed graph ties with missing 
+  ## values(NA). This function does not handle actor non-response as it only works off the observed
+  ## network ties. I don't think this function handles undirected graphs yet.
+  ##
+  ## Input:
+  ## - graph:    An adjacency matrix describing a graph. There shouldn't
+  ##             be any missing values in this adjacency matrix yet.
+  ##             Should still work if there were though. I think.
+  ## - propMiss: A value to indicate the proportion of missingness
+  ##             that will be imposed on the observed network.
+  ##
+  ## Output: 
+  ## - A degraded network with missing ties where observed ties once were.
+  ##   Note that it only handles item non-response for now. Given the inputs,
+  ##   The missing values would be ~'propMiss'% of the observed ties in 'graph'.
+  
+  # grab the number of nodes
+  n = nrow(graph)
+  
+  # make a n x n matrix containing randomly generated values between 0 and 1
+  missThresh = matrix(data = runif(n^2, min = 0, max = 1),
+                      nrow = n,
+                      ncol = n)
+  
+  # index which of the ties are going to be missing
+  missTies = missThresh <= propMiss
+  
+  # copy the graph to punch holes in it
+  degradedGraph = graph
+  
+  # punch holes
+  degradedGraph[which(graph == 1 & missTies)] = NA
+  
+  # return the degraded graph
+  return(degradedGraph)
+}
+
+# test the function
+missNet1 = degradeNet(graph = testGraph,
+                      propMiss = 0.2)
+missNet2 = degradeNet(graph = testGraph,
+                      propMiss = 0.7)
+
+# some statistics?
+meanDeg = data.frame(sum(testGraph, na.rm = T)/nrow(testGraph), sum(missNet1, na.rm = T)/nrow(missNet1), sum(missNet2, na.rm = T)/nrow(missNet2))
+colnames(meanDeg) = c("Test", "propMiss = 0.2", "propMiss = 0.7")
+print(meanDeg)
+
+# compare plots
+par(mfrow = c(1, 3))      # 1 row, 3 columns
+gplot(testGraph, xlab = "Test")
+gplot(missNet1, xlab = "propMiss = 0.2")
+gplot(missNet2, xlab = "propMiss = 0.7")
+```
+
+Given that I used runif() to randomly choose a threshold for missingness, this is quite literally missing completely at random. 
