@@ -23,7 +23,9 @@ library(sna)
 [Huisman(2009)](https://www.cmu.edu/joss/content/articles/volume10/huisman.pdf) goes over a general way to investigate missing data in networks, but no code AFAIK.
 
 
-## Item non-response
+## Item non-response, directed network
+
+**Note:** As missing values can either be 0s or 1s, subsetting only the observable ties to degrade would be a moot point. Degrade the possible tie variables as well (i.e., they would be 0s too).
 
 Let's start with generating a Bernoulli graph
 
@@ -120,16 +122,71 @@ sum(degradedGraph, na.rm = T)/nrow(degradedGraph)
 # but I'll leave this proof of concept here for the time being (can be extended to any network statistic)
 # and try make the code a bit more functional.
 
+## An ERGM can be fit to the degraded network to calculate some network statistics.
+# it's just implied that the missingess is MAR.
+
 ```
+
+
+## Item non-response, undirected network
+
+Undirected networks need to be symmetric, so I think I can shrink the degradation to a triangle, doesn't matter if upper or lower, and then symmetrise the missingness afterwards. 
+
+```{r undirected missnet}
+## basically replicating the previous code examples, but for undirected networks
+# I think the real question's going to be how I'm going to make a function NOT use an if branch
+
+# first, simulate an undirected random graph
+testUndGraph = rgraph(n = 15,
+                      m = 1,
+                      tprob = 0.5,
+                      mode = "graph")      # undirected
+
+# check plot
+gplot(testUndGraph,
+      xlab = "Test undirected graph",
+      gmode = "graph")
+
+# move the test graph into a degraded graph placeholder
+degradedUndGraph = testUndGraph
+
+# let's use the same missingness threshold and matrix
+# this atrocious line of code replaces the upper triangle of the undirected graph with missing values
+degradedUndGraph[upper.tri(testUndGraph)][missTies[upper.tri(missTies)]] = NA
+
+# symmetrise
+degradedUndGraph[lower.tri(degradedUndGraph)] = 0           # empty lower triangle
+degradedUndGraph = degradedUndGraph + t(degradedUndGraph)   # add the transpose
+
+# check
+isSymmetric(degradedUndGraph)
+
+gplot(degradedUndGraph, 
+      xlab = "Degraded undirected graph",
+      gmode = "graph")
+
+# side by side
+par(mfrow = c(1,2))
+gplot(testUndGraph,
+      xlab = "Test undirected graph",
+      gmode = "graph")
+gplot(degradedUndGraph, 
+      xlab = "Degraded undirected graph",
+      gmode = "graph")
+
+```
+
+
+## degradeNet function
 
 ```{r functionalDegradation}
 ## let's try turning the network degradation into a function so it's easier to recursively do.
 
-degradeNet <- function(graph, propMiss){
+degradeNet <- function(graph, propMiss, directed = TRUE){
   
   ## degradeNet(graph, propMiss) takes a graph and replaces the observed graph ties with missing 
   ## values(NA). This function does not handle actor non-response as it only works off the observed
-  ## network ties. I don't think this function handles undirected graphs yet.
+  ## network ties. Works with undirected networks.
   ##
   ## Input:
   ## - graph:    An adjacency matrix describing a graph. There shouldn't
@@ -137,11 +194,18 @@ degradeNet <- function(graph, propMiss){
   ##             Should still work if there were though. I think.
   ## - propMiss: A value to indicate the proportion of missingness
   ##             that will be imposed on the observed network.
+  ## - directed: A logical value to indicate if it's a directed or
+  ##             undirected network. Default is set to directed.
   ##
   ## Output: 
   ## - A degraded network with missing ties where observed ties once were.
   ##   Note that it only handles item non-response for now. Given the inputs,
-  ##   The missing values would be ~'propMiss'% of the observed ties in 'graph'.
+  ##   the missing values would be ~'propMiss'% of the observed tie variables in 'graph'.
+  
+  ## spit out an error if the directed value is misspecified
+  if(directed != TRUE & !isSymmetric(graph)){
+    stop("The undirected network doesn't have a symmetric matrix")
+  }
   
   # grab the number of nodes
   n = nrow(graph)
@@ -157,13 +221,26 @@ degradeNet <- function(graph, propMiss){
   # copy the graph to punch holes in it
   degradedGraph = graph
   
-  # punch holes
-  degradedGraph[missTies] = NA
+  if( directed == FALSE ){
+    # this atrocious line of code replaces the upper triangle of the undirected graph with missing values
+    degradedGraph[upper.tri(graph)][missTies[upper.tri(missTies)]] = NA
+
+    # symmetrise
+    degradedGraph[lower.tri(degradedGraph)] = 0           # empty lower triangle
+    degradedGraph = degradedGraph + t(degradedGraph)      # add the transpose
+  } else {
+    # punch holes
+    degradedGraph[missTies] = NA
+  }
   
   # return the degraded graph
   return(degradedGraph)
 }
 
+```
+
+
+```{r testingDegradeNet}
 # test the function
 missNet1 = degradeNet(graph = testGraph,
                       propMiss = 0.2)
@@ -180,6 +257,40 @@ par(mfrow = c(1, 3))      # 1 row, 3 columns
 gplot(testGraph, xlab = "Test")
 gplot(missNet1, xlab = "propMiss = 0.2")
 gplot(missNet2, xlab = "propMiss = 0.7")
+
+## And the same for undirected networks?
+missUndNet1 = degradeNet(graph = testUndGraph,
+                         propMiss = 0.3,
+                         directed = FALSE)
+missUndNet2 = degradeNet(graph = testUndGraph,
+                         propMiss = 0.6,
+                         directed = FALSE)
+# some statistics
+meanDeg = data.frame(sum(testUndGraph, na.rm = T)/nrow(testUndGraph), 
+                     sum(missUndNet1, na.rm = T)/nrow(missUndNet1),
+                     sum(missUndNet2, na.rm = T)/nrow(missUndNet2))
+colnames(meanDeg) = c("Test", "propMiss = 0.3", "propMiss = 0.6")
+print(meanDeg)
+
+# compare plots
+par(mfrow = c(1, 3))      # 1 row, 3 columns
+gplot(testUndGraph,
+      xlab = "Test Undirected",
+      gmode = "graph")
+gplot(missUndNet1, 
+      xlab = "Undirected, propMiss = 0.3",
+      gmode = "graph")
+gplot(missUndNet2,
+      xlab = "Undirected, propMiss = 0.6",
+      gmode = "graph")
+
 ```
 
 Given that I used runif() to randomly choose a threshold for missingness, this is quite literally missing completely at random. 
+
+Nonetheless, the degraded networks seem to work fine. Now for the part to make its missing data generation more complicated.
+
+**Note:** *Why both observed and non-observed ties?* Because missing ties do not discriminate. An example would be non-respondents. If we know A sends ties to B, and sends ties to C, it might be likely that C reciprocates the ties (as per triadic closure). However, if C does not respond, we can't say that tie exists or not.
+
+*Are there any cases where we'd want to only degrade observed ties?* Hmm. Maybe in a MAR case where we know that a portion of observed ties (perhaps due to a covariate) should have ties, but show up as missing for some reason. For example, perhaps if we question a bunch of people from different ages, the youngest ones would not be able to respond (e.g., whether they're connected to a far-away uncle or something), but we know they're connected by sources not immediately visible from the collected data.
+
