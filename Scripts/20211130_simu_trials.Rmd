@@ -107,27 +107,6 @@ gplot(degradedGraph, xlab = "Degraded")
 
 Seems like the effect is a lot more apparent now. 
 
-We can calculate statistics like this and compare:
-
-```{r statCalcs}
-## an example with mean degree
-sum(testGraph)/nrow(testGraph)
-
-# compared with the degraded network
-sum(degradedGraph, na.rm = T)/nrow(degradedGraph)
-
-# a notable decrease
-# and with this 'systematic' (not really, but we can control the proportion of missingness) change, we can plot distributions.
-
-# but I'll leave this proof of concept here for the time being (can be extended to any network statistic)
-# and try make the code a bit more functional.
-
-## An ERGM can be fit to the degraded network to calculate some network statistics.
-# it's just implied that the missingess is MAR.
-
-```
-
-
 ## Item non-response, undirected network
 
 Undirected networks need to be symmetric, so I think I can shrink the degradation to a triangle, doesn't matter if upper or lower, and then symmetrise the missingness afterwards. 
@@ -293,4 +272,56 @@ Nonetheless, the degraded networks seem to work fine. Now for the part to make i
 **Note:** *Why both observed and non-observed ties?* Because missing ties do not discriminate. An example would be non-respondents. If we know A sends ties to B, and sends ties to C, it might be likely that C reciprocates the ties (as per triadic closure). However, if C does not respond, we can't say that tie exists or not.
 
 *Are there any cases where we'd want to only degrade observed ties?* Hmm. Maybe in a MAR case where we know that a portion of observed ties (perhaps due to a covariate) should have ties, but show up as missing for some reason. For example, perhaps if we question a bunch of people from different ages, the youngest ones would not be able to respond (e.g., whether they're connected to a far-away uncle or something), but we know they're connected by sources not immediately visible from the collected data.
+
+## Comparing statistics across networks
+
+We can calculate statistics like this and compare:
+
+```{r statCalcs}
+## an example with mean degree
+sum(testGraph)/nrow(testGraph)
+
+# compared with the degraded network
+sum(degradedGraph, na.rm = T)/nrow(degradedGraph)
+
+# a notable decrease
+# and with this 'systematic' (not really, but we can control the proportion of missingness) change, we can plot distributions.
+
+# but I'll leave this proof of concept here for the time being (can be extended to any network statistic)
+# and try make the code a bit more functional.
+
+## An ERGM can be fit to the degraded network to calculate some network statistics.
+# it's just implied that the missingess is MAR.
+
+```
+
+## More nuanced missingness
+
+Here's the part that tries to escape the mathematically easy realm of MCAR (and runif()) and tries to bring in some systematic way to choose missing data indicators.
+
+I'm not entirely sure how to do this.
+
+What do I know?
+
+We're generating Bernoulli graphs, so each possible tie is a Bernoulli trial.
+
+That means that the in and out degree distributions would be $\sim Bi(Nodes, density)$, with 15 nodes and a tie probability (or density) of 0.5, the distribution would be $\sim Bi(15, 0.5)$. *Can I use this somehow??*
+
+The goal right now is to generate missing data points in a more systematic way...
+
+So! Given that the missing data indicator (That would be the 'missTies' object in this script) is extremely similar to an adjacency matrix (it's a logical matrix, but that's unimportant), this might mean that we can impose a model to generate a network (adjacency matrix) to indicate missing data points!
+
+
+
+
+```{r moreMissingness}
+# umm... Let's start by seeing the degree distributions for the test graph?
+# let's do directed first.
+hist(colSums(testGraph), main = "Indegree distribution")
+hist(rowSums(testGraph), main = "Outdegree distribution")
+
+# they should both be roughly ~Bi(15,0.5).
+
+
+```
 
