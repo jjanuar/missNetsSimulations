@@ -12,7 +12,7 @@ Here's a first pass at simulating some networks, probably Bernoulli ones, and fi
 ```{r packages, eval = T, warning = F, error = F, message = F}
 # some packages
 library(sna)
-
+library(ergm)
 ```
 
 
@@ -171,8 +171,9 @@ degradeNet <- function(graph, propMiss, directed = TRUE){
   ## - graph:    An adjacency matrix describing a graph. There shouldn't
   ##             be any missing values in this adjacency matrix yet.
   ##             Should still work if there were though. I think.
-  ## - propMiss: A value to indicate the proportion of missingness
+  ## - propMiss: A numeric value to indicate the proportion of missingness
   ##             that will be imposed on the observed network.
+  ##             Is bounded between 0 and 1.
   ## - directed: A logical value to indicate if it's a directed or
   ##             undirected network. Default is set to directed.
   ##
@@ -181,9 +182,14 @@ degradeNet <- function(graph, propMiss, directed = TRUE){
   ##   Note that it only handles item non-response for now. Given the inputs,
   ##   the missing values would be ~'propMiss'% of the observed tie variables in 'graph'.
   
-  ## spit out an error if the directed value is misspecified
+  ## spit out an error if the directed argument is misspecified
   if(directed != TRUE & !isSymmetric(graph)){
     stop("The undirected network doesn't have a symmetric matrix")
+  }
+  
+  ## spit out an error if the proportion of missingness exceeds bounds
+  if(propMiss > 1 | propMiss < 0){
+    stop("The proportion of missingness exceeds bounds")
   }
   
   # grab the number of nodes
@@ -234,8 +240,8 @@ print(meanDeg)
 # compare plots
 par(mfrow = c(1, 3))      # 1 row, 3 columns
 gplot(testGraph, xlab = "Test")
-gplot(missNet1, xlab = "propMiss = 0.2")
-gplot(missNet2, xlab = "propMiss = 0.7")
+gplot(missNet1, xlab = "Directed, propMiss = 0.2")
+gplot(missNet2, xlab = "Directed, propMiss = 0.7")
 
 ## And the same for undirected networks?
 missUndNet1 = degradeNet(graph = testUndGraph,
@@ -292,6 +298,14 @@ sum(degradedGraph, na.rm = T)/nrow(degradedGraph)
 
 ## An ERGM can be fit to the degraded network to calculate some network statistics.
 # it's just implied that the missingess is MAR.
+testErgm1 = ergm(testGraph ~ edges + 
+                   mutual)
+summary(testErgm1)
+
+# and a degraded graph
+degradedErgm1 = ergm(degradedGraph ~ edges+
+                       mutual)
+summary(degradedErgm1)
 
 ```
 
@@ -325,3 +339,79 @@ hist(rowSums(testGraph), main = "Outdegree distribution")
 
 ```
 
+
+Let $D_{ij}$ represent a missing data indicator matrix for adjacency matrix $X$.
+
+$$D_{ij} = \begin{cases} 0 & \text{if } { X_{ij} = 1}\\ 1 & \text{if }{X_{ij}} = \text{missing}\\ \end{cases}$$
+
+$D_{ij} = 1$ only when the edge $X_{ij}$ is missing.
+
+This format of data is very similar to an adjacency matrix $X_{ij}$
+
+$$X_{ij} = \begin{cases} 0 & \text{if } i = j\\ 1 & \text{if } i \text{ sends a tie to } j\\ \end{cases}$$
+
+Also note, $X_{ij}: i, j \in \{1, ..., n\}$ for $n$ participants.
+
+Then, we can apply models for adjacency matrices (networks) to missing data indicator $D$.
+
+$$D|X \sim \text{Some network model}$$
+
+One of these network models being an ERGM.
+
+$$P(D_{ij}|X_{ij}) = \prod_{ij} \frac{\exp(\alpha + \beta x_{ij} d_{ij})}{1 + \exp(\alpha + \beta x_{ij}d_{ij})}$$
+
+Which if you plug into a logit function,
+
+$$logit(P_{ij}) = \alpha + \beta x_{ij} d_{ij}$$
+
+This is a case with a simple generalised linear model (logistic reg.), extending it to the ERGM would be like
+
+$$P(D_{ij}| X_{ij}, \alpha, \beta) = \frac{exp(\alpha \sum d_{ij} + \beta \sum x_{ij}d_{ij})}{\phi(\alpha, \beta)}$$
+
+Where phi's the normalising constant for the model given its model parameters.
+
+**Note:** How is this different to a Bayesian approach to the ERGM?
+
+AFAIK the Bayesian approach estimates the missingness wrt the observed ties and model parameters.
+
+$$P(X_{miss} | X_{Obs}, \theta)$$
+
+Note that the $\theta$ here is the same $\theta$ being used to estimate the observed ties $P(X_{obs} | X_{miss}, \theta)$
+
+So an 'advantage' (?) would be that modelling $D_{ij}$ could use a different set of parameters than the Bayesian model.
+
+That is, $\theta$ in $P(X_{miss}|X_{obs}, \theta)$ is the same as $P(X_{obs}|X_{miss}, \theta)$ whereas $P(D_{ij}|X_{ij}, \theta)$ can be different to $P(X_{ij}|D_{ij}, \theta)$.
+
+I don't necessarily think this is particularly useful or computationally efficient, but I do think that modelling the missing tie indicators separately to modelling the observable adjacency matrix allows for more specialised modelling.
+
+e.g., suppose modelling a particular outcome variable is desired when modelling the observable adjacency matrix, however we might want to avoid imputing missing ties if we account for that particular outcome variable.
+
+You could also just do multiple Bayesian ERGMs with different specifications, but well, I'm still not entirely sure how to use a model for $D_{ij}$.
+
+## Some questions?
+
+**What do we gain for modelling missing ties?**
+
+Is it ultimately for imputation purposes? If we have some information about the missing tie mechanism, does that inform us of a better (multiple) imputation specification?
+
+**How to use a missing tie model?**
+
+Not entirely sure. If we know how the missing ties are generated, then we might apply that model to predict what their potential observable values were. e.g., $X_{miss} | X_{obs}, \theta$
+
+**Are all missing ties equal?**
+
+While some missing ties can be missing for different reasons, we can't tell since they're missing. Unless there's some survey design information (e.g., we know the survey has a systematic pattern of missingness because certain parts of the survey were specified incorrectly).
+
+**TODO:** this sounds like I'm rethinking multiple imputation, read up on it.
+
+**How does this document serve as a proof of concept?**
+
+I think this document demonstrates my ability in generating random graphs, degrading them, and making comparisons between the observed and degraded graphs.
+
+I think, to a certain degree, a lot of the code in this document can be applied to missing data indicators by substituting the generated graph with a missing data indicator matrix.
+
+**What's next?**
+
+Given the bank of covert network data, I think an interesting avenue would be to model them to see if there's any sense to the madness (e.g., ideally a consistent network effect given the covert network's context?). In an ideal world, any predictions I had would be backed up by some literature. The Mitchell Centre paper on covert networks had a nice table of context and predictions. 
+
+Another interesting avenue would be attempting to model the missing ties, although I'm not entirely sure how missing ties are indicated in the data...
