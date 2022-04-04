@@ -1,0 +1,281 @@
+---
+title: "20220404_miss_data_model"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+I do *not* know how to specify these missing data models.
+
+Let's try anyways!
+
+```{r packages, eval = T, warning = F, error = F, message = F}
+# loading packages
+library(sna)
+library(ergm)
+
+```
+
+
+
+
+## Generate some toy networks
+
+```{r generate net}
+# fix seed for now
+set.seed(123)
+
+# just generating a random graph
+testNet = rgraph(n = 20,
+                   m = 1,
+                   tprob = 0.5,
+                   mode = "graph")
+
+# number of ties
+sum(testNet)
+
+# since it's symmetric (undirected), the unique ties are half of that sum.
+```
+
+### Missing completely at random
+
+```{r MCAR}
+# let's do an MCAR example for comparison
+missThresh = matrix( data = runif(20^2, min = 0, max = 1),
+                     nrow = 20,
+                     ncol = 20 )
+
+## NOTE: for an undirected network, this needs to be symmetric so
+# overwrite the upper triangle with the lower triangle
+missThresh[upper.tri(missThresh)] = t(missThresh)[upper.tri(missThresh)]
+
+# set a proportion of missing entries, 0.2 would imply that 20% of all tie variables are missing.
+propMiss = 0.2
+
+# index which tie variables are missing
+missTieVars = missThresh <= propMiss
+
+# degrade the network
+degradedNet = testNet
+degradedNet[missTieVars] = NA
+
+# check how many are missing (should be ~propMiss * n^2)
+sum(is.na(degradedNet))
+
+# diagonal of 0
+diag(degradedNet) = 0
+
+# plot side by side
+par(mfrow = c(1,2))
+gplot(testNet, xlab = "Toy net", gmode = "graph")
+gplot(degradedNet, xlab = "Degraded net", gmode = "graph", main = paste("Depleted network, mean = " ,mean(degree(degradedNet)), sep = ""))
+
+# degree distributions
+hist(degree(testNet), main = paste("Full network, mean = ", mean(degree(testNet)), sep = ""))
+hist(degree(degradedNet), main = paste("Depleted network, mean = " ,mean(degree(degradedNet)), sep = ""))
+
+```
+
+What's going on from the principles side of things?
+
+This is basically saying:
+
+$$\mathbf{D}|\mathbf{X} \sim Bern(\theta)$$
+
+With $\theta$ set to 0.2 in the example.
+
+So, given the missing data model, we can then clarify how this is MCAR,
+
+$$\Pr(\mathbf{D}|\mathbf{X}, \theta) = \Pr(\mathbf{D|\theta)} \text{ for all entries X and parameters } \theta .$$
+
+So, the values in $\mathbf{X}$ have absolutely no effect on how likely a tie variable is in being missing.
+
+Therefore, the data are missing completely at random (MCAR).
+
+
+
+## Missing not at random
+
+Toy example: more central would imply more likely to be missing. From a covert network perspective, this might be for security reasons. Another perspective would be that because this particular figure is so central, nobody nominates them because the nominators implicitly assumed this central figure to already be acknowledged.
+
+If we start by explaining the model,
+
+$$\Pr(\mathbf{D}_{ij} = 1) = logistic(\alpha + \beta(\mathbf{X}_{i+} + \mathbf{X}_{+j}) )$$
+
+Note that $\mathbf{X}_{i+} + \mathbf{X}_{+j}$ is meant to reflect degree (centrality). For the undirected case, this should equal ($2 \times \mathbf{X}_{i+}$ or $2 \times \mathbf{X}_{+j}$).
+
+This needs to be set up in a way such that the higher the degree, the more likely for the tie to be missing.
+
+
+```{r MNAR setup}
+# how to start..
+
+# make up some values for alpha and beta
+alpha = -5  # an intercept value,
+
+beta = 0.17 # this beta value corresponds to the weight of the variable when assigning the probability of missingness
+
+# grab degrees
+degCentr = degree(testNet)
+
+# let's figure out standardising this later...
+# maxDegree = 20*19
+# 
+# # normalise it with the maximum possible degree so scale is less of an issue (i.e., a form of standardisation)
+# normDegCentr = degCentr/maxDegree
+# 
+
+# finalgle the probability such that the mean is ~0.2
+
+mean(1/(1 + exp(-alpha - (beta * degCentr))))
+
+# list out the probabilities
+missTieProb = 1/(1 + exp(-alpha - (beta * degCentr)))
+
+```
+
+**Why did I pick these alpha and beta values?**
+
+I started with trying to get an average missing tie variable probability of ~0.2 (similar to the MCAR example),
+
+$$\frac{\sum_{i = 1..n} \frac{1}{1 + \exp(-\alpha -\mathbf{X}_i \beta)}}{n} = 0.2,$$
+
+where $\mathbf{X}_i$ here represents the (unnormalised) degree centrality.
+
+Also, working backwards,
+
+$$1 + \exp(-\alpha - \mathbf{X}_i\beta) = 5,$$
+
+$$\exp(-\alpha - \mathbf{X}_i\beta) = 4,$$
+
+Let's use the mean degree in place of each individual to make life easier,
+
+$$\exp(-\alpha - \frac{\sum_{i = 1..n} \mathbf{X}_i}{n} \beta) = 4.$$
+
+Let's use the selected random graph mean degree so $\frac{\sum_{i = 1..n} \mathbf{X}_i}{n}  = 20.6$
+
+$$\exp(-\alpha - 20.6\beta) = 4,$$
+
+$$-\alpha - 20.6\beta = \log(4),$$
+
+
+$$\beta = \frac{-\log(4) - \alpha}{20.6},$$
+
+
+Let's graph that...
+
+```{r graphing fn}
+# make up some alpha values
+alphaVal = seq(from = -10, to = 10, by = 1)
+
+betaVal = (-log(4) - alphaVal)/20.6
+
+plot(x = alphaVal, y = betaVal)
+```
+
+Any pair of values here can be used, but we want $\beta$ to have certain properties,
+
+* The absolute value of beta describes how much weight the variable in question affects the missing probability,   
+* The sign of beta describes the relationship between the variable in question and the missing probability.  
+
+Our variable in question here is degree centrality, we want it to have a pronounced effect, but not *too* extreme. We also want beta's sign to be positive to reflect a positive linear relationship between degree centrality and the probability of a missing tie variable.
+
+Hence we ended up with:
+
+$$\alpha = -5 \\ \beta = 0.17$$
+
+Now, apply that to the network degradation,
+
+```{r MNAR netdegrade}
+# another seed because randomness.
+set.seed(132)
+
+# similar to the previous depletion,
+# we have a set of model-predicted missing tie probabilities
+
+# let's first make a matrix of missing data indicators with the probabilities we have
+# the rbinom function's just a convenient way of doing this, also each actor technically has an implicit ~Bi(n, miss tie prob) amount of missing ties
+missDatIndicator = t(replicate(20, rbinom(length(missTieProb), size = 1, prob = missTieProb)))
+
+# check how many were indicated to be missing
+sum(missDatIndicator)
+
+# make some adjustments because undirected network
+missDatIndicator[upper.tri(missDatIndicator)] = t(missDatIndicator)[upper.tri(missDatIndicator)]
+diag(missDatIndicator) = 0
+isSymmetric(missDatIndicator)
+
+# make a table to compare,
+compareTab = data.frame(missTieProb = round(missTieProb, digits = 2), IndicatorProbabilities = colMeans(missDatIndicator))
+compareTab$difference = compareTab[,1] - compareTab[,2]
+print(compareTab)
+
+# check total amount of missing ties after the adjmat adjustments, should be ~80 (20^2 * 0.2), maybe a bit less because of the adjmat adjustments
+sum(missDatIndicator)
+
+# and we deplete
+degradedNetMNAR = testNet
+degradedNetMNAR[missDatIndicator==1] = NA
+
+# check how many tie variables are missing
+sum(is.na(degradedNetMNAR))
+
+# plot side by side
+par(mfrow = c(1,2))
+gplot(testNet, xlab = "Toy net", gmode = "graph")
+gplot(degradedNetMNAR, xlab = "MNAR degraded net", gmode = "graph")
+
+# it's quite hard to see, but if we see the average degree centrality and their histograms,
+hist(degree(testNet), main = paste("Mean = ",mean(degree(testNet)), " SD = ", round(sd(degree(testNet)), 2), sep = ""))
+hist(degree(degradedNetMNAR), main = paste("Mean = ",mean(degree(degradedNetMNAR)), " SD = ", round(sd(degree(degradedNetMNAR)), 2), sep = ""))
+
+# the mean degree centrality may have decreased more? Hard to tell...
+
+```
+
+**What's going on with the MNAR depletion?**
+
+First, we use a binomial distribution to generate missing tie variables for each actor with the probability of a missing tie variable corresponding to what we found out before with the missing data model.
+
+So really,
+
+$$\mathbf{D}| \mathbf{X}_i \sim Bi(n, p_i).$$
+
+Where the index $i$ here refers to each actor with their own missing tie variable probabiltity which we modelled earlier,
+
+
+
+$$\Pr(\mathbf{D}|\mathbf{X}_i) = logistic(-\alpha - \beta \times (2 \times \mathbf{X}_{i+})),$$
+
+which is also equivalent to saying:
+
+$$p_i = logistic(-\alpha - \beta \times (2 \times \mathbf{X}_{i+}).$$
+
+Also reminder that $2 \times \mathbf{X}_{i+}$ here just reflects an actor's degree centralisation in this undirected network.
+
+With that in mind, I made some manual adjustments so the adjacency matrix makes sense (only 0s in the diagonal, symmetric for an undirected network), and we now have a depleted network with a missing not at random pattern of missingness.
+
+**But why is it missing not at random and not the other two?**
+
+As seen in the missing data model,
+
+$$\Pr(\mathbf{D}|\mathbf{X}_i) = logistic(-\alpha - \beta \times (2 \times \mathbf{X}_{i+})),$$
+
+The fact that $\mathbf{X}$ is there at all rules out MCAR.
+
+The reason why this missing data model is not MAR is because of $\mathbf{X}_{i+}$ since this sum would need both the observed and depleted tie variables,
+
+$$\mathbf{X}_{i+} = \mathbf{X_{mis}}_{i+} +  \mathbf{X_{obs}}_{i+},$$
+
+So conceptually,
+
+$$\Pr(\mathbf{D}|\mathbf{X}, p) = \Pr(\mathbf{D} | \mathbf{X}_{obs}, \mathbf{X}_{mis}, p) \text{ for all X and } p$$
+
+Which both rules out MAR and would then imply MNAR.
+
+In plain language terms, as we know from the missing data model, the probability of a missing tie variable depends on degree centrality, which can only be calculated if we have all the actors' ties. If we were to use the depleted network's degree centralisation to model the missing data indicator, we would be missing the degrees that were depleted, which would result in a different set of missing tie variable probabilities than the one we found from the missing data model for the full network.
+
+
+

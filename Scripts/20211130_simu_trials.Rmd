@@ -389,7 +389,7 @@ Note that the $\theta$ here is the same $\theta$ being used to estimate the obse
 
 So an 'advantage' (?) would be that modelling $D$ could use a different set of parameters than the Bayesian model.
 
-That is, $\theta$ in $P(X_{mis}|X_{obs}, \theta)$ is the same as $P(X_{obs}|X_{mis}, \theta)$ whereas $P(D_{ij}|X_{ij}, \theta)$ can be different to $P(X_{ij}|D_{ij}, \theta)$.
+That is, $\theta$ in $P(X_{mis}|X_{obs}, \theta)$ is the same as $P(X_{obs}|X_{mis}, \theta)$ whereas $P(D|X, \theta)$ can be different to $P(X|D, \theta)$.
 
 I don't necessarily think this is particularly useful or computationally efficient, but I do think that modelling the missing tie indicators separately to modelling the observable adjacency matrix allows for more specialised modelling.
 
@@ -448,7 +448,7 @@ In attempt to describe this with notation, say we knew
 
 $$P(D|X, \eta)$$
 
-This would mean that we knew the outcomes of D and explain D's realisations $d_{ij} = 0/1$ in relation to $X$ and $\eta$.
+This would mean that we knew the outcomes of $D$ and explain $D$'s realisations $d_{ij} = 0/1$ in relation to $X$ and $\eta$.
 
 Then I think it would mean that we could
 
@@ -480,6 +480,35 @@ Prediction's an unfortunately vague term, because I think you can describe it as
 
 I think there's still some finer points regarding this comparison though. Imputations usually are made to fill in gaps of information (i.e., maybe variables $A-C, E-F$ are observed, but $D$ is not observed, we can fill in $D|A-C, E, F$). Predictions, still unfortunately a vague term, exist to generate possible values given a pre-specified condition. In that sense, I think the two are conceptually different as imputation exists to patch up missing holes in the data while prediction is more generally about generating some value given some condition. I think some imputations can involve some predictions, but I think it's clear that not all predictions are imputations.
 
+**How reasonable is MAR for network data?**
+
+MAR is very convenient because ignorability of the missing data mechanism is very nice to impute missing data by drawing from the posterior of the observed data. But how reasonable is MAR for network data?
+
+We know that MAR is satisfied when
+
+$$P(X|X_{obs}, \theta, D = 1) = P(X|X_{obs}, \theta, D = 0)$$
+
+I initially thought that $\theta$ may be a problem since ties define the $\theta$, but this isn't especially unique to network data I think... From my understanding, some combination of structures are explained by weights in $\theta$ to describe $X$.
+
+So I think the question would be 
+
+**Is there any particular reason why MAR would be different for networks than independent data?**
+
+Let's avoid snowballs for the time being since I don't really get them...
+
+Anyways, given how network data depends on the ties and structures, I'd think that network data would be more *volatile* than non-network data. *Volatile* in a sense that the ties and structures in network data have a greater effect on the weights in $\theta$ than an additional entry of some non-network variable.
+
+However, I don't *think* this fundamentally makes MAR different in some way for network data. Though I still think it's hard to say since I'm not sure if the dependencies in the network data can mess with the MAR assumption...
+
+**Unit nonresponse?**
+
+How would I handle unit nonresponse? e.g., some potential participants didn't respond to the survey. Let's call them 'phantoms'. Through some information we know there may be more people than what was surveyed (e.g., through a census or some other governmental report). We didn't survey them so there wasn't any particular data, but we know they should be there. 
+
+What's stopping us from considering the 'phantoms' as draws from a posterior. Can we just impute via the missing data model? In MAR, this would be equivalent to imputing an unobserved response. And even in MNAR, could we just treat them with the missing data model $D | X, \eta$? 
+
+I can't think of any reasonable arguments to not do this unless we knew more information about the phantoms (e.g., they're in the core or periphery so their position in the network would correspond to the other core or periphery members), which is a little paradoxical since they're phantoms, but I suppose if we had any information on what not to include them as, that'd be neat?
+
+I also think one other thing that might be difficult is figuring out the number of phantoms (e.g., how many empty spaces to fill the missing data model's posterior?).
 
 **What's next?**
 
