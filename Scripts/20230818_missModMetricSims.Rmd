@@ -1,0 +1,1062 @@
+---
+title: "20230818_missModMetricSims"
+author: "Jon Januar"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This markdown explores simulations of various metrics in the missingness indicator matrix (D) conditioned on the number of edges based on the code Johan sent along.
+
+What's actually done here is I take some of the UCINet networks only for their number of edges and then simulate some networks based on different coefficient values and model specifications.
+
+This does **NOT** tell me anything about the effects of any missingness, these are simply simulations of what different coefficient values and model specifications have on the various metrics calculated here.
+
+
+## GWDegree
+
+### Clustering coefficient
+
+```{r johans code}
+# reading some packages
+library(sna)
+library(ergm)
+library(network)
+
+# get the kapferer data from the ergm package
+data('kapferer')
+this.net <- kapferer
+
+# estimate a model for the kapferer data
+est <- ergm(this.net~gwdegree(.69, fixed=TRUE) +gwesp(.69, fixed=TRUE),
+            constraints =~edges,
+            control=control.ergm(
+              MCMC.burnin=20000,
+              MCMC.interval=100) )
+summary(est)
+
+# try different gwdeg values (note: positive = centralised degree dist, negative = decentralised degree dist)
+try.gwdeg <- seq(from=-2,to=2, length.out=30)
+
+# placeholder matrix for clustering coefficient
+clustDist <- matrix(0,length(try.gwdeg),3)
+
+# placeholder network
+new.net.start <- this.net
+
+# loop to simulate different gwdeg values
+for (i in c(1:length(try.gwdeg)) ){
+  
+ # a conditional after the first loop for making the starting network iterate between gwdeg parameters
+  if ( i>1){
+  new.net.start <- new.net[[1]] }
+  
+  # simulating with different gwdeg values
+  new.net <- simulate(new.net.start  ~gwdegree(.69, fixed=TRUE) +gwesp(.69, fixed=TRUE),
+                      constraints =~edges,
+                      coef=c(try.gwdeg[i],est$coefficients[2]),
+                      control=control.simulate(
+                        MCMC.burnin=20000,
+                        MCMC.interval=100), nsim=80 )
+
+  # getting a distribution of clustering coefficients for the 80 simulated graphs
+  temp.cent <- sort( gtrans(new.net,mode='graph') )
+
+  # summarising the distribution of clustering coeffs with the 5th and 95th percentile
+  clustDist[i,c(1,3)] <- quantile( temp.cent, probs = c(0.05,0.95) )
+  
+  # and median
+  clustDist[i,2] <- median(temp.cent)
+    
+}
+
+# choosing a colour for the polygon (for the confidence intervals)
+polyColours <- gray.colors(3)
+
+# plotting how much the clustering coefficient changes when the gwdegree parameter changes
+plot(range(try.gwdeg),range(clustDist),type='n',xlab='GWDegree', ylab='Clustering')
+
+# adding on a polygon to reflect the 90% confidence interval
+polygon(c(try.gwdeg, rev(try.gwdeg ) ) , c( clustDist[,1], rev(clustDist[,3]) ), col = polyColours[3], border = NA)
+
+# adding a line for the median
+lines(try.gwdeg,clustDist[,2],col='red')
+```
+
+### Centralisation
+
+```{r gwdeg centralistion}
+# Adapting Johan's code to look at different centralisation values instead of the clustering coefficient
+# still with the same model and gwdeg values
+# placeholder matrix for global centralisation value
+centrDist <- matrix(0,length(try.gwdeg),3)
+
+# placeholder network
+new.net.start <- this.net
+
+# loop to simulate different gwdeg values
+for (i in c(1:length(try.gwdeg)) ){
+  
+ # a conditional after the first loop for making the starting network iterate between gwdeg parameters
+  if ( i>1){
+  new.net.start <- new.net[[1]] }
+  
+  # simulating with different gwdeg values
+  new.net <- simulate(new.net.start  ~gwdegree(.69, fixed=TRUE) +gwesp(.69, fixed=TRUE),
+                      constraints =~edges,
+                      coef=c(try.gwdeg[i],est$coefficients[2]),
+                      control=control.simulate(
+                        MCMC.burnin=20000,
+                        MCMC.interval=100), nsim=80 )
+  
+  # getting a distribution of clustering coefficients for the 80 simulated graphs
+  temp.cent <- sort( centralization(new.net,degree,mode='graph') )
+
+  # summarising the distribution of clustering coeffs with the 5th and 95th percentile
+  centrDist[i,c(1,3)] <- quantile( temp.cent, probs = c(0.05,0.95) )
+  
+  # and median
+  centrDist[i,2] <- median(temp.cent)
+    
+}
+
+# choosing a colour for the polygon (for the confidence intervals)
+polyColours <- gray.colors(3)
+
+# plotting how much the Centralisation changes when the gwdegree parameter changes
+plot(range(try.gwdeg),range(centrDist),type='n',xlab='GWDegree', ylab='Centralisation')
+
+# adding on a polygon to reflect the 90% confidence interval
+polygon(c(try.gwdeg, rev(try.gwdeg ) ) , c( centrDist[,1], rev(centrDist[,3]) ), col = polyColours[3], border = NA)
+
+# adding a line for the median
+lines(try.gwdeg,centrDist[,2],col='red')
+
+```
+
+### Other various metrics
+
+```{r gwdeg other metrics}
+# I technically don't need to redo the simulations and calculate the metrics within a single loop
+# but I can't be bothered to make the data structures for that.
+# placeholder matrices
+# mean geodesic and (spearman/rank-order) correlation with true network
+avgGeodesicDist = matrix(0,length(try.gwdeg),3)
+corGeodesicDist = matrix(0,length(try.gwdeg),3)
+
+# mean betweenness centrality and (spearman/rank-order) correlation with true network
+avgBetweenDist = matrix(0, length(try.gwdeg), 3)
+corBetweenDist = matrix(0,length(try.gwdeg),3)
+
+# still with the same model and gwdeg values
+# placeholder network
+new.net.start <- this.net
+
+# loop to simulate different gwdeg values
+for (i in c(1:length(try.gwdeg)) ){
+  
+ # a conditional after the first loop for making the starting network iterate between gwdeg parameters
+  if ( i>1){
+  new.net.start <- new.net[[1]] }
+  
+  # simulating with different gwdeg values
+  new.net <- simulate(new.net.start  ~gwdegree(.69, fixed=TRUE) +gwesp(.69, fixed=TRUE),
+                      constraints =~edges,
+                      coef=c(try.gwdeg[i],est$coefficients[2]),
+                      control=control.simulate(
+                        MCMC.burnin=20000,
+                        MCMC.interval=100), nsim=80 )
+  
+  # getting a distribution of clustering coefficients for the 80 simulated graphs
+  tempGeodistAvg <- sort(unlist(lapply(new.net, function(net){mean(geodist(net, inf.replace = NA)$gdist, na.rm = T)})))
+  tempBetwAvg <- sort(unlist(lapply(new.net,  function(net){mean(betweenness(net, gmode = "graph"))})))
+  tempGeodistCor = sort(unlist(lapply(new.net, function(net){cor.test(x = geodist(this.net, inf.replace=0)$gdist, y = geodist(net, inf.replace = 0)$gdist, method = 'spearman', exact = FALSE)$estimate})))
+  tempBetwCor = sort(unlist(lapply(new.net, function(net){cor.test(x = betweenness(this.net, gmode = "graph"), y = betweenness(net, gmode = "graph"), method = 'spearman', exact = FALSE)$estimate})))
+  
+  
+  # summarising the distribution of clustering coeffs with the 5th and 95th percentile
+  avgGeodesicDist[i,c(1,3)] <- quantile( tempGeodistAvg, probs = c(0.05,0.95) )
+  avgBetweenDist[i,c(1,3)] <- quantile( tempBetwAvg, probs = c(0.05,0.95) )
+  corGeodesicDist[i,c(1,3)] <- quantile( tempGeodistCor, probs = c(0.05,0.95) )
+  corBetweenDist[i,c(1,3)] <- quantile( tempBetwCor, probs = c(0.05,0.95) )
+  
+  # and median
+  avgGeodesicDist[i,2] <- median(tempGeodistAvg)
+  avgBetweenDist[i,2] <- median(tempBetwAvg)
+  corGeodesicDist[i,2] <- median(tempGeodistCor)
+  corBetweenDist[i,2] <- median(tempBetwCor)
+    
+}
+
+# choosing a colour for the polygon (for the confidence intervals)
+polyColours <- gray.colors(3)
+
+## average geodesic distance
+# plotting how much the geodesic distance changes when the gwdegree parameter changes
+plot(range(try.gwdeg),range(avgGeodesicDist, na.rm = TRUE), type='n',xlab='GWDegree', ylab='Average geodesic distance')
+
+# adding on a polygon to reflect the 90% confidence interval
+polygon(c(try.gwdeg, rev(try.gwdeg ) ) , c( avgGeodesicDist[,1], rev(avgGeodesicDist[,3]) ), col = polyColours[3], border = NA)
+
+# adding a line for the median
+lines(try.gwdeg,avgGeodesicDist[,2],col='red')
+
+## Average betweenness
+# plotting how much the betweenness centrality changes when the gwdegree parameter changes
+plot(range(try.gwdeg),range(avgBetweenDist),type='n',xlab='GWDegree', ylab='Average betweenness centrality')
+
+# adding on a polygon to reflect the 90% confidence interval
+polygon(c(try.gwdeg, rev(try.gwdeg ) ) , c( avgBetweenDist[,1], rev(avgBetweenDist[,3]) ), col = polyColours[3], border = NA)
+
+# adding a line for the median
+lines(try.gwdeg,avgBetweenDist[,2],col='red')
+
+## correlation of betweenness with the true network
+# plotting how much the geodesic correlation changes when the gwdegree parameter changes
+plot(range(try.gwdeg),range(corGeodesicDist),type='n',xlab='GWDegree', ylab='Geodesic correlation')
+
+# adding on a polygon to reflect the 90% confidence interval
+polygon(c(try.gwdeg, rev(try.gwdeg ) ) , c( corGeodesicDist[,1], rev(corGeodesicDist[,3]) ), col = polyColours[3], border = NA)
+
+# adding a line for the median
+lines(try.gwdeg,corGeodesicDist[,2],col='red')
+
+
+## correlation of betweenness with the true network
+# plotting how much the betweenness correlation changes when the gwdegree parameter changes
+plot(range(try.gwdeg),range(corBetweenDist),type='n',xlab='GWDegree', ylab='Betweenness correlation')
+
+# adding on a polygon to reflect the 90% confidence interval
+polygon(c(try.gwdeg, rev(try.gwdeg ) ) , c( corBetweenDist[,1], rev(corBetweenDist[,3]) ), col = polyColours[3], border = NA)
+
+# adding a line for the median
+lines(try.gwdeg,corBetweenDist[,2],col='red')
+
+
+```
+
+
+## GWESP
+
+### Clustering coefficient
+
+```{r gwesp cluster}
+# try different gwesp values (note: positive = tendency to cluster/close triangles, negative = keep triangles open- more paths)
+tryGwesp <- seq(from=-2,to=2, length.out=30)
+
+# placeholder matrix for clustering coefficient
+clustDistGwesp <- matrix(0,length(tryGwesp),3)
+
+# placeholder network
+new.net.start <- this.net
+
+# loop to simulate different gwesp values
+for (i in c(1:length(tryGwesp)) ){
+  
+ # a conditional after the first loop for making the starting network iterate between gwesp parameters
+  if ( i>1){
+  new.net.start <- new.net[[1]] }
+  
+  # simulating with different gwdeg values
+  new.net <- simulate(new.net.start  ~gwdegree(.69, fixed=TRUE) +gwesp(.69, fixed=TRUE),
+                      constraints =~edges,
+                      coef=c(est$coefficients[1], tryGwesp[i]),
+                      control=control.simulate(
+                        MCMC.burnin=20000,
+                        MCMC.interval=100), nsim=80 )
+
+  # getting a distribution of clustering coefficients for the 80 simulated graphs
+  temp.cent <- sort( gtrans(new.net,mode='graph') )
+
+  # summarising the distribution of clustering coeffs with the 5th and 95th percentile
+  clustDistGwesp[i,c(1,3)] <- quantile( temp.cent, probs = c(0.05,0.95) )
+  
+  # and median
+  clustDistGwesp[i,2] <- median(temp.cent)
+    
+}
+
+# choosing a colour for the polygon (for the confidence intervals)
+polyColours <- gray.colors(3)
+
+# plotting how much the clustering coefficient changes when the gwesp parameter changes
+plot(range(tryGwesp),range(clustDistGwesp),type='n',xlab='GWESP', ylab='Clustering')
+
+# adding on a polygon to reflect the 90% confidence interval
+polygon(c(tryGwesp, rev(tryGwesp ) ) , c( clustDistGwesp[,1], rev(clustDistGwesp[,3]) ), col = polyColours[3], border = NA)
+
+# adding a line for the median
+lines(tryGwesp,clustDistGwesp[,2],col='red')
+```
+
+
+### Centralisation
+
+```{r gwesp centralisation}
+# placeholder matrix for centralisation
+centrDistGwesp <- matrix(0,length(tryGwesp),3)
+
+# placeholder network
+new.net.start <- this.net
+
+# loop to simulate different gwesp values
+for (i in c(1:length(tryGwesp)) ){
+  
+ # a conditional after the first loop for making the starting network iterate between gwdeg parameters
+  if ( i>1){
+  new.net.start <- new.net[[1]] }
+  
+  # simulating with different gwesp values
+  new.net <- simulate(new.net.start  ~gwdegree(.69, fixed=TRUE) +gwesp(.69, fixed=TRUE),
+                      constraints =~edges,
+                      coef=c(est$coefficients[1], tryGwesp[i]),
+                      control=control.simulate(
+                        MCMC.burnin=20000,
+                        MCMC.interval=100), nsim=80 )
+
+  # getting a distribution of global centralisation values for the 80 simulated graphs
+  temp.cent <-sort( centralization(new.net,degree,mode='graph') )
+
+  # summarising the distribution of clustering coeffs with the 5th and 95th percentile
+  centrDistGwesp[i,c(1,3)] <- quantile( temp.cent, probs = c(0.05,0.95) )
+  
+  # and median
+  centrDistGwesp[i,2] <- median(temp.cent)
+    
+}
+
+# choosing a colour for the polygon (for the confidence intervals)
+polyColours <- gray.colors(3)
+
+# plotting how much the Centralisation changes when the gwesp parameter changes
+plot(range(tryGwesp),range(centrDistGwesp),type='n',xlab='GWESP', ylab='Centralisation')
+
+# adding on a polygon to reflect the 90% confidence interval
+polygon(c(tryGwesp, rev(tryGwesp ) ) , c( centrDistGwesp[,1], rev(centrDistGwesp[,3]) ), col = polyColours[3], border = NA)
+
+# adding a line for the median
+lines(tryGwesp,centrDistGwesp[,2],col='red')
+
+
+```
+
+### Other various metrics
+
+```{r gwesp other metrics}
+# I technically don't need to redo the simulations and calculate the metrics within a single loop
+# but I can't be bothered to make the data structures for that.
+# placeholder matrices
+# mean geodesic and (spearman/rank-order) correlation with true network
+avgGeodesicDist = matrix(0,length(tryGwesp),3)
+corGeodesicDist = matrix(0,length(tryGwesp),3)
+
+# mean betweenness centrality and (spearman/rank-order) correlation with true network
+avgBetweenDist = matrix(0, length(tryGwesp), 3)
+corBetweenDist = matrix(0,length(tryGwesp),3)
+
+# still with the same model and gwesp values
+# placeholder network
+new.net.start <- this.net
+
+# loop to simulate different gwesp values
+for (i in c(1:length(tryGwesp)) ){
+  
+ # a conditional after the first loop for making the starting network iterate between gwesp parameters
+  if ( i>1){
+  new.net.start <- new.net[[1]] }
+  
+  # simulating with different gwesp values
+  new.net <- simulate(new.net.start  ~gwdegree(.69, fixed=TRUE) +gwesp(.69, fixed=TRUE),
+                      constraints =~edges,
+                      coef=c(est$coefficients[1], tryGwesp[i]),
+                      control=control.simulate(
+                        MCMC.burnin=20000,
+                        MCMC.interval=100), nsim=80 )
+  
+  # getting a distribution of clustering coefficients for the 80 simulated graphs
+  tempGeodistAvg <- sort(unlist(lapply(new.net, function(net){mean(geodist(net, inf.replace = NA)$gdist, na.rm = T)})))
+  tempBetwAvg <- sort(unlist(lapply(new.net,  function(net){mean(betweenness(net, gmode = "graph"))})))
+  tempGeodistCor = sort(unlist(lapply(new.net, function(net){cor.test(x = geodist(this.net, inf.replace=0)$gdist, y = geodist(net, inf.replace = 0)$gdist, method = 'spearman', exact = FALSE)$estimate})))
+  tempBetwCor = sort(unlist(lapply(new.net, function(net){cor.test(x = betweenness(this.net, gmode = "graph"), y = betweenness(net, gmode = "graph"), method = 'spearman', exact = FALSE)$estimate})))
+  
+  
+  # summarising the distribution of clustering coeffs with the 5th and 95th percentile
+  avgGeodesicDist[i,c(1,3)] <- quantile( tempGeodistAvg, probs = c(0.05,0.95) )
+  avgBetweenDist[i,c(1,3)] <- quantile( tempBetwAvg, probs = c(0.05,0.95) )
+  corGeodesicDist[i,c(1,3)] <- quantile( tempGeodistCor, probs = c(0.05,0.95) )
+  corBetweenDist[i,c(1,3)] <- quantile( tempBetwCor, probs = c(0.05,0.95) )
+  
+  # and median
+  avgGeodesicDist[i,2] <- median(tempGeodistAvg)
+  avgBetweenDist[i,2] <- median(tempBetwAvg)
+  corGeodesicDist[i,2] <- median(tempGeodistCor)
+  corBetweenDist[i,2] <- median(tempBetwCor)
+    
+}
+
+# choosing a colour for the polygon (for the confidence intervals)
+polyColours <- gray.colors(3)
+
+## average geodesic distance
+# plotting how much the geodesic distance changes when the gwesp parameter changes
+plot(range(tryGwesp),range(avgGeodesicDist, na.rm = TRUE), type='n',xlab='GWESP', ylab='Average geodesic distance')
+
+# adding on a polygon to reflect the 90% confidence interval
+polygon(c(tryGwesp, rev(tryGwesp ) ) , c( avgGeodesicDist[,1], rev(avgGeodesicDist[,3]) ), col = polyColours[3], border = NA)
+
+# adding a line for the median
+lines(tryGwesp,avgGeodesicDist[,2],col='red')
+
+## Average betweenness
+# plotting how much the betweenness centrality changes when the gwesp parameter changes
+plot(range(tryGwesp),range(avgBetweenDist),type='n',xlab='GWESP', ylab='Average betweenness centrality')
+
+# adding on a polygon to reflect the 90% confidence interval
+polygon(c(tryGwesp, rev(tryGwesp ) ) , c( avgBetweenDist[,1], rev(avgBetweenDist[,3]) ), col = polyColours[3], border = NA)
+
+# adding a line for the median
+lines(tryGwesp,avgBetweenDist[,2],col='red')
+
+## correlation of betweenness with the true network
+# plotting how much the geodesic correlation changes when the gwesp parameter changes
+plot(range(tryGwesp),range(corGeodesicDist),type='n',xlab='GWESP', ylab='Geodesic correlation')
+
+# adding on a polygon to reflect the 90% confidence interval
+polygon(c(tryGwesp, rev(tryGwesp ) ) , c( corGeodesicDist[,1], rev(corGeodesicDist[,3]) ), col = polyColours[3], border = NA)
+
+# adding a line for the median
+lines(tryGwesp,corGeodesicDist[,2],col='red')
+
+
+## correlation of betweenness with the true network
+# plotting how much the betweenness correlation changes when the gwesp parameter changes
+plot(range(tryGwesp),range(corBetweenDist),type='n',xlab='GWESP', ylab='Betweenness correlation')
+
+# adding on a polygon to reflect the 90% confidence interval
+polygon(c(tryGwesp, rev(tryGwesp ) ) , c( corBetweenDist[,1], rev(corBetweenDist[,3]) ), col = polyColours[3], border = NA)
+
+# adding a line for the median
+lines(tryGwesp,corBetweenDist[,2],col='red')
+
+
+```
+
+
+
+## Turn into functions
+
+```{r turn into fns}
+
+# GWdeg and clustering
+
+gwStatSim = function(inputNet, chosenStat, modelCoefs){
+
+  # try different gwdeg values (note: positive = centralised degree dist, negative = decentralised degree dist)
+  tryAltstar <- seq(from=-4,to=4, length.out=100)
+  tryGwesp <- seq(from=-4,to=4, length.out=100)
+  
+  # choose a statistic to vary
+  if(chosenStat == "altstar"){
+    tryChosenStat = tryAltstar
+  }
+  
+  if(chosenStat == "gwesp"){
+    tryChosenStat = tryGwesp
+  }
+  
+  ## placeholder matrices
+  # placeholder matrix for clustering coefficient
+  clustDist <- matrix(0,length(tryChosenStat),3)
+  
+  # placeholder matrix for centralisation
+  centrDistGwesp <- matrix(0,length(tryChosenStat),3)
+  
+  # mean geodesic and (spearman/rank-order) correlation with true network
+  avgGeodesicDist = matrix(0,length(tryChosenStat),3)
+  corGeodesicDist = matrix(0,length(tryChosenStat),3)
+  
+  # mean betweenness centrality and (spearman/rank-order) correlation with true network
+  avgBetween = matrix(0, length(tryChosenStat), 3)
+  corBetween = matrix(0,length(tryChosenStat),3)
+  
+  # placeholder network
+  new.net.start <- inputNet
+  
+  # loop to simulate different gwdeg values
+  for (i in c(1:length(tryChosenStat)) ){
+    
+   # a conditional after the first loop for making the starting network iterate between gwdeg parameters
+    if ( i>1){
+    new.net.start <- new.net[[1]] }
+    
+    # choose coefs
+    if(chosenStat == "altstar"){
+      chosenCoefs = c(tryChosenStat[i], modelCoefs[3])
+   }
+  
+    if(chosenStat == "gwesp"){
+      chosenCoefs = c(modelCoefs[2], tryChosenStat[i])
+    }
+      
+    # simulating with different gwdeg values
+    new.net <- simulate(new.net.start  ~ altkstar(2, fixed=TRUE) +gwesp(.69, fixed=TRUE),
+                        constraints =~edges,
+                        coef= chosenCoefs,
+                        control=control.simulate(
+                          MCMC.burnin=20000,
+                          MCMC.interval=100), nsim=80 )
+  
+    # getting a distribution of clustering coefficients for the 80 simulated graphs
+    temp.clust <- sort( gtrans(new.net,mode='graph') )
+    temp.cent <-sort( centralization(new.net,degree,mode='graph') )
+    tempGeodistAvg <- sort(unlist(lapply(new.net, function(net){mean(geodist(net, inf.replace = NA)$gdist, na.rm = T)})))
+    tempBetwAvg <- sort(unlist(lapply(new.net,  function(net){mean(betweenness(net, gmode = "graph"))})))
+    tempGeodistCor = sort(unlist(lapply(new.net, function(net){cor.test(x = geodist(inputNet, inf.replace=0)$gdist, y = geodist(net, inf.replace = 0)$gdist, method = 'spearman', exact = FALSE)$estimate})))
+    tempBetwCor = sort(unlist(lapply(new.net, function(net){cor.test(x = betweenness(inputNet, gmode = "graph"), y = betweenness(net, gmode = "graph"), method = 'spearman', exact = FALSE)$estimate})))
+  
+  
+    # summarising the distribution of clustering coeffs with the 5th and 95th percentile
+    clustDist[i,c(1,3)] <- quantile( temp.clust, probs = c(0.05,0.95) )
+    centrDistGwesp[i,c(1,3)] <- quantile( temp.cent, probs = c(0.05,0.95) )
+    avgGeodesicDist[i,c(1,3)] <- quantile( tempGeodistAvg, probs = c(0.05,0.95) )
+    avgBetween[i,c(1,3)] <- quantile( tempBetwAvg, probs = c(0.05,0.95) )
+    corGeodesicDist[i,c(1,3)] <- quantile( tempGeodistCor, probs = c(0.05,0.95) )
+    corBetween[i,c(1,3)] <- quantile( tempBetwCor, probs = c(0.05,0.95) )
+  
+    # and median
+    clustDist[i,2] <- median(temp.clust)
+    centrDistGwesp[i,2] <- median(temp.cent)
+    avgGeodesicDist[i,2] <- median(tempGeodistAvg)
+    avgBetween[i,2] <- median(tempBetwAvg)
+    corGeodesicDist[i,2] <- median(tempGeodistCor)
+    corBetween[i,2] <- median(tempBetwCor)  
+
+
+  }
+  
+  ## specify the choen metirc
+  metricList = list("clustering" = clustDist,
+                    "centralisation" = centrDistGwesp,
+                    "avgGeodesic" = avgGeodesicDist,
+                    "avgBetween" = avgBetween,
+                    "corGeodesic" = corGeodesicDist,
+                    "corBetween" = corBetween)
+  
+  # output
+  return(metricList)
+  
+}
+
+# plot fn
+gwStatPlot = function(statDist, chosenStat, metricLabel){
+  
+  ## This function generates the plots as seen above
+  ## It has been compiled to use all the statistics computed previously
+  ## statDist is the distribution of that matric under the varying gw statistics
+  ## chosenStat refers to the choice of GWDeg or GWESP
+  ## metricLabel is a string specifically for the chosen metric. This only matters for the plot label.
+  
+  # try different gwdeg values (note: positive = centralised degree dist, negative = decentralised degree dist)
+  tryAltstar <- seq(from=-4,to=4, length.out=100)
+  tryGwesp <- seq(from=-4,to=4, length.out=100)
+  
+  # choose a statistic to vary
+  if(chosenStat == "altstar"){
+    tryChosenStat = tryAltstar
+    statLabel = "AltkStar"
+  }
+  
+  if(chosenStat == "gwesp"){
+    tryChosenStat = tryGwesp
+    statLabel = "GWESP"
+  }
+
+  # choosing a colour for the polygon (for the confidence intervals)
+  polyColours <- gray.colors(3)
+  
+  # plotting how much the clustering coefficient changes when the gwdegree parameter changes
+  plot(range(tryChosenStat),range(statDist),type='n',xlab=statLabel, ylab=metricLabel)
+  
+  # adding on a polygon to reflect the 90% confidence interval
+  polygon(c(tryChosenStat, rev(tryChosenStat ) ) , c( statDist[,1], rev(statDist[,3]) ), col = polyColours[3], border = NA)
+  
+  # adding a line for the median
+  lines(tryChosenStat,statDist[,2],col='red')
+  
+}
+  
+```
+
+
+## Applying the functions to the 6 covert networks
+
+```{r loading in covnets}
+# loading in the covert networks
+library(here)
+load(here("Data", "20230726_missNetsEnMasse.RData"))
+
+# turn them into networks
+netObjList = lapply(adjMatList, as.network, directed = FALSE)
+
+# loading in true model coefficients
+resultsFiles = list.files(path = here("Output", "20230726_missNetsTrueModels"))
+trueModelList = list()
+
+for(netInd in 1:length(adjMatList)){
+  
+  # load the true models
+  load(here("Output", "20230726_missNetsTrueModels", resultsFiles[[netInd]]))
+  
+  # put in list
+  trueModelList[[netInd]] = modelres
+}
+
+# initialise a list
+netStatList = list()
+
+
+# loop the chosen network
+for(netInd in 1:length(netObjList)){
+  
+  # simulate missingness indicators and calculate the metrics
+  netStatList[[netInd]] = gwStatSim(inputNet = netObjList[[netInd]], chosenStat = "altstar", modelCoefs = coef(trueModelList[[netInd]]))
+
+}
+
+
+# plots
+# list of metric names
+metricNames = names(netStatList[[1]])
+
+# loop the chosen network
+for(netInd in 1:length(netObjList)){
+  
+  # loop the metrics use
+  for(metricInd in 1:length(metricNames)){
+    
+  # simulate missingness indicators and calculate the metrics
+    gwStatPlot(statDist = netStatList[[netInd]][[metricNames[[metricInd]]]], chosenStat = "altstar", metricLabel = metricNames[metricInd])
+    
+  # add a title
+    title(main = networkLabels[[netInd]])
+  
+  }
+}
+
+
+# and gwesp
+# initialise a list
+netStatGwespList = list()
+
+
+# loop the chosen network
+for(netInd in 1:length(netObjList)){
+  
+  # simulate missingness indicators and calculate the metrics
+  netStatGwespList[[netInd]] = gwStatSim(inputNet = netObjList[[netInd]], chosenStat = "gwesp", modelCoefs = coef(trueModelList[[netInd]]))
+
+}
+
+
+# plots
+# list of metric names
+metricNames = names(netStatGwespList[[1]])
+
+# loop the chosen network
+for(netInd in 1:length(netObjList)){
+  
+  # loop the metrics use
+  for(metricInd in 1:length(metricNames)){
+    
+  # simulate missingness indicators and calculate the metrics
+    gwStatPlot(statDist = netStatGwespList[[netInd]][[metricNames[[metricInd]]]], chosenStat = "gwesp", metricLabel = metricNames[metricInd])
+    
+  # add a title
+    title(main = networkLabels[[netInd]])
+  
+  }
+}
+
+
+```
+
+
+## Including entrainment and deg cov
+
+I *can* do this correct way and make my function adapt to the model and which parameter to vary
+
+but I'm in a time crunch
+
+```{r entrainment degcov}
+
+# initialise lists
+entrMetricList = list()
+
+# start loop for all 6 networks
+for(netInd in 1:length(adjMatList)){
+  # try different gwdeg values (note: positive = centralised degree dist, negative = decentralised degree dist)
+  tryEntr <- seq(from=-4,to=4, length.out=100)
+  
+  ## placeholder matrices
+  # placeholder matrix for clustering coefficient
+  clustDist <- matrix(0,length(tryEntr),3)
+  
+  # placeholder matrix for centralisation
+  centrDistGwesp <- matrix(0,length(tryEntr),3)
+  
+  # mean geodesic and (spearman/rank-order) correlation with true network
+  avgGeodesicDist = matrix(0,length(tryEntr),3)
+  corGeodesicDist = matrix(0,length(tryEntr),3)
+  
+  # mean betweenness centrality and (spearman/rank-order) correlation with true network
+  avgBetween = matrix(0, length(tryEntr), 3)
+  corBetween = matrix(0,length(tryEntr),3)
+  
+  # load in a network because this was specified in the function
+  inputNet = netObjList[[netInd]]
+  
+  # placeholder network
+  new.net.start <- inputNet
+  
+  # loop to simulate different gwdeg values
+  for (i in c(1:length(tryEntr)) ){
+    
+   # a conditional after the first loop for making the starting network iterate between gwdeg parameters
+    if ( i>1){
+    new.net.start <- new.net[[1]] }
+    
+    # choose coefs
+    chosenCoefs = c(coef(trueModelList[[netInd]])[2], coef(trueModelList[[netInd]])[3], tryEntr[i])
+      
+    # simulating with different gwdeg values
+    new.net <- simulate(new.net.start  ~ altkstar(2, fixed=TRUE) +gwesp(.69, fixed=TRUE) + dyadcov(inputNet),
+                        constraints =~edges,
+                        coef= chosenCoefs,
+                        control=control.simulate(
+                          MCMC.burnin=20000,
+                          MCMC.interval=100), nsim=80 )
+  
+    # getting a distribution of clustering coefficients for the 80 simulated graphs
+    temp.clust <- sort( gtrans(new.net,mode='graph') )
+    temp.cent <-sort( centralization(new.net,degree,mode='graph') )
+    tempGeodistAvg <- sort(unlist(lapply(new.net, function(net){mean(geodist(net, inf.replace = NA)$gdist, na.rm = T)})))
+    tempBetwAvg <- sort(unlist(lapply(new.net,  function(net){mean(betweenness(net, gmode = "graph"))})))
+    tempGeodistCor = sort(unlist(lapply(new.net, function(net){cor.test(x = geodist(inputNet, inf.replace=0)$gdist, y = geodist(net, inf.replace = 0)$gdist, method = 'spearman', exact = FALSE)$estimate})))
+    tempBetwCor = sort(unlist(lapply(new.net, function(net){cor.test(x = betweenness(inputNet, gmode = "graph"), y = betweenness(net, gmode = "graph"), method = 'spearman', exact = FALSE)$estimate})))
+  
+  
+    # summarising the distribution of clustering coeffs with the 5th and 95th percentile
+    clustDist[i,c(1,3)] <- quantile( temp.clust, probs = c(0.05,0.95) )
+    centrDistGwesp[i,c(1,3)] <- quantile( temp.cent, probs = c(0.05,0.95) )
+    avgGeodesicDist[i,c(1,3)] <- quantile( tempGeodistAvg, probs = c(0.05,0.95) )
+    avgBetween[i,c(1,3)] <- quantile( tempBetwAvg, probs = c(0.05,0.95) )
+    corGeodesicDist[i,c(1,3)] <- quantile( tempGeodistCor, probs = c(0.05,0.95) )
+    corBetween[i,c(1,3)] <- quantile( tempBetwCor, probs = c(0.05,0.95) )
+  
+    # and median
+    clustDist[i,2] <- median(temp.clust)
+    centrDistGwesp[i,2] <- median(temp.cent)
+    avgGeodesicDist[i,2] <- median(tempGeodistAvg)
+    avgBetween[i,2] <- median(tempBetwAvg)
+    corGeodesicDist[i,2] <- median(tempGeodistCor)
+    corBetween[i,2] <- median(tempBetwCor)  
+
+
+  }
+  
+  ## specify the choen metirc
+  metricList = list("clustering" = clustDist,
+                    "centralisation" = centrDistGwesp,
+                    "avgGeodesic" = avgGeodesicDist,
+                    "avgBetween" = avgBetween,
+                    "corGeodesic" = corGeodesicDist,
+                    "corBetween" = corBetween)
+  
+entrMetricList[[netInd]] = metricList
+}
+
+### Degree covariate
+tryDegCov <- seq(from=-4,to=4, length.out=100)
+
+# initialise list
+degCovMetricList = list()
+
+# loop all 6 networks
+for(netInd in 1:length(adjMatList)){
+
+  ## placeholder matrices
+  # placeholder matrix for clustering coefficient
+  clustDist <- matrix(0,length(tryDegCov),3)
+  
+  # placeholder matrix for centralisation
+  centrDistGwesp <- matrix(0,length(tryDegCov),3)
+  
+  # mean geodesic and (spearman/rank-order) correlation with true network
+  avgGeodesicDist = matrix(0,length(tryDegCov),3)
+  corGeodesicDist = matrix(0,length(tryDegCov),3)
+  
+  # mean betweenness centrality and (spearman/rank-order) correlation with true network
+  avgBetween = matrix(0, length(tryDegCov), 3)
+  corBetween = matrix(0,length(tryDegCov),3)
+  
+    
+  # load in a network because this was specified in the function
+  inputNet = netObjList[[netInd]]
+  
+  # placeholder network
+  new.net.start <- inputNet
+  
+
+
+  
+  # loop to simulate different gwdeg values
+  for (i in c(1:length(tryDegCov)) ){
+    
+   # a conditional after the first loop for making the starting network iterate between gwdeg parameters
+    if ( i>1){
+    new.net.start <- new.net[[1]] 
+    lapply(new.net, function(net){net %v% 'degree' = rowSums(adjMatList[[netInd]])})
+    }
+    
+    # degree covariate
+    new.net.start %v% 'degree' = rowSums(adjMatList[[netInd]])
+  
+    # choose coefs
+      chosenCoefs = c(coef(trueModelList[[netInd]])[2], coef(trueModelList[[netInd]])[3], tryDegCov[i])
+      
+    # simulating with different gwdeg values
+    new.net <- simulate(new.net.start  ~ altkstar(2, fixed=TRUE) +gwesp(.69, fixed=TRUE) + nodecov('degree'),
+                        constraints =~edges,
+                        coef= chosenCoefs,
+                        control=control.simulate(
+                          MCMC.burnin=20000,
+                          MCMC.interval=100), nsim=80 )
+  
+    # getting a distribution of clustering coefficients for the 80 simulated graphs
+    temp.clust <- sort( gtrans(new.net,mode='graph') )
+    temp.cent <-sort( centralization(new.net,degree,mode='graph') )
+    tempGeodistAvg <- sort(unlist(lapply(new.net, function(net){mean(geodist(net, inf.replace = NA)$gdist, na.rm = T)})))
+    tempBetwAvg <- sort(unlist(lapply(new.net,  function(net){mean(betweenness(net, gmode = "graph"))})))
+    tempGeodistCor = sort(unlist(lapply(new.net, function(net){cor.test(x = geodist(inputNet, inf.replace=0)$gdist, y = geodist(net, inf.replace = 0)$gdist, method = 'spearman', exact = FALSE)$estimate})))
+    tempBetwCor = sort(unlist(lapply(new.net, function(net){cor.test(x = betweenness(inputNet, gmode = "graph"), y = betweenness(net, gmode = "graph"), method = 'spearman', exact = FALSE)$estimate})))
+  
+  
+    # summarising the distribution of clustering coeffs with the 5th and 95th percentile
+    clustDist[i,c(1,3)] <- quantile( temp.clust, probs = c(0.05,0.95) )
+    centrDistGwesp[i,c(1,3)] <- quantile( temp.cent, probs = c(0.05,0.95) )
+    avgGeodesicDist[i,c(1,3)] <- quantile( tempGeodistAvg, probs = c(0.05,0.95) )
+    avgBetween[i,c(1,3)] <- quantile( tempBetwAvg, probs = c(0.05,0.95) )
+    corGeodesicDist[i,c(1,3)] <- quantile( tempGeodistCor, probs = c(0.05,0.95) )
+    corBetween[i,c(1,3)] <- quantile( tempBetwCor, probs = c(0.05,0.95) )
+  
+    # and median
+    clustDist[i,2] <- median(temp.clust)
+    centrDistGwesp[i,2] <- median(temp.cent)
+    avgGeodesicDist[i,2] <- median(tempGeodistAvg)
+    avgBetween[i,2] <- median(tempBetwAvg)
+    corGeodesicDist[i,2] <- median(tempGeodistCor)
+    corBetween[i,2] <- median(tempBetwCor)  
+
+
+  }
+  
+  ## specify the choen metirc
+  metricList = list("clustering" = clustDist,
+                    "centralisation" = centrDistGwesp,
+                    "avgGeodesic" = avgGeodesicDist,
+                    "avgBetween" = avgBetween,
+                    "corGeodesic" = corGeodesicDist,
+                    "corBetween" = corBetween)
+  
+degCovMetricList[[netInd]] = metricList
+}
+
+# both statistics varying with the same parameters
+tryBoth <- seq(from=-4,to=4, length.out=100)
+
+# initialise a list
+bothMetricList = list()
+
+# loop all 6 networks
+for(netInd in 1:length(adjMatList)){
+
+  ## placeholder matrices
+  # placeholder matrix for clustering coefficient
+  clustDist <- matrix(0,length(tryBoth),3)
+  
+  # placeholder matrix for centralisation
+  centrDistGwesp <- matrix(0,length(tryBoth),3)
+  
+  # mean geodesic and (spearman/rank-order) correlation with true network
+  avgGeodesicDist = matrix(0,length(tryBoth),3)
+  corGeodesicDist = matrix(0,length(tryBoth),3)
+  
+  # mean betweenness centrality and (spearman/rank-order) correlation with true network
+  avgBetween = matrix(0, length(tryBoth), 3)
+  corBetween = matrix(0,length(tryBoth),3)
+    
+  # load in a network because this was specified in the function
+  inputNet = netObjList[[netInd]]
+  
+  # placeholder network
+  new.net.start <- inputNet
+  
+  # loop to simulate different gwdeg values
+  for (i in c(1:length(tryBoth)) ){
+    
+   # a conditional after the first loop for making the starting network iterate between gwdeg parameters
+    if ( i>1){
+    new.net.start <- new.net[[1]]
+        lapply(new.net, function(net){net %v% 'degree' = rowSums(adjMatList[[netInd]])})
+    }
+    
+    # degree covariate
+    new.net.start %v% 'degree' = rowSums(adjMatList[[netInd]])
+    
+    # choose coefs
+    chosenCoefs = c(coef(trueModelList[[netInd]])[2], coef(trueModelList[[netInd]])[3], tryBoth[i], tryBoth[i])
+      
+    # simulating with different gwdeg values
+    new.net <- simulate(new.net.start  ~ altkstar(2, fixed=TRUE) +gwesp(.69, fixed=TRUE) + dyadcov(inputNet) + nodecov('degree'),
+                        constraints =~edges,
+                        coef= chosenCoefs,
+                        control=control.simulate(
+                          MCMC.burnin=20000,
+                          MCMC.interval=100), nsim=80 )
+  
+    # getting a distribution of clustering coefficients for the 80 simulated graphs
+    temp.clust <- sort( gtrans(new.net,mode='graph') )
+    temp.cent <-sort( centralization(new.net,degree,mode='graph') )
+    tempGeodistAvg <- sort(unlist(lapply(new.net, function(net){mean(geodist(net, inf.replace = NA)$gdist, na.rm = T)})))
+    tempBetwAvg <- sort(unlist(lapply(new.net,  function(net){mean(betweenness(net, gmode = "graph"))})))
+    tempGeodistCor = sort(unlist(lapply(new.net, function(net){cor.test(x = geodist(inputNet, inf.replace=0)$gdist, y = geodist(net, inf.replace = 0)$gdist, method = 'spearman', exact = FALSE)$estimate})))
+    tempBetwCor = sort(unlist(lapply(new.net, function(net){cor.test(x = betweenness(inputNet, gmode = "graph"), y = betweenness(net, gmode = "graph"), method = 'spearman', exact = FALSE)$estimate})))
+  
+  
+    # summarising the distribution of clustering coeffs with the 5th and 95th percentile
+    clustDist[i,c(1,3)] <- quantile( temp.clust, probs = c(0.05,0.95) )
+    centrDistGwesp[i,c(1,3)] <- quantile( temp.cent, probs = c(0.05,0.95) )
+    avgGeodesicDist[i,c(1,3)] <- quantile( tempGeodistAvg, probs = c(0.05,0.95) )
+    avgBetween[i,c(1,3)] <- quantile( tempBetwAvg, probs = c(0.05,0.95) )
+    corGeodesicDist[i,c(1,3)] <- quantile( tempGeodistCor, probs = c(0.05,0.95) )
+    corBetween[i,c(1,3)] <- quantile( tempBetwCor, probs = c(0.05,0.95) )
+  
+    # and median
+    clustDist[i,2] <- median(temp.clust)
+    centrDistGwesp[i,2] <- median(temp.cent)
+    avgGeodesicDist[i,2] <- median(tempGeodistAvg)
+    avgBetween[i,2] <- median(tempBetwAvg)
+    corGeodesicDist[i,2] <- median(tempGeodistCor)
+    corBetween[i,2] <- median(tempBetwCor)  
+
+
+  }
+  
+  ## specify the choen metirc
+  metricList = list("clustering" = clustDist,
+                    "centralisation" = centrDistGwesp,
+                    "avgGeodesic" = avgGeodesicDist,
+                    "avgBetween" = avgBetween,
+                    "corGeodesic" = corGeodesicDist,
+                    "corBetween" = corBetween)
+  
+
+  bothMetricList[[netInd]] = metricList
+  
+}
+
+
+```
+
+
+
+```{r plot entr and degcov}
+
+
+# choosing a colour for the polygon (for the confidence intervals)
+polyColours <- gray.colors(3)
+
+# Entrainment plots
+# list of metric names
+metricNames = names(entrMetricList[[1]])
+statLabel = "Entrainment"
+
+# loop the chosen network
+for(netInd in 1:length(netObjList)){
+  
+  # loop the metrics used
+  for(metricInd in 1:length(metricNames)){
+
+  # simulate missingness indicators and calculate the metrics
+  statDist = entrMetricList[[netInd]][[metricNames[[metricInd]]]]
+  metricLabel = metricNames[metricInd]
+  
+  # plotting how much the clustering coefficient changes when the gwdegree parameter changes
+  plot(range(tryEntr),range(statDist),type='n',xlab=statLabel, ylab=metricLabel)
+  
+  # adding on a polygon to reflect the 90% confidence interval
+  polygon(c(tryEntr, rev(tryEntr ) ) , c( statDist[,1], rev(statDist[,3]) ), col = polyColours[3], border = NA)
+  
+  # adding a line for the median
+  lines(tryEntr,statDist[,2],col='red')
+
+  # add a title
+  title(main = networkLabels[[netInd]])
+
+  }
+}
+
+# Degree covariate plots
+statLabel = "Degree covariate"
+
+# loop the chosen network
+for(netInd in 1:length(netObjList)){
+  
+  # loop the metrics used
+  for(metricInd in 1:length(metricNames)){
+
+  # simulate missingness indicators and calculate the metrics
+  statDist = degCovMetricList[[netInd]][[metricNames[[metricInd]]]]
+  metricLabel = metricNames[metricInd]
+
+  # plotting how much the clustering coefficient changes when the gwdegree parameter changes
+  plot(range(tryDegCov),range(statDist),type='n',xlab=statLabel, ylab=metricLabel)
+  
+  # adding on a polygon to reflect the 90% confidence interval
+  polygon(c(tryDegCov, rev(tryDegCov ) ) , c( statDist[,1], rev(statDist[,3]) ), col = polyColours[3], border = NA)
+  
+  # adding a line for the median
+  lines(tryDegCov,statDist[,2],col='red')
+  
+  }
+}
+# Both statistics plots
+statLabel = "Entrainment and degcov"
+
+# loop the chosen network
+for(netInd in 1:length(netObjList)){
+  
+  # loop the metrics used
+  for(metricInd in 1:length(metricNames)){
+
+  # simulate missingness indicators and calculate the metrics
+  statDist = bothMetricList[[netInd]][[metricNames[[metricInd]]]]
+  metricLabel = metricNames[metricInd]
+  
+  # plotting how much the clustering coefficient changes when the gwdegree parameter changes
+  plot(range(tryBoth),range(statDist),type='n',xlab=statLabel, ylab=metricLabel)
+  
+  # adding on a polygon to reflect the 90% confidence interval
+  polygon(c(tryBoth, rev(tryBoth ) ) , c( statDist[,1], rev(statDist[,3]) ), col = polyColours[3], border = NA)
+  
+  # adding a line for the median
+  lines(tryBoth,statDist[,2],col='red')
+  
+  }
+}
+
+```
+

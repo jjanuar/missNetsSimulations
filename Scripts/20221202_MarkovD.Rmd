@@ -1,0 +1,162 @@
+---
+title: "20221202_MarkovD"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Loading packages
+
+```{r packages}
+# packages
+library(ergm)
+library(sna)
+```
+
+```{r making a network}
+# fix seed to try keep things constant
+set.seed(12345)
+
+# making a network
+# picking a random network size
+n = 50
+
+# generating the matrix
+adj = matrix(runif(n * n),
+                 ncol = n,
+                 nrow = n)
+adj = adj < 0.2
+diag(adj) = 0
+
+# let's try undirected first so we need to symmetrise
+adj[upper.tri(adj)] = t(adj)[upper.tri(adj)]
+
+# check
+isSymmetric(adj)
+
+# I could also just use rgraph() from the 'sna' package
+adj2 = rgraph(n = n,
+                  tprob = 0.2,
+                  mode = "graph")
+
+# turn into a network object
+net = as.network(adj,
+                     directed = FALSE)
+```
+
+
+```{r simulating a Markov D}
+# fix seed to try keep things constant
+set.seed(12345)
+
+# specify a markov model
+missMod1 = net ~ edges +
+  kstar(2) + 
+  kstar(3) +
+  triangle
+
+# specify some coefficient values
+chosenCoef = c(-8.5,
+               0.1,
+               0.05,
+               0.05)
+
+# and simulate it
+simMissNet <- simulate(missMod1 ,
+                       coef = chosenCoef,# I think these parameters should yield non-degenerate models
+                       nsim = 100 ,# how many samples to pick up
+                       control=control.simulate.formula(MCMC.burnin=1024,MCMC.interval=1024))
+
+# # generate simulated networks
+# simMissNetStats <- simulate(missMod1 ,
+#                        coef = chosenCoef,    # I think these parameters should yield non-degenerate models
+#                        nsim = 100 ,          # how many samples to pick up
+#                        control=control.simulate.formula(MCMC.burnin=1024,MCMC.interval=1024), # for estimate it is 'control'
+#                        output='stats')
+# 
+# # trace plots to see how the prameter values are doing
+# par(mfrow = c(2,2))
+# plot(ts(simMissNetStats[,"edges"]), ylab = "Edges", xlab = paste("Par value =", chosenCoef[1]))
+# plot(ts(simMissNetStats[,"kstar2"]), ylab = "2-stars", xlab = paste("Par value =", chosenCoef[2]))
+# plot(ts(simMissNetStats[,"kstar3"]), ylab = "3-stars", xlab = paste("Par value =", chosenCoef[3]))
+# plot(ts(simMissNetStats[,"triangle"]), ylab = "Triangles", xlab = paste("Par value =", chosenCoef[4]))
+
+```
+
+
+**These configuration counts are really wild...**
+
+```{r grab nets}
+# grab some nets
+testMissNets = list()
+
+for(i in 1:10){
+  testMissNets[[i]] = simMissNet[[i + 20]]
+}
+
+# check number of edges
+lapply(testMissNets, network.edgecount)
+```
+
+
+
+```{r degrade}
+## Todd
+toddNets = list()
+
+for( i in 1:10 ){
+  toddNets[[i]] = adj
+  toddNets[[i]][as.matrix(testMissNets[[i]]) == 1] = 0
+  toddNets[[i]] = as.network(toddNets[[i]], directed = FALSE)
+}
+
+
+## Peter
+peterNets = list()
+
+for( i in 1:10 ){
+  peterNets[[i]] = adj
+  peterNets[[i]][as.matrix(testMissNets[[i]]) == 1] = NA
+  peterNets[[i]] = as.network(peterNets[[i]], directed = FALSE)
+}
+
+# compare a todd and full
+par(mfrow = c(1,2))
+coord = gplot(adj, gmode = "graph", xlab = "Full network", )
+gplot(toddNets[[1]], gmode = "graph", xlab = "Degraded network", coord = coord)
+
+# check how many edges got deleted
+sum(adj) - sum(as.matrix(toddNets[[1]]))
+
+```
+
+## Models
+
+```{r models?}
+# very simple models... should I try a directed example with dyad independence?
+mod1 = net ~ edges + 
+  kstar(2)
+
+mod1todd = toddNets[[1]] ~ edges + 
+  kstar(2)
+
+
+mod1peter = peterNets[[1]] ~ edges + 
+  kstar(2)
+
+# compute
+mod1Res = ergm(mod1)
+mod1toddRes = ergm(mod1todd)
+mod1peterRes = ergm(mod1peter)
+
+# print summaries
+summary(mod1Res)
+summary(mod1toddRes)
+summary(mod1peterRes)
+
+```
+

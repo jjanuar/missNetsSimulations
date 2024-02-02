@@ -1,0 +1,198 @@
+---
+title: "20230509_indepMissModels"
+author: "Jon Januar"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This document will contain simulations of some models of a missingness indicator $\mathbf{D|X}$ assuming independence between tie variables. 
+
+We will also be using only undirected ties throughout.
+
+## The 'data'
+
+```{r simuNet}
+# generating a simulated network as X
+# set number of nodes, choosing 30 arbitrarily
+n = 30
+
+# using a uniform dist
+simMat = matrix(data = NA, nrow = n, ncol = n)
+
+# fix the diagonal
+diag(simMat) = 0
+
+# randomly generate values for all nonzero values (i.e., all off-diagonal elements)
+simMat[is.na(simMat)] = runif(sum(is.na(simMat)))
+
+# use some threshold (this would be the density)
+threshold = 0.3
+
+# all values above the threshold are not ties
+simMat[simMat > threshold] = 0
+
+# all nonzero elements are then ties
+simMat[simMat != 0] = 1
+
+# how to approach this symmetrically..?
+```
+
+
+
+The candidate models for $\mathbf{D}$ in the document are:
+
+1. Erdos-Renyi model
+
+$$\Pr(d_{ij} = 1) = p_{ij},$$
+
+```{r bern model}
+# Bernoulli
+# I can generate tie probabilities for only one triangle and symmetrise, but I get the feeling I want to acknowledge the other end of the tie variable...
+
+# in any case, this is kind of brute forcing it
+erMiss = matrix(data = 0, nrow = n, ncol = n)
+
+# take only one triangle
+erMiss[upper.tri(erMiss)] = runif((n*(n-1))/2)
+
+# and symmetrise
+erMiss[lower.tri(erMiss)] = t(erMiss)[lower.tri(erMiss)]
+
+# same threshold jig
+# use some threshold (this would be the density)
+threshold = 0.3
+
+# all values above the threshold are not ties
+erMiss[erMiss > threshold] = 0
+
+# all nonzero elements are then ties
+erMiss[erMiss != 0] = 1
+
+
+```
+
+The part to consider here is that I am brute forcing the generation of edges to only be on one triangle instead of accounting for both ends of the edge.
+
+2. Logit regression
+
+$$logit(\Pr(d_{ij} = 1)) = \theta_0 + \theta_1c_i + \theta_2c_j.$$
+
+In this expression, $d_{ij}$ is a missing tie variable in the missingness matrix $\mathbf{D}$. Strictly speaking this would be $\Pr(\mathbf{D} = d_{ij} | \mathbf{X,C})$ with $\mathbf{X}$ representing the observed tie variables (i.e., an adjacency matrix) and $\mathbf{C}$ representing some matrix of covariates for the nodes.
+
+The idea of what's happening here is that the probability of a missing tie variable depends on the effects of both ends of the edge.
+
+
+```{r logit example}
+## Basically what this boils down to is the dependent variable being a vector.
+# fix the order of the graph
+n = 30
+
+# simultaing some random binary covariates for the 30 nodes
+nodeAtt = sample(x = c(0,1), size = n, replace = TRUE, prob = c(0.6, 0.4))
+
+# check
+sum(nodeAtt)
+
+# the thing here is that the 'observation' here needs to be the tie variables.
+# an n = 30 means n(n-1) tie variables.. so that's 30 *29 = 870
+
+# first, a sequence needs to be made for every possible dyad:
+allEdges = data.frame(i = rep(1:n, each = n), j = rep(1:n, times = n))
+
+# remove all loops because we're dealing with simple graphs
+allEdges = allEdges[allEdges$i != allEdges$j,]
+
+# this would basically be a fully connected graph
+# then we can assign the simulated binary attribute to both ends of the edges
+nodesWithAtt = c(1:n)[nodeAtt == 1]
+
+# then we can give each edge the attribute
+# make an empty data frame
+edgeAtts = data.frame(i = rep(0, times = nrow(allEdges)), j = rep(0, times = nrow(allEdges)))
+
+# and then we indicate which nodes on either end have the simulated binary attribute
+edgeAtts$i[allEdges$i %in% nodesWithAtt] = 1
+edgeAtts$j[allEdges$j %in% nodesWithAtt] = 1
+
+# we now can simulate a logit regression model for the 
+# specify some arbitrary values
+theta0 = -2
+theta1 = 1
+theta2 = 2
+
+# specify the linear combination
+d = theta0 + theta1*edgeAtts$i + theta2*edgeAtts$j
+
+# specify the logit link
+pr_d = 1/(1 + exp(-d))
+
+# then we can simulate the tie variables with the probabilities we simulated
+y = rbinom(n = length(pr_d), size = 1, prob = pr_d)
+
+# can check our result
+glm(y ~ i + j, family = "binomial", data = edgeAtts)
+
+# we can then squish this y into a matrix for D
+logitMiss = matrix(data = 2, nrow = n, ncol = n)
+
+# specify some value for the diagonal, this value is arbitrary
+diag(logitMiss) = 1
+
+# fill all values outside the diagonal with the simulated values
+logitMiss[logitMiss != 1] = y
+
+# and remove the diagonal
+diag(logitMiss) = 0
+
+# can force the symmetry if necessary
+logitMiss[lower.tri(logitMiss)] = t(logitMiss)[lower.tri(logitMiss)]
+```
+
+
+Same problem here: how do I simulate something undirected...? Do I squish the existence of a dyad to a single variable (i.e., dyad-independent?)
+
+3. Beta model
+
+Do I randomly sample from all possible edges?
+
+I need to first generate a degree sequence..
+
+Also, they say the model works primarily with dense graphs (number of edges greater than the number of nodes squared), and is unsure about sparser graphs.
+
+Following Rinaldo et al. (2013)
+
+```{r}
+# beta model attempts
+
+# a small network
+testMat = matrix(data = sample(c(0,1), size = 25, replace = TRUE), 5, 5)
+diag(testMat) = 0
+
+# undirect it
+testMat[upper.tri(testMat)] = t(testMat)[upper.tri(testMat)]
+rowSums(testMat)
+
+# some beta values (are these supposed to be calculated?)
+beta = c(0.5, -0.2, 0.1, 0.1, 0.8)
+
+# empty vector of estimated probability parameters
+pEst = c()
+
+# a loop to logit it
+for(ind in 1:5){
+    pEst[ind] = (exp(beta[ind] + beta[-ind]))/ (1 + exp(beta[ind] + beta[-ind]))
+}
+
+# then plugged in a binom to generate degrees
+dEst = rbinom(n = nrow(testMat), size = nrow(testMat), prob = pEst)
+```
+
+
+4. Blockmodels
+
+
+5. Social space models

@@ -1,0 +1,281 @@
+---
+title: "20220906_Bipartite_example"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Instructions
+
+1. Reads in a standard bipartite dataset (Southern women?) 
+
+2. Reads in/constructs some people and even covariates (these could be created artificially if they do not come with the dataset) 
+
+3. Formats data in the form that statnet wants it (in particular, print out the dimensions of the affiliation matrix - rectangular? - and any other meta information available; are ties directed or not?) 
+
+4. Specifies a reasonable bipartite ERGM (check the ERGM book but a good model would require an alternating 4-path statistic and possibly some degree-based statistics) 
+
+5. Runs the estimation 
+
+6. Prints output and checks convergence
+
+In addition, it would be good if there was then an additional section:
+
+
+7. Set an element to missing, e.g. AFF[1,2] <- NA 
+
+8. Rerun the ergm estimation routine 
+
+9. See if it worked and produced an ANOVA table
+
+### Reading in data
+
+Using the 'latentnet' package which has the dataset in it.
+
+The dataset follows 18 women over a 9-month period where they all met each other across 14 informal social events. The data records which women met for which events.
+
+```{r read data}
+# reading packages
+library(latentnet)
+library(here)
+library(igraph)
+
+# read in the data
+data(davis)
+
+# plot it
+adjmat = as.matrix(davis)
+plotbip = graph_from_incidence_matrix(adjmat)
+
+# set node type and colour
+V(plotbip)$color <- c("orange", "steel blue")[V(plotbip)$type+1]
+V(plotbip)$shape <- c("circle", "square")[V(plotbip)$type+1]
+V(plotbip)$label <- ""
+V(plotbip)$label.cex=.4
+V(plotbip)$label.font=2
+
+
+
+# and plot it
+plot(plotbip, vertex.label.color="white", vertex.size=(2-V(plotbip)$type)*8, layout = layout_as_bipartite) 
+
+# without igraph
+plot(davis, 
+     displaylabels=TRUE,
+     vertex.col = c(rep("Red", 18), rep("Green", 14)),
+     vertex.sides = 4*c(rep(10, 18), rep(1, 14)), 
+     vertex.cex = c(rep(3, 18), rep(3, 14)),
+     label.cex = 0.4, 
+     label.pos = 5)
+
+```
+
+### Generating attributes and formatting
+
+```{r making attributes}
+# fix seed
+set.seed(420)
+
+# randomly generating binary attributes for the people and events
+peopleAtt = sample(c(0,1), 18, replace = TRUE)
+eventAtt = sample(c(0,1), 14, replace = TRUE)
+
+# set these attributes
+
+# for women
+network::set.vertex.attribute(x = davis, 
+                              attrname = "randAttPeople",
+                              value = peopleAtt,
+                              v = 1:18)
+
+# for events
+network::set.vertex.attribute(x = davis, 
+                              attrname = "randAttEvent",
+                              value = eventAtt,
+                              v = 19:32)
+
+```
+
+### Brief inspection and ergm time
+
+```{r formatting}
+# Obtain women's names from network using %v% operator
+names <- (davis %v% "vertex.names")[1:18]
+
+# Create list where each item is an "edge"; look at first 5 of them
+apply(adjmat, 2, function(event) names[event==1])[1:5]
+
+# summary with an ergm formula reports the network's observed statistics
+# represents the degree for each woman
+summary(davis ~ sociality(nodes = 1:18))
+
+
+## Commented out sociality
+# # ergm
+# fit1 <- ergm(davis ~ sociality(nodes = 1:18) + b2star(3))
+# 
+# summary(fit1)
+# 
+# # with a nodal covariate
+# fit2 <- ergm(davis ~ b2star(3) + b2factor("randAttEvent") + sociality(nodes = 1:18))
+# 
+# summary(fit2)
+
+# with multipe nodal covariates?
+fit3 <- ergm(davis ~ b2star(3) + b2factor("randAttEvent") + b1factor("randAttPeople"))
+
+summary(fit3)
+
+# 4 cycle?
+fit4 <- ergm(davis ~ b2star(3) + b2factor("randAttEvent") + b1factor("randAttPeople") + cycle(4))
+
+summary(fit4)
+
+# alternaaating
+fit5 <- ergm(davis ~ gwb1degree(log(2), fixed = TRUE) +
+               gwb1dsp(log(2), fixed = TRUE) +
+               gwb2dsp(log(2), fixed = TRUE) + 
+               b2factor("randAttEvent") + 
+               b1factor("randAttPeople"))
+
+summary(fit5)
+
+fit6 <- ergm(davis ~ gwb2degree(log(2), fixed = TRUE) +
+               gwb1dsp(log(2), fixed = TRUE) +
+               gwb2dsp(log(2), fixed = TRUE) +
+               b2factor("randAttEvent") +
+               b1factor("randAttPeople"))
+
+summary(fit6)
+```
+
+
+### Now with missingness
+
+```{r miss}
+# set an element to missing
+missAdj = adjmat
+missAdj[1,2] = NA
+
+# set network
+missDavis = as.network(missAdj)
+
+# set these attributes
+# for women
+network::set.vertex.attribute(x = missDavis, 
+                              attrname = "randAttPeople",
+                              value = peopleAtt,
+                              v = 1:18)
+
+# for events
+network::set.vertex.attribute(x = missDavis, 
+                              attrname = "randAttEvent",
+                              value = eventAtt,
+                              v = 19:32)
+
+## Commented out sociality
+# # rerun ergms
+# fitm1 <- ergm(missDavis ~ sociality(nodes = 1:18) + b2star(3))
+# 
+# summary(fitm1)
+# 
+# # with a nodal covariate
+# fitm2 <- ergm(missDavis ~ b2star(3) + b2factor("randAttEvent") + sociality(nodes = 1:18))
+# 
+# summary(fitm2)
+
+# with multipe nodal covariates?
+fitm3 <- ergm(missDavis ~ b2star(3) + b2factor("randAttEvent") + b1factor("randAttPeople"))
+
+summary(fitm3)
+
+# 4 cycle?
+fitm4 <- ergm(missDavis ~ b2star(3) + b2factor("randAttEvent") + b1factor("randAttPeople") + cycle(4))
+
+summary(fitm4)
+
+# alternaaating
+fitm5 <- ergm(missDavis ~ gwb1degree(log(2), fixed = TRUE) +
+                gwb1dsp(log(2), fixed = TRUE) +
+                gwb2dsp(log(2), fixed = TRUE) +
+                b2factor("randAttEvent") +
+                b1factor("randAttPeople"))
+
+summary(fitm5)
+
+fitm6 <- ergm(missDavis ~ gwb2degree(log(2), fixed = TRUE) +
+                gwb1dsp(log(2), fixed = TRUE) +
+                gwb2dsp(log(2), fixed = TRUE) +
+                b2factor("randAttEvent") +
+                b1factor("randAttPeople"))
+
+summary(fitm6)
+
+
+```
+
+### One row is missing
+
+```{r row miss}
+# set a row to missing
+missRowAdj = adjmat
+missRowAdj[1,] = NA
+
+# set network
+missRowDavis = as.network(missRowAdj)
+
+# set these attributes
+# for women
+network::set.vertex.attribute(x = missRowDavis, 
+                              attrname = "randAttPeople",
+                              value = peopleAtt,
+                              v = 1:18)
+
+# for events
+network::set.vertex.attribute(x = missRowDavis, 
+                              attrname = "randAttEvent",
+                              value = eventAtt,
+                              v = 19:32)
+
+# sociality won't work here.
+
+# rerun ergms
+#fitmr1 <- ergm(missRowDavis ~ sociality(nodes = 1:18) + b2star(3))
+
+#summary(fitmr1)
+
+# with a nodal covariate
+#fitmr2 <- ergm(missRowDavis ~ b2star(3) + b2factor("randAttEvent") + sociality(nodes = 1:18))
+
+#summary(fitmr2)
+
+# with multipe nodal covariates?
+fitmr3 <- ergm(missRowDavis ~ b2star(3) + b2factor("randAttEvent") + b1factor("randAttPeople"))
+
+summary(fitmr3)
+
+# 4 cycle?
+fitmr4 <- ergm(missRowDavis ~ b2star(3) + b2factor("randAttEvent") + b1factor("randAttPeople") + cycle(4))
+
+summary(fitmr4)
+
+# alternaaating
+fitmr5 <- ergm(missRowDavis ~ gwb1degree(log(2), fixed = TRUE) +
+                 gwb1dsp(log(2), fixed = TRUE) +
+                 gwb2dsp(log(2), fixed = TRUE) +
+                 b2factor("randAttEvent") +
+                 b1factor("randAttPeople"))
+
+summary(fitmr5)
+
+fitmr6 <- ergm(missRowDavis ~ gwb2degree(log(2), fixed = TRUE) +
+                 gwb1dsp(log(2), fixed = TRUE) +
+                 gwb2dsp(log(2), fixed = TRUE) +
+                 b2factor("randAttEvent") +
+                 b1factor("randAttPeople"))
+
+summary(fitmr6)
+```

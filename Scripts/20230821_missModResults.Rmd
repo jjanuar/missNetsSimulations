@@ -1,0 +1,3507 @@
+---
+title: "20230821_missModResults"
+author: "Jon Januar"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading output
+
+```{r loading flies}
+# packages
+library(ggplot2)
+library(here)
+library(dplyr)
+
+# true estimates
+resultsFiles = list.files(path = here("Output", "20230726_missNetsTrueModels"))
+
+# initialise list
+trueCoefList = list()
+trueSeList = list()
+# loop to load model parameters
+for(netInd in 1:6){
+  
+  # load in results for each network
+  load(here("Output", "20230726_missNetsTrueModels", resultsFiles[[netInd]]))
+  
+  # and take the coefficients only
+  trueCoefList[[netInd]] = coef(modelres)
+  trueSeList[[netInd]] = summary(modelres)$coefficients[,2]
+}
+  
+# loading in the output results
+outputList = list.files(here("Output", "20230825_simMissReest", "Peter"))
+
+# set up some lists to put in the ergm re-estimations
+modelResList = list()
+modelSeList = list()
+missModelList = list()
+propMissList = list()
+
+# hmm... what's the best way to handle this....
+# I have specific indices,
+# but there are different amounts of each file because re-estimations tend to fail
+# especially for some combinations
+
+# some regular expressions
+# net1Ind = grep("net1", outputList)
+# missMod2Ind = grep("missModel2", outputList)
+# 
+# # check which indices overlap
+# net1MissMod2 = missMod2Ind[missMod2Ind %in% net1Ind]
+
+# set a specific index for the network
+chosenNetInd = 2
+
+# file list for the chosen network index
+chosenNetOutFiles = grep(paste("20230814_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Peter", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+
+}
+
+```
+
+
+```{r firstplotattempts}
+# plotting
+# note: I think I should have a plot for each missingness proportion
+chosenProp = 1
+
+# there should only be 3 miss props, 1 for 10%, 3.5 for 35%, and 6 for 60%
+# subset the lists to only be a single chosen proportion
+chosenPropIndex = propMissList == chosenProp
+
+modelResChosenPropList = modelResList[chosenPropIndex]
+modelSeChosenPropList = modelSeList[chosenPropIndex]
+missModelChosenPropList = missModelList[chosenPropIndex]
+
+## AltStar
+# making the dataset
+altStarPlotData = data.frame(altStar = c(unlist(lapply(modelResChosenPropList, `[[`, 2) )), 
+                             SE = c(unlist(lapply(modelSeChosenPropList, `[[`, 2))),
+                             missModel = factor(c(unlist(missModelChosenPropList)), levels = c(1,2,3), labels = c("Indep", "ERGM", "Latent")))
+
+# order the plot data
+altStarPlotOrd = altStarPlotData[order(altStarPlotData[,"altStar"]),]
+
+# one more ordering with the missing model type
+altStarPlotOrd = altStarPlotOrd[order(altStarPlotOrd[,"missModel"]),]
+
+
+
+# getting the true altStar value
+trueAltStar = trueCoefList[[chosenNetInd]][2]
+trueAltStarSE = trueSeList[[chosenNetInd]][2]
+
+# caterpillar?
+altStarPlot = ggplot( data = altStarPlotOrd,
+                    aes( x = 1:nrow(altStarPlotOrd), y = altStar, col = missModel)) + 
+             geom_errorbar(aes (ymin = (altStar - 1.96*SE), ymax = (altStar + 1.96*SE), width = 0.4)) + 
+             xlab("") + 
+             ylab("AltStar estimate (95% Confidence Int)") + 
+             geom_hline(yintercept = trueAltStar, col = "darkblue") + 
+             geom_hline(yintercept = 0, col = "black", lty = 2) +
+             geom_point() + 
+             ggtitle(paste("Diagnostics - Net", chosenNetInd, " - Prop", chosenProp, sep = "")) + 
+             theme_classic() + 
+             theme(axis.ticks.x = element_blank(),
+                   axis.text.x = element_blank()) +
+         #          legend.position = "none") +
+             geom_rect(aes(xmin = -Inf,
+                           xmax = Inf, 
+                           ymin = (trueAltStar - 1.96*trueAltStarSE),
+                           ymax = (trueAltStar + 1.96*trueAltStarSE)),
+                           alpha = 0.01,
+                           colour = NA,
+                           fill = "grey") +
+             ylim(min(altStarPlotData$altStar) - 2*max(abs(altStarPlotData$SE)), max(altStarPlotData$altStar) + 2*max(abs(altStarPlotData$SE)))
+
+altStarPlot
+
+## Gwesp
+# making the dataset
+gwespPlotData = data.frame(gwesp = c(unlist(lapply(modelResChosenPropList, `[[`, 3) )), 
+                             SE = c(unlist(lapply(modelSeChosenPropList, `[[`, 3))),
+                             missModel = factor(c(unlist(missModelChosenPropList)), levels = c(1,2,3), labels = c("Indep", "ERGM", "Latent")))
+
+# order the plot data
+gwespPlotOrd = gwespPlotData[order(gwespPlotData[,"gwesp"]),]
+
+# one more ordering with the missing model type
+gwespPlotOrd = gwespPlotOrd[order(gwespPlotOrd[,"missModel"]),]
+
+
+# getting the true gwdeg value
+truegwesp = trueCoefList[[chosenNetInd]][3]
+truegwespSE = trueSeList[[chosenNetInd]][3]
+
+# caterpillar?
+gwespPlot = ggplot( data = gwespPlotOrd,
+                    aes( x = 1:nrow(gwespPlotOrd), y = gwesp, col = missModel)) + 
+             geom_errorbar(aes (ymin = (gwesp - 1.96*SE), ymax = (gwesp + 1.96*SE), width = 0.4)) + 
+             xlab("") + 
+             ylab("GWESP estimate (95% Confidence Int)") + 
+             labs(col = "missType") + 
+             geom_hline(yintercept = truegwesp, col = "darkblue") + 
+             geom_hline(yintercept = 0, col = "black", lty = 2) +
+             geom_point() + 
+             ggtitle(paste("Diagnostics - Net", chosenNetInd, " - Prop", chosenProp, sep = "")) + 
+             theme_classic() + 
+             theme(axis.ticks.x = element_blank(),
+                   axis.text.x = element_blank()) +
+           #        legend.position = "none") +
+             geom_rect(aes(xmin = -Inf,
+                           xmax = Inf, 
+                           ymin = (truegwesp - 1.96*truegwespSE),
+                           ymax = (truegwesp + 1.96*truegwespSE)),
+                           alpha = 0.01,
+                           colour = NA,
+                           fill = "grey") +
+              ylim(min(gwespPlotOrd$gwesp) - 2*max(abs(gwespPlotOrd$SE)), max(gwespPlotOrd$gwesp) + 2*max(abs(gwespPlotOrd$SE)))
+    
+
+gwespPlot
+
+
+```
+
+```{r fail rate test}
+# code to try computing a fail rate dataset
+
+# fixed value for the amount of estimation attempts
+estAttempts = 50
+
+# choose a proportion
+chosenProp = 1
+
+# these lists will always be used so...
+# there should only be one missing proportion
+# note that there can sometimes be more than one missingness proportion in the list...
+failMissProp = as.numeric(names(table(unlist(propMissList))))
+
+# annoyingly how the missingness is saved is missing in this set of results so...
+# there should only be one way the missingness is saved, keep it as a string
+failMissSave = "NA"
+
+# calculate the success rate
+successRate = as.numeric(table(unlist(missModelList))/estAttempts)
+
+# and which miss model it is, these can technically range from 1 to 3
+failMissModel = as.numeric(names(table(unlist(missModelList))))
+
+  
+# and put it all together
+failData = data.frame(failRate = (1 - successRate), 
+                      netInd = rep(chosenNetInd, length(failMissModel)),
+                      missModel = failMissModel, 
+                      missProp = rep(failMissProp, length(failMissModel)),
+                      missSave = rep(failMissSave, length(failMissModel)))
+
+
+
+```
+
+
+### Turn them into functions
+
+I want these functions to take the entire file list, choose specific networks and missingness proportions. The thing is, I might need a few helper functions beforehand to get the right data....
+
+Multiple smaller functions doing very specific things are preferred over one giant function that does a lot of stuff all at once
+
+
+```{r function it}
+
+### Function to turn the data from the extracted lists into plot-friendly format
+
+# start from the list of coefficients and standard errors
+# these can have varying rows per model because not all re-estimations converge
+
+
+prepMissPlot = function(modelResList, modelSeList, missModelList, propMissList, chosenProp, chosenPara){
+
+  ## prepMissPlot(modelResList, modelSeList, missModelList, propMissList, chosenProp, chosenPara) takes 
+  ## four different containing various estimated values and extracted indices to be used 
+  ## in making a plot-friendly dataset.
+  ##
+  ## Input:
+  ## - modelResList: A k-long list containing the estimated model parameters for k re-estimated models.
+  ##
+  ## - modelSeList: A k-long list containing the estimated standard errors for k re-estimated models.
+  ##                
+  ## - missModelList: A k-long list containing the chosen missingness model index for k re-estimated models.
+  ##                  
+  ## - propMissList: A k-long list containing the missingness proportion index for k re-estimated models.
+  ##
+  ## - chosenProp: The specified proportion of missingness to plot. Three possible values here:
+  ##               1 = 10%, 3 = 35%, 6 = 60%.
+  ##
+  ## - chosenPara: The specified parameter to plot. Three possible values here:
+  ##               "edges" for edges, "altStar" for alternating stars, "gwesp" for gwesp.
+  ##
+  ## Output: 
+  ## - A k x 3 dataframe containing the parameter values, standard error values, and missing model index.
+  ##   The dataframe is ordered by parameter value (smallest to largest) for each missingness model.
+
+
+  ## Check to make sure all the lists are of the same length
+  listLengths = lapply(list(modelResList, modelSeList, missModelList, propMissList), FUN = length)
+  
+  ## A unit test that spits out an error if there's more than one unique length in the list of lengths
+  if( length(unique(listLengths)) != 1 ){
+    stop("Lists have differing lengths")
+  }
+  
+  # subset the lists to only be a single chosen proportion
+  chosenPropIndex = propMissList == chosenProp
+  
+  modelResChosenPropList = modelResList[chosenPropIndex]
+  modelSeChosenPropList = modelSeList[chosenPropIndex]
+  missModelChosenPropList = missModelList[chosenPropIndex]
+  
+  # Specify indices for the chosen parameter
+  # doing it this way because parameter names get very lengthy
+  paraIndex = c(1:3)
+  modelParaNames = c("edges", "altStar", "gwesp")
+  chosenParaIndex = paraIndex[modelParaNames == chosenPara]
+  
+  
+  # making the dataset
+  plotData = data.frame(parameter = c(unlist(lapply(modelResChosenPropList, `[[`, chosenParaIndex) )), 
+                        SE = c(unlist(lapply(modelSeChosenPropList, `[[`, chosenParaIndex))),
+                        missModel = factor(c(unlist(missModelChosenPropList)), levels = c(1,2,3), labels = c("Indep", "ERGM", "Latent")))
+  
+  # order the plot data
+  plotOrd = plotData[order(plotData[,"parameter"]),]
+  
+  # one more ordering with the missing model type
+  plotOrd = plotOrd[order(plotOrd[,"missModel"]),]
+  
+  # return the ordered plot data
+  return(plotOrd)
+}
+
+## actual plotting function
+
+missCaterpillarPlot = function(plotData, truePara, trueSe, chosenPara, chosenNetInd, chosenProp, chosenMiss){
+  
+  ## missCaterpillarPlot(plotData, truePara, trueSe, chosenPara, chosenNetInd, chosenProp) is a very specialised
+  ## plotting function that produces a caterpillar plot to compare parameter estimates for very specific data.
+  ##
+  ## Input:
+  ## - plotData: Needs to be a k x 3 data frame for k re-estimated models containing parameter values,
+  ##             standard error values, and a missing model index. Ordering is optional, but visually
+  ##             useful. Ideally from prepMissPlot().
+  ##
+  ## - truePara: A single float (can technically be integer, but unlikely). Represents the true model estimate.
+  ##                
+  ## - trueSe: A single float (can technically be integer, but unlikely). Represents the true standard error.
+  ##
+  ## - chosenPara: A string with three (but really two) options. The chosen string is the parameter that is 
+  ##               plotted. The options, in order, are "edges", "altStar", and "gwesp"
+  ##
+  ## - chosenNetInd: An integer between 1 to 6 for current purposes. Each integer represents one of the six
+  ##                 datasets from UCINet chosen for the current round of re-estimations.
+  ##                
+  ## - chosenProp: A single integer or float with three options representing the proportion of missingness.
+  ##               Options are 1 = 10%, 3.5 = 35%, 6 = 60%.
+  ##
+  ## - chosenMiss: A value to indicate what missingness is saved as (e.g., NA is Peter, 0 is Todd).
+  ##               Input should be strings that are directly used for the label.
+  ##                  
+  ## Output: 
+  ## - The output should be a caterpillar plot containing with k datapoints for k re-estimated models.
+  ##   Colours are labelled and represent the missingness model used. True values are represented as a 
+  ##   grey rectangle. All error bars or other depictions of spread are 95% confidence intervals. Plot
+  ##   title should also be adaptive to the parameters in the function.
+  
+  # requires ggplot2 to work
+  require(ggplot2)
+
+
+  # caterpillar?
+  caterPlot = ggplot( data = plotData,
+                      aes( x = 1:nrow(plotData), y = parameter, col = missModel)) + 
+               geom_errorbar(aes (ymin = (parameter - 1.96*SE), ymax = (parameter + 1.96*SE), width = 0.4)) + 
+               xlab("") + 
+               ylab(paste(chosenPara,"estimate (95% Confidence Int)", sep = " ")) + 
+               labs(col = "missType") + 
+               geom_hline(yintercept = truePara, col = "darkblue") + 
+               geom_hline(yintercept = 0, col = "black", lty = 2) +
+               geom_point() + 
+               ggtitle(paste("Diagnostics - Net", chosenNetInd, " - Prop", chosenProp, " - Miss", chosenMiss ,sep = "")) + 
+               theme_classic() + 
+               theme(axis.ticks.x = element_blank(),
+                     axis.text.x = element_blank()) +
+               geom_rect(aes(xmin = -Inf,
+                             xmax = Inf, 
+                             ymin = (truePara - 1.96*trueSe),
+                             ymax = (truePara + 1.96*trueSe)),
+                             alpha = 0.01,
+                             colour = NA,
+                             fill = "grey") +
+                ylim(min(min(plotData$parameter) - 2*max(abs(plotData$SE)), (truePara - 1.96*trueSe)), 
+                     max(max(plotData$parameter) + 2*max(abs(plotData$SE)), (truePara + 1.96*trueSe)))
+      
+  # print out the plot
+  caterPlot
+  
+    
+}
+
+
+## function for calculating failure rate (for each datafile read in)
+# a function for this because I overwrite which networks I read in for the caterpillar plots
+# this function captures every combination of which missingness model, which chosen missingness, which missingness proportion, and which network.
+
+failPlotData = function(propMissList, missModelList, chosenNetInd, chosenProp, chosenMiss, estAttempts = 50){
+  
+  ## failPlotData(propMissList, missModelList, chosenNetInd, chosenProp, chosenMiss, estAttempts = 50) calculates
+  ## the failure rates of re-estimations of degraded networks with specific object type requirements.
+  ##
+  ## Input:
+  ## - missModelList: A k-long list containing the chosen missingness model index for k re-estimated models.
+  ##                  Can technically range between 1 to 3.
+  ##                  
+  ## - propMissList: A k-long list containing the missingness proportion index for k re-estimated models.
+  ##
+  ## - chosenNetInd: An integer between 1 to 6 for current purposes. Each integer represents one of the six
+  ##                 datasets from UCINet chosen for the current round of re-estimations.
+  ##                
+  ## - chosenProp: A single integer or float with three options representing the proportion of missingness.
+  ##               Options are 1 = 10%, 3 = 35% (... yes, it's annoying.), 6 = 60%.
+  ##
+  ## - chosenMiss: A string to indicate what missingness is saved as (e.g., "NA" is Peter, "0" is Todd).
+  ##                                
+  ## Output: 
+  ## - The output should be a data frame containing the failure rate for the specified combination of network, 
+  ##   proportion of missingness, how the missingness is saved, and all the missingness models in the input list.
+    
+  
+  # subset the lists to only be a single chosen proportion
+  # get the index
+  chosenPropIndex = propMissList == chosenProp
+  
+  # and subset
+  propMissChosenPropList = propMissList[chosenPropIndex]
+  missModelChosenPropList = missModelList[chosenPropIndex]
+
+  # turn the list of missingness proportions into a single numeric value
+  failMissProp = as.numeric(names(table(unlist(propMissChosenPropList))))
+  
+  # check to make sure there's only one proportion
+  if(length(failMissProp) != 1){
+    stop("More than one missingness proportion after subsetting")
+  }
+  
+  # calculate the success rate
+  successRate = as.numeric(table(unlist(missModelChosenPropList))/estAttempts)
+  
+  # and which miss model it is, these can technically range from 1 to 3
+  failMissModel = as.numeric(names(table(unlist(missModelChosenPropList))))
+    
+  # and put it all together
+  failData = data.frame(failRate = (1 - successRate), 
+                        netInd = rep(chosenNetInd, length(failMissModel)),
+                        missModel = failMissModel, 
+                        missProp = rep(failMissProp, length(failMissModel)),
+                        missSave = rep(chosenMiss, length(failMissModel)))
+  
+  
+  # return the data frame
+  return(failData)
+
+}
+
+## no need for a function to plot fail rates for each combination since I would only want one plot
+
+
+
+
+```
+
+
+### Function testrun
+
+```{r plot fn testrun}
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 1,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+# still need to take out true parameter values
+chosenNetInd = 2
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 1,
+                    chosenMiss = "NA")
+
+## amd gwesp
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 1,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+# still need to take out true parameter values
+chosenNetInd = 2
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 1,
+                    chosenMiss = "NA")
+
+# test run for the fail rate data
+# a data frame to initialise
+failRateData = data.frame()
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 1,
+                            chosenMiss = "NA")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+
+```
+
+### Rest of 10% missingness - Peter
+
+```{r apply to lots of results}
+# applying the code above to different reestimations
+# set a specific index for the network
+chosenNetInd = 4
+
+# file list for the chosen network index
+chosenNetOutFiles = grep(paste("20230814_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Peter", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 1,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 1,
+                    chosenMiss = "NA")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 1,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 1,
+                    chosenMiss = "NA")
+
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 1,
+                            chosenMiss = "NA")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+
+# applying the code above to different reestimations
+# set a specific index for the network
+chosenNetInd = 5
+
+# file list for the chosen network index
+chosenNetOutFiles = grep(paste("20230814_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Peter", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 1,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 1,
+                    chosenMiss = "NA")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 1,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 1,
+                    chosenMiss = "NA")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 1,
+                            chosenMiss = "NA")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+# applying the code above to different reestimations
+# set a specific index for the network
+chosenNetInd = 6
+
+# file list for the chosen network index
+chosenNetOutFiles = grep(paste("20231010_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Peter", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 1,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 1,
+                    chosenMiss = "NA")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 1,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 1,
+                    chosenMiss = "NA")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 1,
+                            chosenMiss = "NA")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+```
+
+
+
+
+## Looking into specific metrics with varying parameter values
+
+These plots are meant to be follow-up plots to anything interesting from the caterpillars above. For example, if we see that a specific model of missingness leads to an odd-looking effect on the caterpillar plots (i.e., affect the re-estimations in a systematic way), then we can look into its specific metric changes when we change the missingness model.
+
+This missingness model will be changed in terms of both which parameters are in it and what the parameter values are (e.g., higher or lower gwesp/altstar values). These don't need to be re-estimations of anything really, these would just be different ways of degrading the 'full' network given a specific missingness proportion. From then on, we can then suggest that specific parameter values and specific parameters lead to some effects.
+
+Some of the metrics we can look at include clustering and centralisation and some of the mean value parameterisations obtained from not estimating each parameter (obtainable through summary(model)).
+
+These metrics will not require re-estimations, but should be guided BY the re-estimations because there are a lot of metrics and possible parameter values and specifications.
+
+What will actually be done here is given a depleted network, as guided by the caterpillar plots above, we can first calculate the various metrics the depleted networks have, a 'benchmark' from the 'true' network, and simulations given the depleted network... right?
+
+```{r metric followups}
+# making the metric plots
+# needs a couple of packages
+# reading some packages
+library(sna)
+library(ergm)
+library(network)
+
+# load the adjacency matrices for the respective datasets used
+load(here("Data", "20230814_missNetsAdjMats.RData"))
+
+# choose some network
+chosenNetInd = 2
+testNet = adjMatList[[chosenNetInd]]
+
+# function to calculate metrics
+netMetrics = function(net, directed = FALSE){
+  
+  ## netMetrics(net, directed) calculates some metrics for a given network. Needs the 'sna' package
+  ## and the 'network' package to work.
+  ##
+  ## Input:
+  ## - net: Ideally a network object for the network whose metrics will be calculated. Technically
+  ##        can be an adjacency matrix since it will be converted to a network object.
+  ##
+  ## - directed: A logical value to indicate whether the network is directed or not.
+  ##                  
+  ## Output: 
+  ## - The output is a list of different network metrics. These include the clustering coefficient,
+  ##   the global centralisation (degree variance) value, the median geodesic distance, and median
+  ##   betweenness centrality. More metrics can be added on as necessary.
+  
+  # needs two packages
+  require(network)
+  require(sna)
+  
+  # specify if undirected or not
+  mode = 'graph'
+
+  # if instead directed network are the input, turn it directed
+  if(directed == TRUE){
+    mode = 'digraph'
+  } 
+  
+  # if input is an adjacency matrix, turn it into a network object
+  if(inherits(net, "matrix")){
+    net = as.network(net, directed = directed) 
+    print("Matrix coerced to network object")
+    
+  }
+  
+  # make sure there's no missingness in it
+  if(network.naedgecount(net) != 0){
+    
+    tempMat = as.matrix(net)
+    tempMat[is.na(tempMat)] = 0
+    net = as.network(tempMat, directed = directed)
+    print("Missing values in the network converted to 0s")
+    
+  }
+  
+
+  
+  # getting a distribution of clustering coefficients for the 80 simulated graphs
+  tempClust <- gtrans(net, mode = mode)
+  tempCent <- centralization(net, degree, mode = mode)
+  tempGeodistMedian <- median(geodist(net, inf.replace = NA)$gdist, na.rm = T)
+  tempBetwMedian <- median(betweenness(net, gmode = mode))
+  
+  ## specify the chosen metric
+  metricList = list("clustering" = tempClust,
+                    "centralisation" = tempCent,
+                    "MedianGeodesic" = tempGeodistMedian,
+                    "MedianBetween" = tempBetwMedian)
+  
+  # return the list of metrics
+  return(metricList)
+  
+}
+
+
+## get mean value parameterisations
+# function to check mean value parameterisations
+meanValPar = function(net, model){
+  
+  ## net is the outcome network, usually the degraded adjacency matrix
+  ## model is a STRING for the specified model
+  
+  # paste together the input network object and the specified model
+  eval(parse(text = paste("chosenModel = net", "~", model )))
+  
+  # check mean value par
+  summary(chosenModel)
+}
+
+
+## before defining the function, let's make sure it works first of all
+# this is todd-only functionality because simulating with NAs doesn't seem particularly informative
+# the idea here is given some specific model-based missingness (or sampling), what are the effects of different parameters
+
+
+
+# function to generate simulated networks 
+trueNet = as.network(testNet, directed = FALSE)
+
+# read in some of the simulated missingness 
+load(here("Output", "20230814_simMissNets", "20230825_simMissErgmNets_ergmCoef_3_propMiss1.RData"))
+
+initMissNet = missErgmSimNets[[1]][[1]]
+
+# to save computation time, the outcome 'network' (missngness matrix) does not need to be read in, I just need
+# a specific proportion for the density
+
+# read in the functions I made before
+source(here("Scripts", "20230811_missNetFunctions.R"))
+
+# and then initialise a matrix with a fixed density
+initMissNet2 = initMissAdj(n = network.size(trueNet),
+                           propMiss = 0.1)  # second argument will be changed depending on the propMiss
+
+# set the initial network
+net = as.network(initMissNet2, directed = FALSE)
+
+# from then on, simulate multiple possible Ds 
+# specify some arguments
+paraRange = seq(from = -2, to = 2, length.out = 50)
+modelSpec = net ~ edges + 
+                          gwdegree(0.69, fixed = TRUE) +
+                          gwesp(0.69, fixed = TRUE) +
+                          dyadcov(trueNet) +
+                          nodecov('degree')
+
+# some random initial parameters (0 is for edges)
+initParas = c(0, 0.5, -0.2, 0.3, 0.8)
+
+# integer to choose which parameter's getting changed
+chosenPara = 2
+
+
+ # degree covariate calculation, should I retroactively update the reestimation code to attach the degree covariate...
+  # might be better to specify the true network here...
+  net %v% 'degree' = rowSums(as.matrix(trueNet))
+
+  # initialising the simulation
+  netStart = net
+  simNetList = list()
+  
+  # loop to simulate different gwdeg values
+  for (paraIndex in c(1:length(paraRange)) ){
+    
+   # a conditional after the first loop for making the starting network iterate between gwdeg parameters
+    if ( paraIndex > 1 ){
+    netStart <- tempSimNets[[1]]
+       netStart %v% 'degree' = rowSums(as.matrix(trueNet))
+    }
+    
+    # choose coefs
+    chosenCoefs = initParas
+    chosenCoefs[chosenPara] = paraRange[paraIndex]
+      
+    # simulating 80 networks given the specified model and their parameter values
+    tempSimNets <- simulate(object = modelSpec,
+                            constraints =~edges,
+                            coef= chosenCoefs,
+                            control=control.simulate(
+                              MCMC.burnin=20000,
+                              MCMC.interval=100), nsim=80 )
+    
+    # save the simulated networks
+    simNetList[[paraIndex]] = tempSimNets
+    
+  }
+
+# then deplete the true network with the simulated missingness matrices
+trueMat = as.matrix(trueNet)
+
+# turn everything into matrices
+simMissAdjList = lapply(simNetList, function(x){lapply(x, as.matrix)})
+
+# with the list of missingness matrices, apply them to the true adjmat to deplete
+# usingt he degrade adj function as a small shortcut
+# a doozy of code line, but mostly due to the nested-list structure
+# saving as Todd because we're calculating metrics
+degradedAdjList = lapply(simMissAdjList, function(chosenPara){
+  lapply(chosenPara, function(chosenMissAdj){
+    degradeAdj(trueNet = trueMat, missAdj = chosenMissAdj, missSave = 0)})})
+
+# turn all of them into networks
+# and then calculate the metrics
+degradedNetList = lapply(degradedAdjList, function(chosenPara){
+  lapply(chosenPara, as.network, directed = FALSE)
+})
+
+# then calculate metrics
+degradedNetMetrics = lapply(degradedNetList, function(chosenPara){
+  lapply(chosenPara, netMetrics)})
+
+# this list can then be used to plot stuff
+
+geneSimNets = function(net, modelSpec, initParas, chosenPara, paraRange, trueNet){
+  
+  # takes a network, like a depleted network without missingness (i.e., saved as 0)
+  # use different models to simulate networks with the same amount of edges
+    # i.e., simulating the effects of various parameter values (and model specification)
+    # on a depleted network with constrained edges/density
+  # ideally accommodates a range of different model specifications and parameter values
+  # the parameters are varied one at a time to view its effect holding constant on other parameters....
+  # so the function will look like
+  # simNet(toddNet, modelSpec, initParas, chosenPara, paraRange, trueNet)
+  # output = list of simulated networks, 
+  # mean value parameterisations can be applied in a separate chunk of code for the list
+  # of simulated networks since it'd be conditional to the model specified for the simulated networks.
+
+  ### NO:
+  # take a simulated missingness matrix with a fixed proportion
+  # specify some model, with varying specification or parameter values,
+  # then simulate some other possible missingness matrices
+  # while constraining the edges (fixed prportion of missingness)
+  # use the simulated missingness matrices to deplete true adjmat X
+  # then calculate metrics and mean value parameterisations on the depleted network
+
+  ## checks
+  # make sure it's a network object
+  if(inherits(net, "matrix")){
+    net = as.network(net)
+  }
+
+  # make sure there's no missingness in it
+  if(network.naedgecount(testNet) != 0){
+    stop("Network has missing values in it.")
+  }
+
+  # degree covariate calculation, should I retroactively update the reestimation code to attach the degree covariate...
+  # might be better to specify the true network here...
+  net %v% 'degree' = rowSums(trueNet)
+
+  # initialising the simulation
+  netStart = net
+  simNetList = list()
+  
+  # loop to simulate different gwdeg values
+  for (paraIndex in c(1:length(paraRange)) ){
+    
+   # a conditional after the first loop for making the starting network iterate between gwdeg parameters
+    if ( paraIndex > 1 ){
+    netStart <- tempSimNets[[1]]
+       netStart %v% 'degree' = rowSums(trueNet)
+    }
+    
+    # choose coefs
+    chosenCoefs = initParas
+    chosenCoefs[chosenPara] = paraRange[paraIndex]
+      
+    # simulating 80 networks given the specified model and their parameter values
+    tempSimNets <- simulate(object = modelSpec,
+                            constraints =~edges,
+                            coef= chosenCoefs,
+                            control=control.simulate(
+                              MCMC.burnin=20000,
+                              MCMC.interval=100), nsim=80 )
+    
+    # save the simulated networks
+    simNetList[[paraIndex]] = tempSimNets
+    
+  }
+  # return the simulated 'networks' (these are simulated missingness matrices saved as networks)
+  return(simNetList)
+  
+}
+  
+# mean value parameterisation extraction... does this need to be a function?
+# could just be a line of code... probably...
+
+```
+
+
+```{r metric plot fn}
+# plotting the degraded metrics with the 'true' value
+# and indexing which coefficients are used
+# ... and what type of missingness it is...
+# ... with indices for what network dataset and the proportion of missingness....
+
+# initial code for making the plot data, turned into a function
+# # extracting specific metrics
+# uniqueMetrics = unique(names(unlist(degradedNetMetrics[[1]])))
+# 
+# # initialise plot data
+# metricPlotData = data.frame(metricName = NA, varyingParameter = NA, parameterValue = NA, quant0.05 = NA, median = NA, quant0.95 = NA)
+# 
+# # additional list for metric ranges
+# rawMetricList = list()
+# 
+# # loop to choose different metrics in calculating the different quantiles
+# for(chosenMetric in 1:length(uniqueMetrics)){
+#   
+#   # a value for the row index based on the iteration of the loop
+#   tempRowInd = seq(from = 1 + (length(degradedNetMetrics) * (chosenMetric - 1)), to = chosenMetric * length(degradedNetMetrics))
+#   
+#   # fix this value for now, but this would depend on the model spec and which chosen para it is
+#   chosenParaLabel = "gwdeg"
+#   metricPlotData[tempRowInd,"varyingParameter"] = chosenParaLabel
+#   
+#   # put in the metric name
+#   metricPlotData[tempRowInd, "metricName"] = uniqueMetrics[chosenMetric]
+#   
+#   # extract the chosen metrics from the nested list
+#   rawMetricList[[chosenMetric]] = lapply(degradedNetMetrics, function(chosenParaVal){unlist(chosenParaVal)[names(unlist(chosenParaVal)) == uniqueMetrics[[chosenMetric]]]})
+#   
+#   # fill in the quantiles
+#   metricPlotData[tempRowInd, c("quant0.05", "median", "quant0.95")] = do.call(rbind, lapply(rawMetricList[[chosenMetric]], function(chosenParaVal){quantile(chosenParaVal, c(0.05, 0.5, 0.95))}))
+#   
+#   # lastly, give the parameter values
+#   metricPlotData[tempRowInd, "parameterValue"] = paraRange
+# }
+
+## Function to prep metric plot data
+prepMetricPlot = function(degradedNetMetricList, chosenPara){
+  
+  ## prepMetricPlot(degradedNetMetricList, chosenPara) takes a list of metric calculated from degraded networks
+  ## and a specified parameter name that controlled the degradation to subset them into a data frame to be used
+  ## for plotting purposes.
+  ##
+  ## Input:
+  ## - degradedNetMetricList: A list of (nested) network metrics calculated using the netMetrics function on
+  ##                          a list of degraded networks. Missingness needs to be saved as 0 for values to calculable.
+  ##
+  ## - chosenPara: A string to describe which parameter is being varied in the degradation of the networks.
+  ##                  
+  ## Output: 
+  ## - A dataframe containing the metric names, which parameter is being varied and what its value is for the degradation,
+  ##   and three quantiles (5, 50, and 95) to describe the range and median of the degraded metric.
+  
+  
+  # extracting specific metrics
+  uniqueMetrics = unique(names(unlist(degradedNetMetricList[[1]])))
+  
+  # initialise plot data
+  metricPlotData = data.frame(metricName = NA, varyingParameter = NA, parameterValue = NA, quant0.05 = NA, median = NA, quant0.95 = NA)
+  
+  # additional list for metric ranges
+  rawMetricList = list()
+  
+  # loop to choose different metrics in calculating the different quantiles
+  for(chosenMetric in 1:length(uniqueMetrics)){
+    
+    # a value for the row index based on the iteration of the loop
+    tempRowInd = seq(from = 1 + (length(degradedNetMetricList) * (chosenMetric - 1)), to = chosenMetric * length(degradedNetMetricList))
+    
+    # fix this value for now, but this would depend on the model spec and which chosen para it is
+    chosenParaLabel = chosenPara
+    metricPlotData[tempRowInd,"varyingParameter"] = chosenParaLabel
+    
+    # put in the metric name
+    metricPlotData[tempRowInd, "metricName"] = uniqueMetrics[chosenMetric]
+    
+    # extract the chosen metrics from the nested list
+    rawMetricList[[chosenMetric]] = lapply(degradedNetMetricList, function(chosenParaVal){unlist(chosenParaVal)[names(unlist(chosenParaVal)) == uniqueMetrics[[chosenMetric]]]})
+    
+    # fill in the quantiles
+    metricPlotData[tempRowInd, c("quant0.05", "median", "quant0.95")] = do.call(rbind, lapply(rawMetricList[[chosenMetric]], function(chosenParaVal){quantile(chosenParaVal, c(0.05, 0.5, 0.95))}))
+    
+    # lastly, give the parameter values
+    metricPlotData[tempRowInd, "parameterValue"] = paraRange
+  }
+  
+  # return the plot data
+  return(metricPlotData)  
+}
+
+metricPlotData = prepMetricPlot(degradedNetMetricList = degradedNetMetrics, chosenPara = "gwdeg")
+
+# unqiue metric names
+uniqueMetrics = unique(names(unlist(degradedNetMetrics[[1]])))
+
+## now that the data's right, it's just a matter of plotting-
+metricPlotData %>%
+  filter(metricName == "clustering") %>% 
+  ggplot(aes(x = parameterValue, y = median)) + 
+  geom_line() + 
+  geom_ribbon(aes(ymin = quant0.05, ymax = quant0.95), alpha = 0.2) + 
+  labs(title = "Metric diagnostics - varyingGwdeg - Prop1 - Miss0") + 
+  xlab("gwdeg value") + 
+  ylab("Clustering")
+
+# note: the chosen missingness will always be 0 because calculating metrics needs missingness to be 0, so take it off the plot title
+
+## Turn this base plot code into a function-
+missMetricPlot = function(data, chosenMetric, chosenPara, chosenProp){
+  
+  ## missMetricPlot(data, chosenMetric, chosenPara, chosenProp) is a very specialised plotting function that
+  ## produces a caterpillar plot to compare parameter estimates for very specific data.
+  ##
+  ## Input:
+  ## - data: A data frame containing the metric name, varying parameter, the varying parameter's value, and 
+  ##         5th, 50th, and 95th quantiles of the metric. Obtained from prepMetricPlot().
+  ##
+  ## - chosenPara: A string to describe which parameter is being varied in the degradation of the networks.
+  ##                
+  ## - chosenProp: A single integer or float with three options representing the proportion of missingness.
+  ##               Options are 1 = 10%, 3.5 = 35%, 6 = 60%.
+  ##
+  ## Output: 
+  ## - The output should be a line plot with a shaded area representing the 90% confidence interval of the metric.
+  ##   Its labels should be adaptive to the chosen metric, (varying) parameter, and proportion of missingness.
+
+  
+  # requires ggplot2 and dplyr
+  require(ggplot2)
+  require(dplyr)
+  
+  # and plot
+  data %>%
+  filter(metricName == chosenMetric) %>% 
+  ggplot(aes(x = parameterValue, y = median)) + 
+  geom_line() + 
+  geom_ribbon(aes(ymin = quant0.05, ymax = quant0.95), alpha = 0.2) + 
+  labs(title = paste("Depleted network diagnostics - varying", chosenPara," - Prop", chosenProp, sep = "")) + 
+  xlab(paste("Varying", chosenPara, "value")) + 
+  ylab(paste(toupper(substr(chosenMetric, 1, 1)), substr(chosenMetric, 2, nchar(chosenMetric)), sep = ""))
+  
+}
+
+
+# do this for all the unique metrics
+missMetricPlot(data = metricPlotData, chosenMetric = uniqueMetrics[2], chosenPara = "Gwdeg", chosenProp = 1)
+missMetricPlot(data = metricPlotData, chosenMetric = uniqueMetrics[3], chosenPara = "Gwdeg", chosenProp = 1)
+missMetricPlot(data = metricPlotData, chosenMetric = uniqueMetrics[4], chosenPara = "Gwdeg", chosenProp = 1)
+
+
+### and now the mean value parameterisations
+# a check to make sure it works
+meanValPar(net = degradedNetList[[4]][[10]],
+           model = "edges + gwdegree(decay = log(2), fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE)")
+
+# mass apply to lists
+meanValParLists = lapply(degradedNetList, function(chosenParaVal){
+  lapply(chosenParaVal, meanValPar, model = "edges + gwdegree(decay = log(2), fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE)")
+})
+
+# unlist them to plot
+meanValParUnlisted = lapply(meanValParLists, unlist)
+
+### commented out section is for code that is largely identical to the function to prep plot data above
+# # initialise plot data
+# meanValPlotData = data.frame(parameterName = NA, varyingParameter = NA, parameterValue = NA, quant0.05 = NA, median = NA, quant0.95 = NA)
+# 
+# # additional list for metric ranges
+# rawMeanValList = list()
+# 
+# # grab unique parameter names
+# uniqueParaNames = unique(names(meanValParUnlisted[[1]]))
+# 
+# # loop to grab the quantiles of each of these mean value parameterisation values for each parameter
+# for(chosenParaName in 1:length(uniqueParaNames)){
+#   
+#   # a value for the row index based on the iteration of the loop
+#   tempRowInd = seq(from = 1 + (length(meanValParUnlisted) * (chosenParaName - 1)), to = chosenParaName * length(meanValParUnlisted))
+#   
+#   # fix this value for now, but this would depend on the model spec and which chosen para it is
+#   chosenParaLabel = "gwdeg"
+#   meanValPlotData[tempRowInd,"varyingParameter"] = chosenParaLabel
+#   
+#   # put in the metric name
+#   meanValPlotData[tempRowInd, "parameterName"] = uniqueParaNames[chosenParaName]
+#   
+#   # extract the chosen metrics from the nested list
+#   rawMeanValList[[chosenParaName]] = lapply(meanValParLists, function(chosenParaVal){unlist(chosenParaVal)[names(unlist(chosenParaVal)) == uniqueParaNames[[chosenParaName]]]})
+#   
+#   # fill in the quantiles
+#   meanValPlotData[tempRowInd, c("quant0.05", "median", "quant0.95")] = do.call(rbind, lapply(rawMeanValList[[chosenParaName]], function(chosenParaVal){quantile(chosenParaVal, c(0.05, 0.5, 0.95))}))
+#   
+#   # lastly, give the parameter values
+#   meanValPlotData[tempRowInd, "parameterValue"] = paraRange
+# }
+
+## if I consider the mean value parametrisations as another metric, I don't need another chunk of code specifically for these
+meanValPlotData = prepMetricPlot(degradedNetMetricList = meanValParUnlisted, chosenPara = "gwdeg")
+
+# check all unique parameter names
+uniqueParaNames = unique(names(meanValParUnlisted[[1]]))
+
+# and check to make sure the plots work
+missMetricPlot(data = meanValPlotData, chosenMetric = uniqueParaNames[1], chosenPara = "Gwdeg", chosenProp = 1)
+missMetricPlot(data = meanValPlotData, chosenMetric = uniqueParaNames[2], chosenPara = "Gwdeg", chosenProp = 1)
+missMetricPlot(data = meanValPlotData, chosenMetric = uniqueParaNames[3], chosenPara = "Gwdeg", chosenProp = 1)
+
+
+
+
+```
+
+## More plots for more missingness proportions
+
+### 10% missingness - Todd
+
+```{r small miss prop todd}
+# loading in the output results
+outputList = list.files(here("Output", "20230825_simMissReest", "Todd"))
+
+# set up some lists to put in the ergm re-estimations
+modelResList = list()
+modelSeList = list()
+missModelList = list()
+propMissList = list()
+
+# set a specific index for the network
+chosenNetInd = 1
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231005_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Todd", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 1,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 1,
+                    chosenMiss = "0")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 1,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 1,
+                    chosenMiss = "0")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 1,
+                            chosenMiss = "0")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+# set a specific index for the network
+chosenNetInd = 2
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231005_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Todd", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 1,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 1,
+                    chosenMiss = "0")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 1,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 1,
+                    chosenMiss = "0")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 1,
+                            chosenMiss = "0")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+# set a specific index for the network
+chosenNetInd = 4
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231005_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Todd", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 1,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 1,
+                    chosenMiss = "0")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 1,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 1,
+                    chosenMiss = "0")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 1,
+                            chosenMiss = "0")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+# set a specific index for the network
+chosenNetInd = 5
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231005_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Todd", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 1,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 1,
+                    chosenMiss = "0")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 1,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 1,
+                    chosenMiss = "0")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 1,
+                            chosenMiss = "0")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+# set a specific index for the network
+chosenNetInd = 6
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231011_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Todd", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 1,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 1,
+                    chosenMiss = "0")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 1,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 1,
+                    chosenMiss = "0")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 1,
+                            chosenMiss = "0")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+```
+
+
+### 35% missingness - Peter
+
+```{r med miss prop peter}
+# loading in the output results
+outputList = list.files(here("Output", "20230825_simMissReest", "Peter"))
+
+# set up some lists to put in the ergm re-estimations
+modelResList = list()
+modelSeList = list()
+missModelList = list()
+propMissList = list()
+
+# set a specific index for the network
+chosenNetInd = 2
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231004_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Peter", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 3,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 3.5,
+                    chosenMiss = "NA")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 3,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 3.5,
+                    chosenMiss = "NA")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 3,
+                            chosenMiss = "NA")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+# set a specific index for the network
+chosenNetInd = 4
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231004_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Peter", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 3,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 3.5,
+                    chosenMiss = "NA")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 3,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 3.5,
+                    chosenMiss = "NA")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 3,
+                            chosenMiss = "NA")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+# set a specific index for the network
+chosenNetInd = 5
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231004_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Peter", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 3,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 3.5,
+                    chosenMiss = "NA")
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 3,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 3.5,
+                    chosenMiss = "NA")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 3,
+                            chosenMiss = "NA")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+# set a specific index for the network
+chosenNetInd = 6
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231010_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Peter", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 3,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 3.5,
+                    chosenMiss = "NA")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 3,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 3.5,
+                    chosenMiss = "NA")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 3,
+                            chosenMiss = "NA")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+```
+
+
+### 60% missingness - Peter
+
+```{r large miss prop peter}
+# loading in the output results
+outputList = list.files(here("Output", "20230825_simMissReest", "Peter"))
+
+# set up some lists to put in the ergm re-estimations
+modelResList = list()
+modelSeList = list()
+missModelList = list()
+propMissList = list()
+
+# set a specific index for the network
+chosenNetInd = 2
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231005_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Peter", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 6,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 6,
+                    chosenMiss = "NA")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 6,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 6,
+                    chosenMiss = "NA")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 6,
+                            chosenMiss = "NA")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+# set a specific index for the network
+chosenNetInd = 4
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231005_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Peter", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 6,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 6,
+                    chosenMiss = "NA")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 6,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 6,
+                    chosenMiss = "NA")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 6,
+                            chosenMiss = "NA")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+
+# set a specific index for the network
+chosenNetInd = 5
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231011_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Peter", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 6,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 6,
+                    chosenMiss = "NA")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 6,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 6,
+                    chosenMiss = "NA")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 6,
+                            chosenMiss = "NA")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+# set a specific index for the network
+chosenNetInd = 6
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231011_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Peter", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 6,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 6,
+                    chosenMiss = "NA")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 6,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 6,
+                    chosenMiss = "NA")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 6,
+                            chosenMiss = "NA")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+
+```
+
+### 35% missingness - Todd
+
+```{r med miss prop todd}
+# loading in the output results
+outputList = list.files(here("Output", "20230825_simMissReest", "Todd"))
+
+# set up some lists to put in the ergm re-estimations
+modelResList = list()
+modelSeList = list()
+missModelList = list()
+propMissList = list()
+
+# set a specific index for the network
+chosenNetInd = 1
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231005_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Todd", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 3,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 3.5,
+                    chosenMiss = "0")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 3,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 3.5,
+                    chosenMiss = "0")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 3,
+                            chosenMiss = "0")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+
+# set a specific index for the network
+chosenNetInd = 2
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231005_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Todd", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 3,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 3.5,
+                    chosenMiss = "0")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 3,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 3.5,
+                    chosenMiss = "0")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 3,
+                            chosenMiss = "0")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+# set a specific index for the network
+chosenNetInd = 4
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231005_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Todd", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 3,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 3.5,
+                    chosenMiss = "0")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 3,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 3.5,
+                    chosenMiss = "0")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 3,
+                            chosenMiss = "0")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+# set a specific index for the network
+chosenNetInd = 5
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231012_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Todd", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 3,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 3.5,
+                    chosenMiss = "0")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 3,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 3.5,
+                    chosenMiss = "0")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 3,
+                            chosenMiss = "0")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+# set a specific index for the network
+chosenNetInd = 6
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231012_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Todd", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 3,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 3.5,
+                    chosenMiss = "0")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 3,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 3.5,
+                    chosenMiss = "0")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 3,
+                            chosenMiss = "0")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+```
+
+
+### 60% missingness - Todd
+
+```{r large miss prop todd}
+# loading in the output results
+outputList = list.files(here("Output", "20230825_simMissReest", "Todd"))
+
+# set up some lists to put in the ergm re-estimations
+modelResList = list()
+modelSeList = list()
+missModelList = list()
+propMissList = list()
+
+# set a specific index for the network
+chosenNetInd = 1
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231006_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Todd", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 6,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 6,
+                    chosenMiss = "0")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 6,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 6,
+                    chosenMiss = "0")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 6,
+                            chosenMiss = "0")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+# set a specific index for the network
+chosenNetInd = 2
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231006_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Todd", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 6,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 6,
+                    chosenMiss = "0")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 6,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 6,
+                    chosenMiss = "0")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 6,
+                            chosenMiss = "0")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+
+# set a specific index for the network
+chosenNetInd = 4
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231006_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Todd", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 6,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 6,
+                    chosenMiss = "0")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 6,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 6,
+                    chosenMiss = "0")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 6,
+                            chosenMiss = "0")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+
+# set a specific index for the network
+chosenNetInd = 5
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231011_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Todd", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 6,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 6,
+                    chosenMiss = "0")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 6,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 6,
+                    chosenMiss = "0")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 6,
+                            chosenMiss = "0")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+
+# set a specific index for the network
+chosenNetInd = 6
+
+# file list for the chosen network index, change whenever necessary
+chosenNetOutFiles = grep(paste("20231011_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Todd", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  # regex to get the first number after the specified text
+  missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# first try with alt star
+chosenPara = 2
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 6,
+                            chosenPara = "altStar")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "altStar",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 6,
+                    chosenMiss = "0")
+
+
+
+
+# still need to take out true parameter values
+chosenPara = 3
+
+tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+
+
+# test run of the plot function
+testPlotData = prepMissPlot(modelResList = modelResList,
+                            modelSeList = modelSeList,
+                            missModelList = missModelList,
+                            propMissList = propMissList,
+                            chosenProp = 6,
+                            chosenPara = "gwesp")
+
+head(testPlotData)
+
+
+# and see if the plot here matches the one above
+missCaterpillarPlot(plotData = testPlotData,
+                    truePara = tempTruePara,
+                    trueSe = tempTrueSe,
+                    chosenPara = "gwesp",
+                    chosenNetInd = chosenNetInd,
+                    chosenProp = 6,
+                    chosenMiss = "0")
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = failPlotData(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = 6,
+                            chosenMiss = "0")
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+
+```
+

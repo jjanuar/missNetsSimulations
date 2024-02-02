@@ -1,0 +1,5018 @@
+Estimation
+Observed graph statistics:
+0.00	0.00	0.00	
+Phase1 simulation:
+Mean statistics:
+0.00	0.00	0.00	
+Degenerate ergm!
+Estimation
+Observed graph statistics:
+0.00	0.00	0.00	
+Phase1 simulation:
+Mean statistics:
+0.00	0.00	0.00	
+Degenerate ergm!
+Estimation
+Observed graph statistics:
+0.00	0.00	0.00	
+Phase1 simulation:
+Mean statistics:
+0.00	0.00	0.00	
+Degenerate ergm!
+Estimation
+Observed graph statistics:
+0.00	0.00	0.00	
+Phase1 simulation:
+Mean statistics:
+0.00	0.00	0.00	
+Degenerate ergm!
+Estimation
+Observed graph statistics:
+0.00	0.00	0.00	
+Phase1 simulation:
+Mean statistics:
+0.00	0.00	0.00	
+Degenerate ergm!
+Estimation
+Observed graph statistics:
+112.00	342.87	208.07	
+Phase1 simulation:
+Mean statistics:
+111.63	339.77	163.71	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+1.8196	-1.5935	1.4028	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+2.7758	-1.9980	1.6945	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+2.3319	-1.9559	1.8299	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+2.6006	-2.0802	1.9294	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+2.2868	-2.0382	1.9981	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 1580 
+Mean statistics:
+105.6420	317.4289	183.5760	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	2.2868	4.644	0.714	0.132	
+ASA	2.0000	-2.0382	1.232	0.733	0.135	
+ATA	2.0000	1.9981	0.371	1.237	0.120	
+
+Covariance matrix
+21.5641	-5.6377	0.1778	
+-5.6377	1.5183	-0.1236	
+0.1778	-0.1236	0.1379	
+Estimation
+Observed graph statistics:
+112.00	342.87	208.07	
+Phase1 simulation:
+Mean statistics:
+104.00	310.95	181.09	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.9497	-1.6255	3.7305	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-1.5221	-1.9933	3.7555	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-1.3724	-2.0433	3.7851	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-1.0828	-2.1976	3.9169	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-1.5768	-2.1263	4.0106	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 1580 
+Mean statistics:
+107.7640	326.0982	199.3003	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-1.5768	2.568	0.268	0.745	
+ASA	2.0000	-2.1263	0.623	0.270	0.746	
+ATA	2.0000	4.0106	0.474	0.273	0.706	
+
+Covariance matrix
+6.5941	-1.4833	-0.3745	
+-1.4833	0.3879	-0.0205	
+-0.3745	-0.0205	0.2243	
+Estimation
+Observed graph statistics:
+112.00	342.87	208.07	
+Phase1 simulation:
+Mean statistics:
+103.06	307.39	177.27	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-0.5219	-1.7775	2.8476	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-0.8960	-1.8450	3.1393	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-0.8133	-1.9384	3.2736	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-1.0034	-1.9131	3.3278	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-0.9356	-1.9707	3.3985	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 1580 
+Mean statistics:
+110.7920	337.9618	202.4670	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-0.9356	2.984	0.101	0.519	
+ASA	2.0000	-1.9707	0.759	0.105	0.517	
+ATA	2.0000	3.3985	0.517	0.222	0.496	
+
+Covariance matrix
+8.9051	-2.1112	-0.3093	
+-2.1112	0.5764	-0.0658	
+-0.3093	-0.0658	0.2676	
+Estimation
+Observed graph statistics:
+112.00	342.87	208.07	
+Phase1 simulation:
+Mean statistics:
+100.75	298.49	173.50	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-1.0353	-2.1747	3.8260	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-1.7021	-2.1054	4.0259	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-1.6433	-2.0939	3.9918	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-1.7110	-2.0991	4.0303	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-1.7710	-2.1026	4.0607	
+Subphase 6 started with a = 0.0006
+Parameters after subphase 6:
+-1.6346	-2.1209	4.0349	
+Subphase 7 started with a = 0.0003
+Parameters after subphase 7:
+-1.6908	-2.1119	4.0451	
+Subphase 8 started with a = 0.0002
+Parameters after subphase 8:
+-1.6849	-2.1158	4.0505	
+Subphase 9 started with a = 0.0001
+Parameters after subphase 9:
+-1.7128	-2.1018	4.0396	
+Subphase 10 started with a = 0.0000
+Parameters after subphase 10:
+-1.6933	-2.1139	4.0514	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 4740 
+Mean statistics:
+116.5700	360.9451	217.0650	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-1.6933	2.224	-0.355	0.442	
+ASA	2.0000	-2.1139	0.557	-0.358	0.443	
+ATA	2.0000	4.0514	0.524	-0.338	0.408	
+
+Covariance matrix
+4.9443	-1.0894	-0.3253	
+-1.0894	0.3103	-0.0614	
+-0.3253	-0.0614	0.2748	
+Estimation
+Observed graph statistics:
+112.00	342.87	208.07	
+Phase1 simulation:
+Mean statistics:
+111.75	342.11	205.11	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-1.1942	-2.3505	4.2440	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-1.6017	-2.1594	4.0876	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-1.8193	-2.1277	4.1298	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-1.9262	-2.0852	4.1052	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-1.9240	-2.0572	4.0552	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 4740 
+Mean statistics:
+116.3980	360.3311	216.9272	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-1.9240	2.347	-0.293	0.558	
+ASA	2.0000	-2.0572	0.583	-0.297	0.556	
+ATA	2.0000	4.0552	0.511	-0.288	0.525	
+
+Covariance matrix
+5.5061	-1.2283	-0.3420	
+-1.2283	0.3396	-0.0489	
+-0.3420	-0.0489	0.2611	
+Estimation
+Observed graph statistics:
+112.00	342.87	208.07	
+Phase1 simulation:
+Mean statistics:
+117.63	365.47	216.64	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-1.3599	-2.0812	3.8343	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-1.4670	-2.1887	4.0791	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-1.4968	-2.2391	4.1857	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-1.6015	-2.1390	4.0558	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-1.6869	-2.0428	3.9236	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 4740 
+Mean statistics:
+116.5520	360.8268	216.7550	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-1.6869	2.477	-0.328	0.462	
+ASA	2.0000	-2.0428	0.613	-0.332	0.461	
+ATA	2.0000	3.9236	0.508	-0.305	0.426	
+
+Covariance matrix
+6.1366	-1.3807	-0.3642	
+-1.3807	0.3761	-0.0421	
+-0.3642	-0.0421	0.2578	
+Estimation
+Observed graph statistics:
+112.00	342.87	208.07	
+Phase1 simulation:
+Mean statistics:
+113.56	349.90	208.52	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-0.7419	-2.1019	3.5372	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-1.1696	-2.0670	3.6956	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-1.2521	-2.0880	3.7798	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-1.3627	-2.0672	3.7987	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-1.3925	-2.0863	3.8478	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 4740 
+Mean statistics:
+112.1920	343.6113	207.5456	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-1.3925	2.381	-0.013	0.572	
+ASA	2.0000	-2.0863	0.593	-0.013	0.572	*
+ATA	2.0000	3.8478	0.466	0.018	0.537	*
+
+Covariance matrix
+5.6709	-1.2979	-0.2888	
+-1.2979	0.3520	-0.0390	
+-0.2888	-0.0390	0.2172	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+155.00	512.17	286.95	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+1437.1066	-362.4569	4.1341	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+753.7467	-190.9367	3.5784	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+171.4302	-44.9479	3.3172	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+24.7028	-8.2557	3.4054	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-0.5232	-2.0167	3.5412	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+154.2360	509.3011	296.3513	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-0.5232	11.235	0.244	-0.006	
+ASA	2.0000	-2.0167	2.908	0.314	-0.006	
+ATA	2.0000	3.5412	0.831	0.591	-0.002	
+
+Covariance matrix
+126.2293	-32.2674	0.9590	
+-32.2674	8.4573	-0.6219	
+0.9590	-0.6219	0.6906	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+150.75	495.44	288.57	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-21.4971	1.0826	7.6808	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-11.9217	-1.5993	8.2166	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+11.1304	-7.4429	8.3566	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+14.2701	-8.3131	8.5250	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-11.4805	-1.9340	8.6725	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+150.2380	501.1456	294.6933	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-11.4805	51.771	0.863	0.067	
+ASA	2.0000	-1.9340	13.012	0.645	0.067	
+ATA	2.0000	8.6725	1.767	0.787	0.064	
+
+Covariance matrix
+2680.1925	-671.9076	-0.5067	
+-671.9076	169.3085	-1.5156	
+-0.5067	-1.5156	3.1230	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+155.31	513.59	298.94	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-8.8605	-2.3655	8.1527	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-8.1271	-2.8662	8.7793	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.5470	-4.3529	8.9703	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+1.6400	-5.2732	8.7812	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-16.1072	-1.2172	9.4760	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+155.3000	517.4518	304.5020	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-16.1072	44.130	0.084	0.128	
+ASA	2.0000	-1.2172	11.053	0.026	0.128	
+ATA	2.0000	9.4760	1.610	0.071	0.128	*
+
+Covariance matrix
+1947.4689	-486.3799	-4.2750	
+-486.3799	122.1724	-0.2749	
+-4.2750	-0.2749	2.5909	
+Estimation
+Observed graph statistics:
+54.00	141.47	78.22	
+Phase1 simulation:
+Mean statistics:
+54.25	107.31	17.70	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-4.4807	0.3728	0.8059	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-4.3808	0.2697	0.9168	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-4.3196	0.2149	0.9809	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-4.2318	0.1641	1.0270	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-4.2218	0.1438	1.0650	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 3000 
+Mean statistics:
+37.0520	86.8720	44.5196	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-4.2218	0.392	0.419	0.933	
+ASA	2.0000	0.1438	0.270	0.414	0.937	
+ATA	2.0000	1.0650	0.349	0.470	0.933	
+
+Covariance matrix
+0.1539	-0.0836	0.0673	
+-0.0836	0.0728	-0.0868	
+0.0673	-0.0868	0.1218	
+Estimation
+Observed graph statistics:
+54.00	141.47	78.22	
+Phase1 simulation:
+Mean statistics:
+14.06	15.02	5.80	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-4.1775	-0.0842	1.4663	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-4.1667	-0.1009	1.4929	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-4.1424	-0.1060	1.4796	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-4.1323	-0.1093	1.4707	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-4.1264	-0.1170	1.4840	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 3000 
+Mean statistics:
+69.0760	193.5310	107.2070	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-4.1264	0.360	-0.284	0.950	
+ASA	2.0000	-0.1170	0.217	-0.294	0.945	
+ATA	2.0000	1.4840	0.317	-0.294	0.939	
+
+Covariance matrix
+0.1294	-0.0456	0.0122	
+-0.0456	0.0470	-0.0597	
+0.0122	-0.0597	0.1004	
+Estimation
+Observed graph statistics:
+54.00	141.47	78.22	
+Phase1 simulation:
+Mean statistics:
+88.94	254.35	141.48	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.7253	-0.2371	1.4760	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-4.1241	-0.1004	1.4385	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-4.1741	-0.0885	1.4426	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-4.0318	-0.1361	1.4572	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.9918	-0.1531	1.4682	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 3000 
+Mean statistics:
+35.7940	79.4558	43.4833	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.9918	0.369	0.553	0.912	
+ASA	2.0000	-0.1531	0.248	0.572	0.920	
+ATA	2.0000	1.4682	0.364	0.575	0.909	
+
+Covariance matrix
+0.1358	-0.0542	0.0235	
+-0.0542	0.0614	-0.0807	
+0.0235	-0.0807	0.1322	
+Estimation
+Observed graph statistics:
+54.00	141.47	78.22	
+Phase1 simulation:
+Mean statistics:
+16.75	23.59	12.01	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.7731	-0.4047	1.7591	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-4.0869	-0.0829	1.4218	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-4.0550	-0.1224	1.4641	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-4.1008	-0.0845	1.4372	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-4.0298	-0.1495	1.4913	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 3000 
+Mean statistics:
+82.1100	234.2866	129.7555	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-4.0298	0.395	-0.577	0.938	
+ASA	2.0000	-0.1495	0.201	-0.565	0.932	
+ATA	2.0000	1.4913	0.282	-0.564	0.929	
+
+Covariance matrix
+0.1559	-0.0499	0.0067	
+-0.0499	0.0404	-0.0461	
+0.0067	-0.0461	0.0795	
+Estimation
+Observed graph statistics:
+54.00	141.47	78.22	
+Phase1 simulation:
+Mean statistics:
+37.19	84.38	46.88	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-4.1804	-0.1025	1.4892	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-4.0592	-0.1474	1.4984	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-4.0718	-0.1259	1.4683	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-4.0682	-0.1319	1.4764	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-4.0574	-0.1395	1.4815	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 3000 
+Mean statistics:
+47.9820	121.9494	67.2130	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-4.0574	0.377	0.138	0.947	
+ASA	2.0000	-0.1395	0.244	0.136	0.948	
+ATA	2.0000	1.4815	0.365	0.138	0.946	
+
+Covariance matrix
+0.1421	-0.0518	0.0157	
+-0.0518	0.0596	-0.0787	
+0.0157	-0.0787	0.1330	
+Estimation
+Observed graph statistics:
+54.00	141.47	78.22	
+Phase1 simulation:
+Mean statistics:
+85.75	240.72	133.07	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.9012	-0.2210	1.5414	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-4.0098	-0.1266	1.4490	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-4.1140	-0.1194	1.4783	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-4.1125	-0.1167	1.4762	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-4.1013	-0.1208	1.4770	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 3000 
+Mean statistics:
+85.0100	245.5263	136.0726	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-4.1013	0.399	-0.600	0.940	
+ASA	2.0000	-0.1208	0.213	-0.596	0.933	
+ATA	2.0000	1.4770	0.294	-0.595	0.928	
+
+Covariance matrix
+0.1588	-0.0547	0.0139	
+-0.0547	0.0452	-0.0522	
+0.0139	-0.0522	0.0863	
+Estimation
+Observed graph statistics:
+54.00	141.47	78.22	
+Phase1 simulation:
+Mean statistics:
+28.44	56.38	31.07	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.6931	-0.3835	1.7139	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-4.0458	-0.1454	1.4957	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-4.0643	-0.1346	1.4801	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-4.0477	-0.1491	1.4956	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-4.0945	-0.1039	1.4444	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 3000 
+Mean statistics:
+72.6180	205.2728	113.3325	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-4.0945	0.396	-0.332	0.958	
+ASA	2.0000	-0.1039	0.221	-0.338	0.954	
+ATA	2.0000	1.4444	0.313	-0.334	0.951	
+
+Covariance matrix
+0.1565	-0.0542	0.0140	
+-0.0542	0.0489	-0.0589	
+0.0140	-0.0589	0.0982	
+Estimation
+Observed graph statistics:
+54.00	141.47	78.22	
+Phase1 simulation:
+Mean statistics:
+45.06	104.32	58.48	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-4.1816	-0.0302	1.3730	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-4.1325	-0.0812	1.4333	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-4.0812	-0.1233	1.4718	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-4.0333	-0.1406	1.4761	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-4.0306	-0.1549	1.4961	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 3000 
+Mean statistics:
+64.3220	173.9623	96.5272	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-4.0306	0.389	-0.234	0.927	
+ASA	2.0000	-0.1549	0.231	-0.222	0.919	
+ATA	2.0000	1.4961	0.322	-0.223	0.912	
+
+Covariance matrix
+0.1516	-0.0575	0.0214	
+-0.0575	0.0535	-0.0645	
+0.0214	-0.0645	0.1037	
+Estimation
+Observed graph statistics:
+54.00	141.47	78.22	
+Phase1 simulation:
+Mean statistics:
+21.00	34.98	19.88	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-4.1321	-0.1411	1.5134	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-4.1508	-0.0905	1.4537	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-4.1311	-0.1141	1.4748	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-4.1408	-0.1229	1.4963	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-4.1414	-0.1030	1.4675	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 3000 
+Mean statistics:
+43.6360	108.8833	59.8820	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-4.1414	0.353	0.240	0.945	
+ASA	2.0000	-0.1030	0.237	0.228	0.945	
+ATA	2.0000	1.4675	0.355	0.230	0.942	
+
+Covariance matrix
+0.1247	-0.0462	0.0154	
+-0.0462	0.0560	-0.0752	
+0.0154	-0.0752	0.1263	
+Estimation
+Observed graph statistics:
+54.00	141.47	78.22	
+Phase1 simulation:
+Mean statistics:
+18.13	26.49	14.45	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-4.0941	-0.1258	1.4890	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-4.1562	-0.0919	1.4628	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-4.1046	-0.1275	1.4895	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-4.1100	-0.0996	1.4451	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-4.0956	-0.1222	1.4765	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 3000 
+Mean statistics:
+53.2260	139.6815	77.1352	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-4.0956	0.360	0.016	0.948	*
+ASA	2.0000	-0.1222	0.229	0.011	0.948	
+ATA	2.0000	1.4765	0.339	0.012	0.946	*
+
+Covariance matrix
+0.1299	-0.0471	0.0144	
+-0.0471	0.0523	-0.0683	
+0.0144	-0.0683	0.1146	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+156.63	518.64	290.76	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+675.1401	-170.2263	2.0615	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+1540.3620	-387.8093	3.8111	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+560.8366	-141.8985	2.5287	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+295.0660	-75.2845	2.3444	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+55.7621	-15.3230	2.2098	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+163.0980	544.4996	313.8159	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	55.7621	105.195	-1.157	0.020	
+ASA	2.0000	-15.3230	26.480	-1.069	0.020	
+ATA	2.0000	2.2098	0.840	-0.575	0.015	
+
+Covariance matrix
+11065.9473	-2785.1230	25.3617	
+-2785.1230	701.1849	-6.7536	
+25.3617	-6.7536	0.7055	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+163.81	547.34	315.39	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+795.5416	-201.0864	3.5875	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+2949.9994	-741.5981	5.7816	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+1377.5010	-348.2565	6.2338	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+532.2941	-137.1128	6.9230	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+142.6004	-39.9256	7.5157	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+168.5880	566.4476	330.1416	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	142.6004	151.717	-2.220	-0.039	
+ASA	2.0000	-39.9256	38.204	-2.126	-0.039	
+ATA	2.0000	7.5157	1.484	-2.027	-0.038	
+
+Covariance matrix
+23017.9900	-5795.0880	62.3958	
+-5795.0880	1459.5663	-16.7886	
+62.3958	-16.7886	2.2024	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+164.13	548.60	315.91	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+1673.8481	-421.2397	4.1083	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+1168.7692	-296.4653	6.9928	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+412.9536	-107.8201	7.9121	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+40.0261	-14.6515	8.2250	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.5034	-3.7430	8.2247	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+160.1720	532.9579	313.0649	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.5034	41.426	-0.503	0.072	
+ASA	2.0000	-3.7430	10.393	-0.443	0.072	
+ATA	2.0000	8.2247	1.383	-0.425	0.067	
+
+Covariance matrix
+1716.0829	-429.4840	-1.9456	
+-429.4840	108.0091	-0.5112	
+-1.9456	-0.5112	1.9135	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+160.56	534.50	313.96	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.7553	-4.8553	10.5042	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+3.2693	-6.4924	10.2858	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+15.7132	-9.8416	10.7336	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+6.8877	-7.3279	10.1725	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-10.9620	-2.8870	10.2222	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+166.9980	560.1878	328.1276	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-10.9620	57.879	-1.367	0.000	
+ASA	2.0000	-2.8870	14.546	-1.305	0.000	
+ATA	2.0000	10.2222	1.711	-1.345	0.000	
+
+Covariance matrix
+3349.9326	-840.3267	0.9369	
+-840.3267	211.5836	-1.7536	
+0.9369	-1.7536	2.9277	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+160.13	532.76	312.92	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.7372	-4.4719	9.2802	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.9022	-4.2642	9.4364	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-7.0095	-3.3656	9.2276	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-11.9136	-2.1373	9.2329	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-9.6635	-2.8475	9.5095	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+113.0040	345.2854	219.3508	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-9.6635	41.709	2.751	0.910	
+ASA	2.0000	-2.8475	10.103	2.780	0.910	
+ATA	2.0000	9.5095	1.527	2.749	0.900	
+
+Covariance matrix
+1739.6691	-420.4957	-32.6137	
+-420.4957	102.0770	7.0141	
+-32.6137	7.0141	2.3329	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+160.69	535.06	314.04	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.5209	-4.0506	8.8139	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-11.3289	-2.1631	9.0073	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+7.0911	-6.8936	9.2493	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+7.0189	-7.0264	9.5807	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+27.6986	-12.7664	10.6296	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+169.8480	571.6217	334.1044	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	27.6986	8.198	-1.649	0.283	
+ASA	2.0000	-12.7664	1.770	-1.598	0.276	
+ATA	2.0000	10.6296	1.627	-1.638	0.278	
+
+Covariance matrix
+67.2032	-13.2634	-7.0376	
+-13.2634	3.1329	0.3980	
+-7.0376	0.3980	2.6463	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+156.63	518.80	305.57	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-29.6238	3.0172	7.8497	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-14.7777	-1.1806	8.7459	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-8.7286	-3.1872	9.6889	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.9083	-4.2256	8.9257	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+13.3705	-8.6940	9.6569	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+141.9940	463.1732	275.6070	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	13.3705	67.289	2.051	0.142	
+ASA	2.0000	-8.6940	16.837	2.024	0.142	
+ATA	2.0000	9.6569	1.667	2.131	0.132	
+
+Covariance matrix
+4527.7983	-1131.4702	-7.2033	
+-1131.4702	283.4923	0.3661	
+-7.2033	0.3661	2.7782	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+159.69	531.05	312.12	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-74.9582	12.8203	10.8913	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-0.2516	-5.5090	10.1094	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-6.8829	-3.5809	9.6408	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+18.3718	-10.3279	10.4434	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+10.0681	-8.0860	10.1564	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+174.5300	590.2271	343.7316	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	10.0681	93.346	-2.814	-0.032	
+ASA	2.0000	-8.0860	23.524	-2.736	-0.032	
+ATA	2.0000	10.1564	1.853	-2.781	-0.033	
+
+Covariance matrix
+8713.4219	-2194.0759	22.6825	
+-2194.0759	553.3898	-7.4648	
+22.6825	-7.4648	3.4333	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+157.19	521.05	307.14	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-41.0392	4.6985	10.1298	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-5.0774	-4.2774	10.0611	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-9.5907	-3.2611	10.2836	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-8.8446	-3.4364	10.2540	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-13.0816	-2.3778	10.2571	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+165.2440	553.1900	324.5617	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-13.0816	55.928	-0.996	0.213	
+ASA	2.0000	-2.3778	13.907	-0.942	0.213	
+ATA	2.0000	10.2571	1.590	-0.988	0.203	
+
+Covariance matrix
+3127.9320	-776.4993	-14.8511	
+-776.4993	193.4159	2.4212	
+-14.8511	2.4212	2.5281	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+162.31	541.48	317.74	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-41.1192	5.6495	8.2931	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+8.1795	-6.8975	8.6649	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.9470	-4.1032	9.1638	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+9.1547	-7.5486	9.5022	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+4.6216	-6.5443	9.7506	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+167.9720	564.0534	329.9851	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	4.6216	72.964	-1.664	0.119	
+ASA	2.0000	-6.5443	18.431	-1.594	0.119	
+ATA	2.0000	9.7506	1.746	-1.627	0.118	
+
+Covariance matrix
+5323.7070	-1343.1601	17.1111	
+-1343.1601	339.6854	-5.8724	
+17.1111	-5.8724	3.0499	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+159.75	531.28	312.50	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-15.1109	-1.6703	9.8533	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-13.6419	-2.0306	9.8369	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+13.2196	-9.2752	10.8635	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-12.9327	-2.6128	10.6467	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-16.9620	-1.4892	10.4150	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+122.6300	387.2783	239.3805	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-16.9620	37.135	1.318	0.947	
+ASA	2.0000	-1.4892	9.093	1.299	0.947	
+ATA	2.0000	10.4150	1.486	1.306	0.944	
+
+Covariance matrix
+1379.0397	-336.6764	-18.9808	
+-336.6764	82.6896	3.6534	
+-18.9808	3.6534	2.2079	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+127.94	404.41	249.04	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.5675	-4.3355	9.4000	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-15.3988	-1.6194	9.8914	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+12.4283	-8.6168	10.0254	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-5.8758	-4.1387	10.2020	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+9.2594	-8.1801	10.6984	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+136.2160	438.2751	265.6723	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	9.2594	71.106	3.314	0.044	
+ASA	2.0000	-8.1801	17.812	3.361	0.044	
+ATA	2.0000	10.6984	2.118	3.228	0.038	
+
+Covariance matrix
+5056.0922	-1264.0972	-6.8768	
+-1264.0972	317.2584	-0.6120	
+-6.8768	-0.6120	4.4872	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+160.19	532.99	313.09	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+118.0791	-34.6108	8.9592	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+64.9771	-20.9711	8.4122	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-8.2631	-3.0228	9.1811	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+0.7705	-5.5738	9.7269	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-7.7463	-3.3688	9.6018	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+158.4720	530.0761	311.1927	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-7.7463	58.698	-0.335	0.020	
+ASA	2.0000	-3.3688	14.858	-0.400	0.020	
+ATA	2.0000	9.6018	1.717	-0.357	0.017	
+
+Covariance matrix
+3445.4975	-870.5887	12.9564	
+-870.5887	220.7602	-4.7815	
+12.9564	-4.7815	2.9498	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+163.94	547.95	321.86	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-19.1544	0.0635	8.6053	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+529.3409	-136.7057	7.3232	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+40.8209	-14.9040	8.4684	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-10.4240	-2.2356	8.7746	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-13.4948	-1.3686	8.6133	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+165.0500	556.3198	324.5727	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-13.4948	74.310	-1.507	0.055	
+ASA	2.0000	-1.3686	18.802	-1.587	0.055	
+ATA	2.0000	8.6133	1.892	-1.490	0.057	
+
+Covariance matrix
+5521.9805	-1395.2822	21.7593	
+-1395.2822	353.5301	-7.3400	
+21.7593	-7.3400	3.5779	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+162.06	540.53	317.63	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+15.9272	-9.2640	9.4639	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-7.0408	-3.5255	9.5478	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-16.7892	-1.2064	9.7894	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-12.9228	-2.2172	9.8621	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-9.2501	-2.9568	9.5174	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+139.9060	454.8820	271.2134	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-9.2501	49.466	2.282	0.067	
+ASA	2.0000	-2.9568	12.305	2.257	0.068	
+ATA	2.0000	9.5174	1.744	2.354	0.063	
+
+Covariance matrix
+2446.8604	-607.0622	-13.3964	
+-607.0622	151.4194	1.7755	
+-13.3964	1.7755	3.0431	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+166.88	559.71	327.66	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-16.7002	-1.4184	10.1456	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+79.9833	-25.0659	9.0495	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-6.6348	-3.6614	9.6273	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-6.2109	-3.8645	9.8060	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+5.7107	-6.9690	10.0297	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+166.5780	558.4994	327.1692	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	5.7107	61.601	-1.434	-0.090	
+ASA	2.0000	-6.9690	15.524	-1.366	-0.090	
+ATA	2.0000	10.0297	1.703	-1.404	-0.095	
+
+Covariance matrix
+3794.6706	-954.7311	6.6981	
+-954.7311	240.9864	-3.1828	
+6.6981	-3.1828	2.8985	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+167.63	562.68	329.29	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+131.6818	-38.4693	9.9226	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+5.6320	-6.8279	9.7826	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-8.9027	-3.3193	10.1089	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.3064	-4.9704	10.1185	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.5861	-4.7107	10.2213	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+146.4100	480.8044	284.9664	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.5861	67.567	1.509	0.049	
+ASA	2.0000	-4.7107	16.971	1.480	0.049	
+ATA	2.0000	10.2213	1.939	1.567	0.053	
+
+Covariance matrix
+4565.2618	-1144.6429	0.0467	
+-1144.6429	288.0215	-1.9747	
+0.0467	-1.9747	3.7597	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+165.38	553.70	324.77	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-18.4823	-0.9714	10.1449	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+18.9719	-10.0490	9.5558	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-13.9708	-1.9734	9.9037	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-14.9032	-1.6756	9.7827	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.4076	-4.6745	10.0093	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+137.4420	445.0378	266.5563	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.4076	54.037	1.545	0.711	
+ASA	2.0000	-4.6745	13.438	1.530	0.711	
+ATA	2.0000	10.0093	1.384	1.614	0.694	
+
+Covariance matrix
+2920.0433	-725.1766	-14.2056	
+-725.1766	180.5676	2.5928	
+-14.2056	2.5928	1.9153	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+162.94	543.99	319.45	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+221.2948	-61.1408	10.3448	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+35.6950	-14.0364	9.2012	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-13.8544	-1.8569	9.6475	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-13.7471	-2.1327	10.1669	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-15.7365	-0.9839	8.9558	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+124.4060	394.5617	242.7713	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-15.7365	61.380	6.341	0.027	
+ASA	2.0000	-0.9839	15.410	6.235	0.027	
+ATA	2.0000	8.9558	2.199	5.962	0.019	
+
+Covariance matrix
+3767.4708	-943.1162	-5.1169	
+-943.1162	237.4579	-1.2851	
+-5.1169	-1.2851	4.8350	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+168.81	567.43	331.85	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+69.7915	-22.9276	9.8737	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+143.5138	-41.4522	9.9955	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+10.8125	-8.3004	10.1309	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-10.7674	-2.0219	8.5720	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-7.0528	-3.1799	8.9683	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+163.3480	549.5268	321.1426	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-7.0528	65.882	-1.149	0.053	
+ASA	2.0000	-3.1799	16.562	-1.224	0.053	
+ATA	2.0000	8.9683	1.801	-1.149	0.052	
+
+Covariance matrix
+4340.3970	-1089.3554	2.7817	
+-1089.3554	274.3040	-2.4018	
+2.7817	-2.4018	3.2431	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+166.31	557.43	326.51	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-34.6490	3.9115	8.7264	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+470.9129	-122.4082	8.0365	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+63.0339	-20.6486	8.8343	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-7.5401	-3.0421	8.9293	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-4.5641	-3.9780	9.2918	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+141.0840	458.4927	274.3448	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-4.5641	68.570	2.754	0.051	
+ASA	2.0000	-3.9780	17.337	2.769	0.052	
+ATA	2.0000	9.2918	2.083	2.755	0.053	
+
+Covariance matrix
+4701.8707	-1186.4113	13.5804	
+-1186.4113	300.5600	-5.6924	
+13.5804	-5.6924	4.3399	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+153.13	504.83	299.86	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+6.1081	-6.9844	9.8682	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-15.1936	-1.9031	10.3800	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+23.9693	-12.5842	12.0958	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+26.9545	-13.0298	11.5050	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-15.7208	-1.6687	10.1924	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+168.9820	568.1068	332.2394	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-15.7208	57.810	-1.764	0.042	
+ASA	2.0000	-1.6687	14.568	-1.696	0.042	
+ATA	2.0000	10.1924	1.701	-1.740	0.042	
+
+Covariance matrix
+3342.0272	-840.6482	5.4087	
+-840.6482	212.2328	-2.8571	
+5.4087	-2.8571	2.8938	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+163.69	546.95	320.90	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+597.8761	-154.4383	8.4277	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+302.3903	-80.3512	8.3104	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+89.6865	-27.4827	9.0660	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.8276	-4.4976	9.4124	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-9.1290	-2.8283	9.2670	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+151.8260	507.4717	298.2321	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-9.1290	63.929	0.649	0.008	
+ASA	2.0000	-2.8283	16.125	0.422	0.007	
+ATA	2.0000	9.2670	1.767	0.556	0.007	
+
+Covariance matrix
+4086.9291	-1029.1398	8.5168	
+-1029.1398	260.0068	-3.7736	
+8.5168	-3.7736	3.1208	
+Estimation
+Observed graph statistics:
+156.00	518.30	305.72	
+Phase1 simulation:
+Mean statistics:
+166.63	558.70	327.06	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-63.0368	11.9652	6.9031	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+62.2261	-20.2539	8.3669	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.1030	-4.1953	8.9575	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-11.9236	-1.8236	8.6901	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-6.7744	-3.4607	9.3246	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 5400 
+Mean statistics:
+169.0080	568.2043	331.9439	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-6.7744	55.313	-1.716	0.111	
+ASA	2.0000	-3.4607	13.894	-1.650	0.111	
+ATA	2.0000	9.3246	1.685	-1.657	0.109	
+
+Covariance matrix
+3059.4893	-766.9655	0.0226	
+-766.9655	193.0439	-1.4909	
+0.0226	-1.4909	2.8401	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+236.06	764.92	335.91	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+1.2857	-1.6647	1.6297	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+4.0718	-2.4802	1.8627	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+2.3722	-2.1147	1.9846	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+1.9954	-2.0624	2.0665	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+1.5116	-1.9694	2.1244	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+202.6840	635.2211	352.0566	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	1.5116	3.149	1.628	0.131	
+ASA	2.0000	-1.9694	0.824	1.654	0.130	
+ATA	2.0000	2.1244	0.251	2.224	0.129	
+
+Covariance matrix
+9.9175	-2.5600	0.0587	
+-2.5600	0.6793	-0.0490	
+0.0587	-0.0490	0.0628	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+230.44	742.49	318.75	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+0.4382	-1.1538	1.1765	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-0.1910	-1.1767	1.4944	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-0.3118	-1.2332	1.6496	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-0.2096	-1.3117	1.7464	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-0.4134	-1.3030	1.8235	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+217.1520	692.9639	378.4755	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-0.4134	2.295	0.902	0.087	
+ASA	2.0000	-1.3030	0.621	0.916	0.086	
+ATA	2.0000	1.8235	0.248	1.634	0.072	
+
+Covariance matrix
+5.2682	-1.3915	0.0838	
+-1.3915	0.3858	-0.0551	
+0.0838	-0.0551	0.0614	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+216.44	690.58	377.32	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-1.4067	-2.4275	4.4330	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.2195	-2.2616	4.5240	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.5217	-2.2735	4.6863	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.5727	-2.1507	4.5011	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.7966	-2.1310	4.5653	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+254.5840	841.3151	482.3578	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.7966	1.875	-0.946	0.458	
+ASA	2.0000	-2.1310	0.489	-0.953	0.449	
+ATA	2.0000	4.5653	0.461	-0.901	0.437	
+
+Covariance matrix
+3.5151	-0.8045	-0.1752	
+-0.8045	0.2391	-0.0655	
+-0.1752	-0.0655	0.2124	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+217.50	693.97	379.88	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-1.1838	-1.8540	3.2081	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-1.6249	-1.9063	3.5330	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-1.8782	-1.9366	3.7118	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-1.8924	-1.9857	3.8139	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.0873	-1.9751	3.8890	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+219.9980	704.9426	408.0136	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.0873	1.597	0.515	0.618	
+ASA	2.0000	-1.9751	0.403	0.514	0.619	
+ATA	2.0000	3.8890	0.354	0.631	0.596	
+
+Covariance matrix
+2.5494	-0.5780	-0.1338	
+-0.5780	0.1627	-0.0308	
+-0.1338	-0.0308	0.1255	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+135.81	373.61	242.39	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-1.8100	-2.0100	3.8780	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.0797	-2.0263	4.0226	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.4182	-2.0110	4.1544	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.5539	-2.0100	4.2141	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.6839	-2.0065	4.2675	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+255.8640	846.0999	483.3898	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.6839	2.240	-1.188	0.263	
+ASA	2.0000	-2.0065	0.575	-1.186	0.257	
+ATA	2.0000	4.2675	0.466	-1.078	0.248	
+
+Covariance matrix
+5.0168	-1.1705	-0.1909	
+-1.1705	0.3308	-0.0652	
+-0.1909	-0.0652	0.2170	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+228.38	738.06	424.71	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.9169	-2.2594	4.8392	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.2630	-2.1883	4.8870	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.2911	-2.0586	4.6704	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.2539	-2.1172	4.7578	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.3952	-2.1317	4.8475	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+239.3720	781.8810	452.9054	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.3952	1.663	-0.264	0.512	
+ASA	2.0000	-2.1317	0.424	-0.274	0.504	
+ATA	2.0000	4.8475	0.481	-0.252	0.491	
+
+Covariance matrix
+2.7666	-0.5825	-0.2347	
+-0.5825	0.1800	-0.0605	
+-0.2347	-0.0605	0.2312	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+249.44	819.57	472.96	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.1077	-2.3014	5.0175	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.1059	-2.0420	4.5699	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.7970	-1.9032	4.6167	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.1469	-2.0940	4.6580	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.0882	-2.1465	4.7260	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+194.4580	603.1966	364.1486	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.0882	1.783	0.688	0.946	
+ASA	2.0000	-2.1465	0.406	0.689	0.946	
+ATA	2.0000	4.7260	0.369	0.692	0.939	
+
+Covariance matrix
+3.1806	-0.6615	-0.2857	
+-0.6615	0.1650	0.0043	
+-0.2857	0.0043	0.1365	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+216.81	691.37	406.63	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.6652	-1.9729	4.6930	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.7979	-2.1943	4.6946	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.2576	-2.1707	4.8654	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.2367	-2.2091	4.9232	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.0663	-2.0903	4.6239	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+247.9120	815.3369	469.8287	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.0663	1.765	-0.380	0.809	
+ASA	2.0000	-2.0903	0.449	-0.383	0.807	
+ATA	2.0000	4.6239	0.391	-0.373	0.795	
+
+Covariance matrix
+3.1141	-0.7150	-0.1455	
+-0.7150	0.2020	-0.0410	
+-0.1455	-0.0410	0.1531	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+252.31	833.41	478.37	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-1.7791	-2.3886	4.5949	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.1679	-2.4825	4.9271	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.7003	-2.1361	4.5436	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.5050	-2.3073	4.7638	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.5755	-2.3208	4.8186	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+228.4040	737.1482	431.4941	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.5755	2.052	0.118	0.845	
+ASA	2.0000	-2.3208	0.490	0.122	0.844	
+ATA	2.0000	4.8186	0.432	0.115	0.833	
+
+Covariance matrix
+4.2113	-0.9137	-0.2982	
+-0.9137	0.2404	-0.0187	
+-0.2982	-0.0187	0.1863	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+228.19	735.65	431.82	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-5.9605	-1.6921	5.2344	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.4626	-2.1300	4.8765	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.4612	-2.0972	4.8185	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.2661	-2.0513	4.6418	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.5399	-2.1119	4.8797	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+128.0380	341.8518	235.0953	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.5399	1.396	4.029	0.934	
+ASA	2.0000	-2.1119	0.270	4.069	0.935	
+ATA	2.0000	4.8797	0.453	4.016	0.921	
+
+Covariance matrix
+1.9492	-0.2906	-0.4148	
+-0.2906	0.0729	0.0031	
+-0.4148	0.0031	0.2054	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+201.00	628.04	376.36	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.6831	-2.1702	5.0491	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.6995	-2.3546	4.9359	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-1.4104	-2.3527	4.3490	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.9036	-2.1123	4.5890	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.3001	-2.0461	4.6485	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+258.2800	856.3901	490.3590	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.3001	1.706	-1.253	0.325	
+ASA	2.0000	-2.0461	0.459	-1.267	0.310	
+ATA	2.0000	4.6485	0.484	-1.206	0.305	
+
+Covariance matrix
+2.9091	-0.6581	-0.1578	
+-0.6581	0.2104	-0.0820	
+-0.1578	-0.0820	0.2342	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+250.31	823.97	474.74	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.9142	-2.1829	4.7137	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.9252	-2.0720	4.5269	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.5140	-2.0660	4.7925	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.2955	-2.1121	4.7714	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.7732	-2.0696	4.4477	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+266.3240	887.4948	506.0087	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.7732	2.295	-1.759	0.186	
+ASA	2.0000	-2.0696	0.594	-1.755	0.182	
+ATA	2.0000	4.4477	0.494	-1.668	0.170	
+
+Covariance matrix
+5.2684	-1.2314	-0.1923	
+-1.2314	0.3530	-0.0791	
+-0.1923	-0.0791	0.2438	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+258.56	855.98	491.62	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-5.8553	-1.4884	4.8177	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.4149	-2.1011	4.8061	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.5216	-2.1016	4.8561	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.7502	-2.1027	4.9597	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.5800	-2.2214	4.6349	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+259.5120	860.4491	492.6328	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.5800	2.503	-1.335	0.311	
+ASA	2.0000	-2.2214	0.652	-1.333	0.306	
+ATA	2.0000	4.6349	0.468	-1.276	0.300	
+
+Covariance matrix
+6.2666	-1.5147	-0.1397	
+-1.5147	0.4248	-0.0786	
+-0.1397	-0.0786	0.2189	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+243.81	797.36	461.24	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-1.9110	-2.5437	4.9080	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.0081	-2.1676	4.8054	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.9259	-2.0938	4.5567	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.9379	-2.1242	4.6081	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.4650	-2.0185	4.6912	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+269.5660	900.9537	513.9613	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.4650	1.826	-1.945	0.270	
+ASA	2.0000	-2.0185	0.489	-1.952	0.263	
+ATA	2.0000	4.6912	0.522	-1.888	0.262	
+
+Covariance matrix
+3.3347	-0.7468	-0.1853	
+-0.7468	0.2393	-0.0958	
+-0.1853	-0.0958	0.2727	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+256.63	849.80	487.80	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.3912	-2.3107	5.1780	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.5322	-2.0997	4.8574	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.9198	-2.0255	4.4357	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.1286	-2.1163	4.7003	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.9615	-2.0645	4.5268	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+264.9860	882.3348	503.4272	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.9615	2.367	-1.681	0.312	
+ASA	2.0000	-2.0645	0.606	-1.681	0.308	
+ATA	2.0000	4.5268	0.457	-1.595	0.310	
+
+Covariance matrix
+5.6010	-1.3210	-0.1835	
+-1.3210	0.3675	-0.0630	
+-0.1835	-0.0630	0.2089	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+261.44	867.29	496.79	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-5.2490	-1.7293	4.9694	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.4483	-1.8759	4.4207	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-4.1056	-1.7885	4.5470	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.0058	-2.1232	4.6470	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.0185	-2.1235	4.6577	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+256.8100	850.3967	487.3403	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.0185	2.039	-1.179	0.286	
+ASA	2.0000	-2.1235	0.533	-1.185	0.280	
+ATA	2.0000	4.6577	0.477	-1.125	0.272	
+
+Covariance matrix
+4.1575	-0.9654	-0.1697	
+-0.9654	0.2846	-0.0760	
+-0.1697	-0.0760	0.2280	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+235.13	765.20	444.27	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.7136	-2.1204	4.9626	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.8582	-2.1605	4.6657	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.9101	-2.1649	4.6907	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.2033	-2.1763	4.8368	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.0019	-2.2009	4.7969	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+144.4360	405.5450	266.2001	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.0019	1.632	3.040	0.925	
+ASA	2.0000	-2.2009	0.353	3.058	0.926	
+ATA	2.0000	4.7969	0.399	3.062	0.908	
+
+Covariance matrix
+2.6637	-0.5063	-0.3439	
+-0.5063	0.1246	0.0084	
+-0.3439	0.0084	0.1593	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+253.50	837.07	481.50	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.9223	-2.0697	4.9850	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.1792	-2.3043	5.0663	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.7775	-2.0240	4.3678	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.0122	-2.1487	4.7043	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.1980	-2.1965	4.8776	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+248.5380	817.2177	471.1204	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.1980	2.294	-0.771	0.378	
+ASA	2.0000	-2.1965	0.599	-0.768	0.374	
+ATA	2.0000	4.8776	0.486	-0.742	0.369	
+
+Covariance matrix
+5.2624	-1.2496	-0.1551	
+-1.2496	0.3588	-0.0828	
+-0.1551	-0.0828	0.2359	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+265.88	884.79	506.42	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-5.3815	-1.4846	4.5805	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.1303	-2.2989	5.0360	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.9392	-2.1432	4.6553	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.8586	-2.0646	4.9406	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.3656	-2.1782	4.4544	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+264.0200	878.1844	501.1430	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.3656	2.459	-1.680	0.196	
+ASA	2.0000	-2.1782	0.647	-1.674	0.191	
+ATA	2.0000	4.4544	0.482	-1.579	0.187	
+
+Covariance matrix
+6.0470	-1.4657	-0.1221	
+-1.4657	0.4189	-0.0911	
+-0.1221	-0.0911	0.2321	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+262.63	871.90	499.28	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-7.9493	-1.0383	4.9328	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-1.6561	-2.5357	4.7852	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.6842	-2.2661	4.7624	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.6601	-2.3139	4.8416	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.4317	-2.1311	4.8653	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+246.9940	812.1247	468.2387	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.4317	1.703	-0.642	0.444	
+ASA	2.0000	-2.1311	0.431	-0.654	0.436	
+ATA	2.0000	4.8653	0.443	-0.622	0.430	
+
+Covariance matrix
+2.9016	-0.6287	-0.2072	
+-0.6287	0.1853	-0.0494	
+-0.2072	-0.0494	0.1963	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+245.31	804.02	464.52	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.9200	-2.1475	5.1238	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.5486	-2.1392	4.9327	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.5639	-2.2222	4.6329	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.9058	-2.2062	4.7613	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.4937	-2.2458	4.6401	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+260.0560	862.2793	493.6258	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.4937	2.851	-1.419	0.312	
+ASA	2.0000	-2.2458	0.711	-1.410	0.309	
+ATA	2.0000	4.6401	0.474	-1.355	0.303	
+
+Covariance matrix
+8.1273	-1.9068	-0.2836	
+-1.9068	0.5055	-0.0450	
+-0.2836	-0.0450	0.2245	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+259.38	859.20	492.26	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-1.1754	-2.1935	3.9668	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.3115	-2.1321	4.8147	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.3844	-2.0029	4.6169	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.3799	-2.1334	4.8433	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.7240	-2.1128	4.5096	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+269.9160	901.7681	513.5533	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.7240	2.468	-1.995	0.135	
+ASA	2.0000	-2.1128	0.624	-1.993	0.128	
+ATA	2.0000	4.5096	0.478	-1.908	0.124	
+
+Covariance matrix
+6.0927	-1.4165	-0.2380	
+-1.4165	0.3895	-0.0594	
+-0.2380	-0.0594	0.2288	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+264.19	878.19	502.59	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-1.1360	-2.6681	4.7821	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.9267	-2.1345	4.6543	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.8040	-2.2007	4.7122	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.0753	-2.0824	4.6206	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.1537	-2.0514	4.5976	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 12240 
+Mean statistics:
+263.3360	876.3217	500.8573	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.1537	1.716	-1.292	0.527	
+ASA	2.0000	-2.0514	0.459	-1.305	0.519	
+ATA	2.0000	4.5976	0.444	-1.265	0.506	
+
+Covariance matrix
+2.9461	-0.6857	-0.1245	
+-0.6857	0.2111	-0.0704	
+-0.1245	-0.0704	0.1975	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+268.00	893.66	509.33	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-5.3836	-1.8452	5.2519	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.3330	-2.1023	4.7644	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.4941	-2.1705	4.9645	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.3039	-2.3602	4.7604	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.6519	-2.2284	4.6803	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 11280 
+Mean statistics:
+253.2980	835.6906	480.1336	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.6519	2.526	-0.893	0.435	
+ASA	2.0000	-2.2284	0.628	-0.885	0.432	
+ATA	2.0000	4.6803	0.453	-0.853	0.417	
+
+Covariance matrix
+6.3797	-1.4788	-0.2570	
+-1.4788	0.3950	-0.0412	
+-0.2570	-0.0412	0.2055	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+201.44	629.22	377.36	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.6495	-1.9550	4.6519	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.3342	-2.1750	4.9042	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.0566	-2.0401	4.5274	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.2131	-2.1061	4.7210	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.8730	-2.0672	4.4912	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+264.1880	878.9388	501.7546	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.8730	2.553	-1.550	0.290	
+ASA	2.0000	-2.0672	0.636	-1.541	0.287	
+ATA	2.0000	4.4912	0.439	-1.479	0.275	
+
+Covariance matrix
+6.5165	-1.5198	-0.2381	
+-1.5198	0.4040	-0.0398	
+-0.2381	-0.0398	0.1925	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+275.25	922.37	524.07	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-4.0126	-2.0494	4.9802	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.9893	-2.3253	5.0158	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.9324	-2.2373	4.8303	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.6157	-2.0774	4.8510	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.6339	-2.1700	4.5723	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 12240 
+Mean statistics:
+268.0840	894.2230	510.0150	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.6339	2.899	-1.781	0.242	
+ASA	2.0000	-2.1700	0.733	-1.769	0.240	
+ATA	2.0000	4.5723	0.502	-1.707	0.235	
+
+Covariance matrix
+8.4066	-1.9902	-0.2467	
+-1.9902	0.5378	-0.0692	
+-0.2467	-0.0692	0.2523	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+264.88	881.23	503.04	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.6316	-1.9782	4.6972	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.5154	-2.0083	4.6864	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.3650	-2.0484	4.6852	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.6792	-2.2938	4.8128	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.3680	-2.1365	4.8421	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 11670 
+Mean statistics:
+129.2320	347.8197	236.2120	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.3680	1.257	3.247	0.937	
+ASA	2.0000	-2.1365	0.267	3.259	0.938	
+ATA	2.0000	4.8421	0.369	3.244	0.926	
+
+Covariance matrix
+1.5796	-0.2732	-0.2581	
+-0.2732	0.0711	-0.0027	
+-0.2581	-0.0027	0.1365	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+237.25	772.80	448.59	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.8574	-2.2688	4.8450	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-1.9565	-2.2849	4.4693	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.7392	-2.1737	4.6223	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.0518	-2.1469	4.7161	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.2711	-2.1233	4.7722	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+131.6840	356.9104	241.7320	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.2711	1.282	3.448	0.927	
+ASA	2.0000	-2.1233	0.246	3.451	0.930	
+ATA	2.0000	4.7722	0.397	3.431	0.915	
+
+Covariance matrix
+1.6431	-0.2501	-0.3343	
+-0.2501	0.0606	0.0060	
+-0.3343	0.0060	0.1578	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+118.00	303.61	216.09	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.9045	-2.1456	4.7100	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.6493	-2.1464	4.5528	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.8103	-2.2104	4.7207	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.9336	-2.1887	4.7456	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.9690	-2.1888	4.7579	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 6540 
+Mean statistics:
+249.0100	819.9380	471.9854	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.9690	1.538	-0.666	0.610	
+ASA	2.0000	-2.1888	0.399	-0.676	0.604	
+ATA	2.0000	4.7579	0.461	-0.642	0.593	
+
+Covariance matrix
+2.3646	-0.5003	-0.1930	
+-0.5003	0.1588	-0.0612	
+-0.1930	-0.0612	0.2128	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+260.13	863.47	494.77	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.6887	-1.9790	4.2495	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.0052	-2.0183	4.4697	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.2851	-2.1682	4.8709	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.3325	-2.0759	4.7226	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.3840	-2.1260	4.8376	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 11490 
+Mean statistics:
+252.4940	833.7178	479.3901	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.3840	1.557	-0.916	0.412	
+ASA	2.0000	-2.1260	0.409	-0.929	0.402	
+ATA	2.0000	4.8376	0.491	-0.892	0.396	
+
+Covariance matrix
+2.4229	-0.5075	-0.2088	
+-0.5075	0.1671	-0.0727	
+-0.2088	-0.0727	0.2415	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+256.50	847.59	486.26	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-5.2101	-1.6400	4.7747	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-4.0224	-1.9842	4.8648	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.8685	-2.1737	4.6832	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.3223	-2.1572	4.8592	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.0552	-2.3832	4.6951	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+256.5960	848.5444	487.3823	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.0552	2.876	-0.880	0.665	
+ASA	2.0000	-2.3832	0.719	-0.871	0.663	
+ATA	2.0000	4.6951	0.417	-0.861	0.647	
+
+Covariance matrix
+8.2689	-1.9780	-0.2134	
+-1.9780	0.5174	-0.0352	
+-0.2134	-0.0352	0.1739	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+261.63	868.18	497.25	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.8031	-1.9267	4.6604	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.3867	-2.0433	4.6843	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.2771	-2.1258	4.7833	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.1460	-2.1428	4.7536	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.0265	-2.1988	4.7999	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 11400 
+Mean statistics:
+121.0200	312.7620	220.5794	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.0265	1.657	9.809	0.801	
+ASA	2.0000	-2.1988	0.374	10.034	0.806	
+ATA	2.0000	4.7999	0.428	9.627	0.748	
+
+Covariance matrix
+2.7449	-0.5306	-0.3457	
+-0.5306	0.1398	-0.0047	
+-0.3457	-0.0047	0.1828	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+126.38	332.58	231.46	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.4312	-2.2723	4.6889	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.7531	-2.2009	4.6877	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.4505	-2.1029	4.8304	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.5375	-2.0157	4.7127	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.4867	-2.0246	4.7085	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 6510 
+Mean statistics:
+268.3200	895.6337	510.9702	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.4867	2.056	-1.856	0.390	
+ASA	2.0000	-2.0246	0.547	-1.860	0.384	
+ATA	2.0000	4.7085	0.516	-1.793	0.377	
+
+Covariance matrix
+4.2281	-0.9813	-0.1720	
+-0.9813	0.2989	-0.0959	
+-0.1720	-0.0959	0.2666	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+246.69	809.60	467.26	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.4041	-2.3936	4.8743	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.7847	-2.2101	4.7176	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.0778	-2.0953	4.6443	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.9048	-2.0285	4.8946	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.4970	-2.1213	4.8751	
+Subphase 6 started with a = 0.0006
+Parameters after subphase 6:
+-2.9960	-2.1845	4.7620	
+Subphase 7 started with a = 0.0003
+Parameters after subphase 7:
+-2.6250	-2.2263	4.6697	
+Subphase 8 started with a = 0.0002
+Parameters after subphase 8:
+-2.8989	-2.1639	4.6812	
+Subphase 9 started with a = 0.0001
+Parameters after subphase 9:
+-3.0580	-2.1385	4.7067	
+Subphase 10 started with a = 0.0000
+Parameters after subphase 10:
+-3.0234	-2.1353	4.6843	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+261.3000	867.7373	496.5038	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.0234	2.107	-1.411	0.284	
+ASA	2.0000	-2.1353	0.545	-1.413	0.277	
+ATA	2.0000	4.6843	0.495	-1.358	0.273	
+
+Covariance matrix
+4.4415	-1.0166	-0.2102	
+-1.0166	0.2966	-0.0743	
+-0.2102	-0.0743	0.2450	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+257.25	850.60	488.45	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-4.0625	-2.0901	5.0766	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.4678	-2.2356	5.0665	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.2143	-2.1899	4.4140	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.4179	-1.9741	4.5696	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.4658	-2.0282	4.6879	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+241.7080	791.2394	457.1076	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.4658	1.696	-0.319	0.687	
+ASA	2.0000	-2.0282	0.436	-0.328	0.684	
+ATA	2.0000	4.6879	0.471	-0.301	0.670	
+
+Covariance matrix
+2.8779	-0.6245	-0.2070	
+-0.6245	0.1902	-0.0614	
+-0.2070	-0.0614	0.2215	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+248.25	816.14	470.70	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.4200	-2.1220	4.8402	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.5340	-2.0916	4.8368	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.2393	-2.1563	4.8197	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.7193	-2.0929	4.4695	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.2723	-2.1275	4.7850	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+252.7400	834.6183	479.5895	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.2723	1.649	-0.934	0.399	
+ASA	2.0000	-2.1275	0.419	-0.946	0.389	
+ATA	2.0000	4.7850	0.477	-0.901	0.380	
+
+Covariance matrix
+2.7198	-0.5685	-0.2361	
+-0.5685	0.1755	-0.0589	
+-0.2361	-0.0589	0.2279	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+251.50	828.32	477.11	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.9997	-2.0108	4.9012	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.8266	-2.0715	4.4806	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.2317	-2.1724	4.8523	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.3300	-2.1646	4.8814	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.6152	-2.1097	4.4488	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+264.5640	880.4092	502.4466	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.6152	2.517	-1.530	0.382	
+ASA	2.0000	-2.1097	0.660	-1.525	0.379	
+ATA	2.0000	4.4488	0.442	-1.463	0.364	
+
+Covariance matrix
+6.3371	-1.5585	-0.0831	
+-1.5585	0.4357	-0.0804	
+-0.0831	-0.0804	0.1955	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+249.88	821.04	473.95	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.7369	-1.7534	4.3286	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.0046	-2.1004	4.6125	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.1242	-2.0988	4.6644	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.1909	-2.0398	4.5895	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.5778	-1.9831	4.6614	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+258.6220	857.6320	491.1219	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.5778	1.976	-1.240	0.329	
+ASA	2.0000	-1.9831	0.512	-1.247	0.324	
+ATA	2.0000	4.6614	0.486	-1.189	0.321	
+
+Covariance matrix
+3.9029	-0.8850	-0.1996	
+-0.8850	0.2625	-0.0728	
+-0.1996	-0.0728	0.2361	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+250.81	827.10	474.93	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.4655	-1.9814	4.6100	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.5909	-2.0809	4.8566	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.4791	-2.0561	4.7573	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.4884	-2.1365	4.9087	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.9373	-2.2156	4.7936	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+256.5340	848.8170	487.2989	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.9373	2.034	-1.243	0.290	
+ASA	2.0000	-2.2156	0.539	-1.240	0.285	
+ATA	2.0000	4.7936	0.530	-1.202	0.278	
+
+Covariance matrix
+4.1362	-0.9464	-0.1913	
+-0.9464	0.2904	-0.0979	
+-0.1913	-0.0979	0.2813	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+261.00	865.63	495.81	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.8331	-2.1427	5.0801	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.8260	-2.3106	4.9151	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.9665	-2.0892	4.5714	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.2509	-2.1659	4.8481	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.1715	-2.1638	4.8071	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+255.0920	843.1304	484.2757	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.1715	1.826	-1.147	0.333	
+ASA	2.0000	-2.1638	0.480	-1.148	0.322	
+ATA	2.0000	4.8071	0.505	-1.109	0.318	
+
+Covariance matrix
+3.3354	-0.7403	-0.2037	
+-0.7403	0.2300	-0.0809	
+-0.2037	-0.0809	0.2549	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+249.00	818.54	471.58	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-4.1782	-2.0348	5.0310	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.7743	-2.3581	4.9741	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-1.6405	-2.4801	4.6761	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.5401	-2.2908	4.7476	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.6082	-2.2679	4.7360	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+179.9820	544.9706	336.4483	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.6082	2.061	0.939	0.958	
+ASA	2.0000	-2.2679	0.475	0.945	0.958	
+ATA	2.0000	4.7360	0.374	0.936	0.952	
+
+Covariance matrix
+4.2485	-0.9141	-0.3209	
+-0.9141	0.2252	0.0116	
+-0.3209	0.0116	0.1397	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+260.38	863.11	494.94	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-4.0378	-1.9115	4.7507	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-1.6379	-2.6098	4.9203	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-1.4803	-2.4539	4.5581	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.4560	-2.0932	4.8077	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.5340	-2.2441	4.6575	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+220.2000	705.0678	415.1230	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.5340	1.775	0.250	0.919	
+ASA	2.0000	-2.2441	0.416	0.251	0.918	
+ATA	2.0000	4.6575	0.395	0.249	0.910	
+
+Covariance matrix
+3.1505	-0.6626	-0.2667	
+-0.6626	0.1730	-0.0110	
+-0.2667	-0.0110	0.1563	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+262.13	870.11	497.89	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-5.2218	-1.7762	5.0458	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.8327	-2.0649	4.9319	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.5917	-1.8808	4.4946	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.5534	-1.9768	4.6447	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.4547	-2.0237	4.6835	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+260.0440	863.3425	494.0758	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.4547	1.709	-1.322	0.370	
+ASA	2.0000	-2.0237	0.449	-1.336	0.357	
+ATA	2.0000	4.6835	0.476	-1.272	0.353	
+
+Covariance matrix
+2.9207	-0.6452	-0.1880	
+-0.6452	0.2014	-0.0706	
+-0.1880	-0.0706	0.2261	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+213.56	677.35	402.06	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.5341	-2.1706	4.5479	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.0839	-2.1156	4.6741	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.9253	-2.2267	4.8004	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.9529	-2.0875	4.5733	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.1880	-2.0869	4.6659	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+252.1100	831.8773	477.6980	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.1880	1.676	-0.862	0.401	
+ASA	2.0000	-2.0869	0.444	-0.872	0.391	
+ATA	2.0000	4.6659	0.457	-0.817	0.385	
+
+Covariance matrix
+2.8102	-0.6326	-0.1586	
+-0.6326	0.1972	-0.0688	
+-0.1586	-0.0688	0.2088	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+248.50	816.25	470.01	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+0.3691	-2.7176	4.1857	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.0934	-2.1676	4.7835	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.6700	-2.0890	4.9032	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.8497	-2.0829	4.9709	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.7015	-2.2388	4.7215	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+155.7800	450.2482	288.5415	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.7015	1.597	1.355	0.969	
+ASA	2.0000	-2.2388	0.357	1.358	0.969	
+ATA	2.0000	4.7215	0.401	1.357	0.964	
+
+Covariance matrix
+2.5511	-0.4961	-0.3014	
+-0.4961	0.1275	-0.0038	
+-0.3014	-0.0038	0.1611	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+268.06	894.14	511.36	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-4.5280	-1.9647	5.0652	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.2883	-1.9372	4.4557	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.5795	-2.0211	4.7351	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.5797	-2.0941	4.8657	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.8910	-2.2012	4.7429	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+120.9300	312.6793	220.2773	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.8910	1.656	9.728	0.820	
+ASA	2.0000	-2.2012	0.343	9.818	0.833	
+ATA	2.0000	4.7429	0.422	9.614	0.763	
+
+Covariance matrix
+2.7407	-0.4901	-0.4129	
+-0.4901	0.1174	0.0157	
+-0.4129	0.0157	0.1778	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+253.19	834.43	479.71	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-1.6135	-2.4133	4.5412	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.6604	-2.0607	4.3844	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.7456	-1.9390	4.6626	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.2050	-2.1134	4.7326	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.3978	-2.1170	4.8257	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+153.9700	444.1525	285.9365	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.3978	1.354	1.437	0.971	
+ASA	2.0000	-2.1170	0.301	1.439	0.971	
+ATA	2.0000	4.8257	0.404	1.431	0.966	
+
+Covariance matrix
+1.8345	-0.3310	-0.2702	
+-0.3310	0.0904	-0.0128	
+-0.2702	-0.0128	0.1633	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+243.13	794.61	459.79	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.9676	-2.2837	4.9265	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.5608	-2.1284	4.9190	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.6194	-2.1316	4.9497	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-1.0819	-2.4859	4.4249	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.9187	-2.1303	4.6252	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+259.4800	860.8192	492.7198	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.9187	1.878	-1.358	0.284	
+ASA	2.0000	-2.1303	0.489	-1.362	0.278	
+ATA	2.0000	4.6252	0.507	-1.301	0.270	
+
+Covariance matrix
+3.5278	-0.7798	-0.2188	
+-0.7798	0.2388	-0.0788	
+-0.2188	-0.0788	0.2575	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+259.88	861.52	493.73	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.1654	-2.2321	4.4450	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.2320	-2.1038	4.7232	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.6625	-2.1488	5.0081	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.8464	-2.1420	4.6099	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.3197	-2.1553	4.8613	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+119.6880	308.0870	218.4052	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.3197	1.558	13.073	0.696	
+ASA	2.0000	-2.1553	0.340	13.350	0.705	
+ATA	2.0000	4.8613	0.499	12.502	0.628	
+
+Covariance matrix
+2.4286	-0.4017	-0.4255	
+-0.4017	0.1153	-0.0211	
+-0.4255	-0.0211	0.2489	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+260.69	865.21	495.77	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.4197	-2.2153	4.5488	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.7575	-2.2488	4.7739	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.8882	-2.2838	4.8963	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.1232	-2.2242	4.8942	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.8959	-2.0565	4.4784	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+264.1880	879.2134	501.5757	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.8959	2.058	-1.681	0.267	
+ASA	2.0000	-2.0565	0.542	-1.682	0.261	
+ATA	2.0000	4.4784	0.498	-1.588	0.260	
+
+Covariance matrix
+4.2341	-0.9803	-0.1745	
+-0.9803	0.2936	-0.0862	
+-0.1745	-0.0862	0.2485	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+262.38	871.63	498.09	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-4.8060	-1.7721	4.8508	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.3643	-2.1276	4.8362	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.0958	-2.2149	4.8659	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.9512	-2.2803	4.9170	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.8824	-2.2296	4.7942	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+257.1740	851.2126	488.4169	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.8824	2.274	-1.226	0.345	
+ASA	2.0000	-2.2296	0.586	-1.222	0.338	
+ATA	2.0000	4.7942	0.496	-1.181	0.331	
+
+Covariance matrix
+5.1715	-1.2018	-0.2052	
+-1.2018	0.3439	-0.0762	
+-0.2052	-0.0762	0.2461	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+246.88	809.78	467.23	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.8352	-2.1075	4.5541	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.7940	-2.2696	4.8256	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.0305	-2.0690	4.5693	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.6396	-2.0496	4.8158	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.0901	-2.0182	4.5017	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+265.1140	882.8134	503.7994	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.0901	2.035	-1.606	0.339	
+ASA	2.0000	-2.0182	0.520	-1.611	0.330	
+ATA	2.0000	4.5017	0.484	-1.535	0.325	
+
+Covariance matrix
+4.1408	-0.9317	-0.2283	
+-0.9317	0.2706	-0.0648	
+-0.2283	-0.0648	0.2347	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+269.56	899.94	512.90	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.2451	-2.2053	4.9141	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.9498	-2.2595	4.8768	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.2503	-2.2642	5.0220	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.1156	-2.0842	4.6328	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.0738	-2.1574	4.7466	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+123.2700	322.1117	225.0637	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.0738	1.799	10.273	0.744	
+ASA	2.0000	-2.1574	0.383	10.381	0.759	
+ATA	2.0000	4.7466	0.435	9.969	0.681	
+
+Covariance matrix
+3.2366	-0.6021	-0.4359	
+-0.6021	0.1468	0.0143	
+-0.4359	0.0143	0.1890	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+251.38	827.37	475.72	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-4.2544	-2.0386	5.0706	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.2970	-2.0931	4.7321	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.8627	-2.2127	4.7480	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.1240	-2.2411	4.9251	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.9013	-2.1389	4.6292	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+256.6540	849.3130	486.8411	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.9013	2.075	-1.085	0.470	
+ASA	2.0000	-2.1389	0.549	-1.083	0.465	
+ATA	2.0000	4.6292	0.480	-1.036	0.457	
+
+Covariance matrix
+4.3046	-1.0171	-0.1385	
+-1.0171	0.3013	-0.0844	
+-0.1385	-0.0844	0.2301	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+264.81	881.23	503.76	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.0831	-2.2432	4.9115	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.8614	-2.0709	4.5017	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.4147	-2.0676	4.7401	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.1241	-2.2046	4.8569	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.5447	-2.1976	4.5846	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+254.9800	842.4585	483.6478	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.5447	2.767	-0.838	0.586	
+ASA	2.0000	-2.1976	0.692	-0.832	0.585	
+ATA	2.0000	4.5846	0.427	-0.807	0.564	
+
+Covariance matrix
+7.6539	-1.8181	-0.2204	
+-1.8181	0.4784	-0.0380	
+-0.2204	-0.0380	0.1821	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+260.88	865.74	495.47	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.5903	-2.2463	5.1476	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.8176	-2.2292	5.2222	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.9914	-2.1613	4.7199	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.9864	-2.2570	4.8933	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.1540	-2.1867	4.8406	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+250.9840	827.2642	476.1243	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.1540	1.983	-0.757	0.499	
+ASA	2.0000	-2.1867	0.500	-0.761	0.493	
+ATA	2.0000	4.8406	0.482	-0.734	0.486	
+
+Covariance matrix
+3.9333	-0.8690	-0.2496	
+-0.8690	0.2502	-0.0571	
+-0.2496	-0.0571	0.2324	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+258.44	855.47	490.41	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-7.6357	-1.0924	4.9010	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.4082	-1.9909	4.6008	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.3288	-2.0824	4.7287	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.2212	-2.2775	4.5777	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.4437	-2.0166	4.6625	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+258.7400	858.3732	491.5492	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.4437	1.581	-1.259	0.271	
+ASA	2.0000	-2.0166	0.412	-1.271	0.261	
+ATA	2.0000	4.6625	0.462	-1.208	0.257	
+
+Covariance matrix
+2.4987	-0.5360	-0.1868	
+-0.5360	0.1700	-0.0647	
+-0.1868	-0.0647	0.2139	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+245.19	804.50	463.24	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.8369	-2.0833	4.5049	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.7256	-2.3056	4.8598	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.7361	-2.0134	4.3346	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.6612	-2.1587	4.5634	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.7427	-2.2211	4.7148	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+261.7020	869.1459	497.5551	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.7427	2.363	-1.406	0.311	
+ASA	2.0000	-2.2211	0.606	-1.404	0.304	
+ATA	2.0000	4.7148	0.486	-1.352	0.299	
+
+Covariance matrix
+5.5850	-1.3040	-0.2113	
+-1.3040	0.3671	-0.0700	
+-0.2113	-0.0700	0.2359	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+233.19	756.34	440.43	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.8880	-2.2490	4.8197	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.4433	-2.1454	4.8960	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.6199	-2.0286	4.7882	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.0626	-2.1646	4.7627	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.5411	-1.9512	4.6227	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+287.5760	972.1792	550.9802	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.5411	2.383	-3.266	0.133	
+ASA	2.0000	-1.9512	0.663	-3.273	0.124	
+ATA	2.0000	4.6227	0.524	-3.175	0.123	
+
+Covariance matrix
+5.6775	-1.4364	0.0005	
+-1.4364	0.4398	-0.1449	
+0.0005	-0.1449	0.2751	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+248.94	818.66	472.44	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.4960	-2.1080	4.8490	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.4922	-2.1859	4.9885	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.1424	-2.1861	4.8343	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.3563	-2.2143	4.5336	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.3842	-2.0368	4.6674	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+150.2160	430.2785	276.9275	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.3842	1.338	1.740	0.958	
+ASA	2.0000	-2.0368	0.282	1.738	0.958	
+ATA	2.0000	4.6674	0.421	1.739	0.953	
+
+Covariance matrix
+1.7910	-0.2960	-0.3162	
+-0.2960	0.0796	-0.0088	
+-0.3162	-0.0088	0.1775	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+204.31	640.53	383.39	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.1515	-2.2400	4.9298	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.0217	-2.1284	4.6802	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.0774	-2.1119	4.6727	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.2133	-2.1219	4.7466	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.4907	-2.0935	4.8211	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+119.3060	307.4804	216.9653	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.4907	1.377	10.764	0.748	
+ASA	2.0000	-2.0935	0.318	11.180	0.747	
+ATA	2.0000	4.8211	0.444	10.246	0.699	
+
+Covariance matrix
+1.8964	-0.3311	-0.3086	
+-0.3311	0.1013	-0.0255	
+-0.3086	-0.0255	0.1973	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+260.19	863.64	494.20	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.4068	-2.4396	4.9495	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.9842	-2.2185	4.8197	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.0289	-2.2750	4.9371	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.7563	-2.2778	4.8319	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.1818	-2.1883	4.8518	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+243.1860	795.9432	460.5144	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.1818	1.962	-0.393	0.618	
+ASA	2.0000	-2.1883	0.486	-0.390	0.615	
+ATA	2.0000	4.8518	0.414	-0.382	0.596	
+
+Covariance matrix
+3.8479	-0.8654	-0.2114	
+-0.8654	0.2365	-0.0342	
+-0.2114	-0.0342	0.1713	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+249.50	820.04	472.87	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.1646	-2.2183	4.9008	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.3310	-1.9829	4.5542	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.3608	-2.0553	4.6936	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.7649	-1.9963	4.7692	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.7867	-2.2486	4.7800	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+251.5460	828.7857	476.8057	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.7867	2.416	-0.888	0.404	
+ASA	2.0000	-2.2486	0.613	-0.883	0.399	
+ATA	2.0000	4.7800	0.465	-0.850	0.389	
+
+Covariance matrix
+5.8392	-1.3661	-0.2179	
+-1.3661	0.3756	-0.0569	
+-0.2179	-0.0569	0.2164	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+241.50	789.29	454.89	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.7848	-1.9513	4.7019	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.3830	-2.0109	4.6281	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.1105	-2.1732	4.7961	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.0589	-2.2237	4.8635	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.2211	-2.1519	4.8076	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+129.5400	346.8337	237.2198	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.2211	1.591	5.704	0.861	
+ASA	2.0000	-2.1519	0.338	5.791	0.861	
+ATA	2.0000	4.8076	0.411	5.651	0.830	
+
+Covariance matrix
+2.5320	-0.4626	-0.3682	
+-0.4626	0.1145	0.0086	
+-0.3682	0.0086	0.1692	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+240.13	783.14	453.44	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.9166	-1.7840	4.4486	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.9930	-2.0530	4.5327	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.8213	-2.2957	4.8917	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.0312	-2.1036	4.6383	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.8049	-2.3082	4.9056	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+254.2700	839.3845	482.8531	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.8049	2.576	-1.070	0.301	
+ASA	2.0000	-2.3082	0.654	-1.059	0.299	
+ATA	2.0000	4.9056	0.485	-1.033	0.295	
+
+Covariance matrix
+6.6345	-1.5574	-0.2267	
+-1.5574	0.4274	-0.0652	
+-0.2267	-0.0652	0.2353	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+247.75	812.81	468.47	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+0.1039	-3.0519	4.9200	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.4292	-2.1264	4.4013	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.8115	-1.8898	4.5961	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.5251	-1.9925	4.6531	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.4169	-2.0648	4.7332	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+246.8240	811.1805	467.3737	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.4169	1.695	-0.562	0.570	
+ASA	2.0000	-2.0648	0.420	-0.570	0.564	
+ATA	2.0000	4.7332	0.440	-0.536	0.552	
+
+Covariance matrix
+2.8743	-0.6094	-0.2329	
+-0.6094	0.1760	-0.0409	
+-0.2329	-0.0409	0.1932	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+250.06	823.05	473.63	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.6883	-2.0864	4.4457	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.0792	-2.1054	4.6617	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.3244	-2.1640	4.8747	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.8742	-2.2329	4.7987	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.5251	-2.1280	4.8998	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+132.5500	360.6100	244.0975	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.5251	1.100	2.690	0.960	
+ASA	2.0000	-2.1280	0.217	2.702	0.960	
+ATA	2.0000	4.8998	0.407	2.688	0.952	
+
+Covariance matrix
+1.2104	-0.1657	-0.2866	
+-0.1657	0.0471	-0.0096	
+-0.2866	-0.0096	0.1658	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+243.19	797.05	460.14	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.4984	-2.2356	4.6237	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.2772	-2.1451	4.8154	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.2037	-2.2228	4.9229	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.4621	-2.1732	4.9542	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.8751	-2.0584	4.4740	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+266.6500	888.8746	506.8838	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.8751	2.305	-1.719	0.267	
+ASA	2.0000	-2.0584	0.595	-1.720	0.260	
+ATA	2.0000	4.4740	0.475	-1.634	0.246	
+
+Covariance matrix
+5.3121	-1.2491	-0.1832	
+-1.2491	0.3544	-0.0720	
+-0.1832	-0.0720	0.2254	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+260.06	863.09	493.35	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.7581	-2.2894	4.8525	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.6488	-2.0741	4.8619	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.5710	-2.1501	4.9627	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.8851	-1.9790	4.3386	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.0857	-2.0839	4.6218	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+264.5440	880.7188	502.9531	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.0857	2.167	-1.539	0.375	
+ASA	2.0000	-2.0839	0.584	-1.545	0.368	
+ATA	2.0000	4.6218	0.485	-1.471	0.364	
+
+Covariance matrix
+4.6958	-1.1396	-0.0988	
+-1.1396	0.3409	-0.0983	
+-0.0988	-0.0983	0.2348	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+254.13	838.96	481.49	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.4168	-2.2619	5.1045	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.0747	-2.2439	4.9022	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.5524	-2.0519	4.2991	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.3138	-2.0393	4.6413	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.8189	-2.0206	4.8476	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+223.2620	719.3768	422.1254	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.8189	1.375	0.181	0.922	
+ASA	2.0000	-2.0206	0.307	0.173	0.922	
+ATA	2.0000	4.8476	0.360	0.173	0.914	
+
+Covariance matrix
+1.8899	-0.3612	-0.2338	
+-0.3612	0.0943	-0.0058	
+-0.2338	-0.0058	0.1297	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+260.81	865.78	495.37	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.1480	-2.0974	4.2091	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.2269	-2.0628	4.6465	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.5430	-2.1369	4.9277	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.1454	-2.1383	4.7451	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.7734	-2.2044	4.6956	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+259.0520	858.6916	491.8157	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.7734	2.290	-1.389	0.230	
+ASA	2.0000	-2.2044	0.583	-1.387	0.222	
+ATA	2.0000	4.6956	0.515	-1.323	0.217	
+
+Covariance matrix
+5.2454	-1.1919	-0.2598	
+-1.1919	0.3402	-0.0731	
+-0.2598	-0.0731	0.2654	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+256.56	849.05	486.50	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-1.8656	-2.1010	4.1079	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-2.8794	-2.0952	4.5510	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.4507	-2.0872	4.7949	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.3964	-2.1291	4.8455	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.0962	-2.1802	4.8019	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+127.5260	338.9506	233.4812	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.0962	1.526	4.776	0.903	
+ASA	2.0000	-2.1802	0.328	4.830	0.905	
+ATA	2.0000	4.8019	0.434	4.772	0.883	
+
+Covariance matrix
+2.3300	-0.4158	-0.3584	
+-0.4158	0.1078	-0.0027	
+-0.3584	-0.0027	0.1881	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+254.75	841.91	482.81	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.6457	-1.9830	4.6914	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.0517	-2.0104	4.4796	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.0961	-2.0990	4.6461	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.0754	-2.1599	4.7441	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.1817	-2.0253	4.5613	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+264.9960	882.8665	503.8234	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.1817	1.862	-1.641	0.267	
+ASA	2.0000	-2.0253	0.487	-1.652	0.258	
+ATA	2.0000	4.5613	0.476	-1.571	0.256	
+
+Covariance matrix
+3.4655	-0.7840	-0.1814	
+-0.7840	0.2372	-0.0728	
+-0.1814	-0.0728	0.2267	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+260.63	864.33	494.40	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-1.9677	-2.3267	4.5549	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.2719	-2.1725	4.8662	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-2.9469	-2.1821	4.7365	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.5036	-2.1201	4.8786	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.2402	-2.0324	4.6029	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+266.8480	889.9894	507.8728	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.2402	1.984	-1.784	0.282	
+ASA	2.0000	-2.0324	0.520	-1.791	0.270	
+ATA	2.0000	4.6029	0.493	-1.723	0.263	
+
+Covariance matrix
+3.9363	-0.9015	-0.1848	
+-0.9015	0.2706	-0.0802	
+-0.1848	-0.0802	0.2432	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+270.94	905.16	517.21	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+1.6550	-2.9827	4.0920	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.1388	-1.9812	4.4648	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.6643	-2.0073	4.7452	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.4078	-2.0804	4.7606	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.5729	-2.0855	4.8447	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+125.7660	332.5609	230.2150	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.5729	1.342	7.721	0.823	
+ASA	2.0000	-2.0855	0.331	7.954	0.823	
+ATA	2.0000	4.8447	0.373	7.578	0.772	
+
+Covariance matrix
+1.8019	-0.3730	-0.1858	
+-0.3730	0.1099	-0.0238	
+-0.1858	-0.0238	0.1393	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+253.19	834.57	478.91	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.6132	-1.9507	4.6248	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-1.6158	-2.6773	5.0389	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.8350	-2.1167	5.0325	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.7923	-2.1693	4.6405	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.1258	-2.0599	4.5963	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+264.9280	881.9807	503.6080	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.1258	2.516	-1.645	0.307	
+ASA	2.0000	-2.0599	0.637	-1.640	0.304	
+ATA	2.0000	4.5963	0.481	-1.568	0.299	
+
+Covariance matrix
+6.3300	-1.4763	-0.2340	
+-1.4763	0.4054	-0.0619	
+-0.2340	-0.0619	0.2312	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+264.50	880.21	502.79	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.1940	-2.2011	4.8857	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.5821	-2.0754	4.8401	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.9073	-2.0607	4.9594	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-2.7559	-2.1459	4.5821	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.1177	-2.1289	4.7181	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+256.8860	850.8799	487.7589	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.1177	1.717	-1.172	0.315	
+ASA	2.0000	-2.1289	0.448	-1.185	0.304	
+ATA	2.0000	4.7181	0.517	-1.127	0.305	
+
+Covariance matrix
+2.9468	-0.6263	-0.2357	
+-0.6263	0.2011	-0.0796	
+-0.2357	-0.0796	0.2668	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+258.81	857.39	491.58	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-3.8910	-1.5794	4.0973	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.1975	-2.1977	4.8810	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.1130	-2.1648	4.7804	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.0928	-2.1810	4.7998	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.9339	-2.1740	4.7175	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+237.6880	774.6670	449.7035	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.9339	1.781	-0.100	0.901	
+ASA	2.0000	-2.1740	0.417	-0.101	0.901	
+ATA	2.0000	4.7175	0.409	-0.099	0.892	*
+
+Covariance matrix
+3.1705	-0.6605	-0.2810	
+-0.6605	0.1737	-0.0132	
+-0.2810	-0.0132	0.1676	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+236.00	766.68	445.31	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-4.0543	-1.7242	4.4082	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.8309	-1.8449	4.5175	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.2021	-2.0601	4.6229	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.1492	-2.1020	4.6743	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-3.1192	-2.1332	4.7184	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+125.2440	330.3124	228.8142	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-3.1192	1.581	7.460	0.837	
+ASA	2.0000	-2.1332	0.334	7.607	0.841	
+ATA	2.0000	4.7184	0.407	7.416	0.795	
+
+Covariance matrix
+2.4982	-0.4553	-0.3718	
+-0.4553	0.1117	0.0118	
+-0.3718	0.0118	0.1656	
+Estimation
+Observed graph statistics:
+233.00	756.00	440.47	
+Phase1 simulation:
+Mean statistics:
+266.13	885.99	505.45	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-2.8485	-2.4320	5.1468	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-3.7194	-2.1866	5.1000	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-3.7256	-2.0384	4.8332	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-3.2488	-2.2004	4.9095	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-2.5585	-2.2565	4.6954	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 10920 
+Mean statistics:
+256.3400	847.9805	486.5180	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-2.5585	2.111	-1.062	0.437	
+ASA	2.0000	-2.2565	0.553	-1.058	0.434	
+ATA	2.0000	4.6954	0.468	-1.021	0.422	
+
+Covariance matrix
+4.4580	-1.0513	-0.1460	
+-1.0513	0.3055	-0.0765	
+-0.1460	-0.0765	0.2188	
+Estimation
+Observed graph statistics:
+90.00	257.72	158.59	
+Phase1 simulation:
+Mean statistics:
+91.56	261.61	109.78	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-0.8586	-0.5813	0.8499	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-0.2186	-0.9218	1.1388	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+0.3630	-1.1599	1.2808	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+0.4403	-1.2342	1.3698	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+0.6235	-1.3244	1.4403	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 4140 
+Mean statistics:
+91.3520	262.6303	147.0878	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	0.6235	2.546	-0.131	0.048	
+ASA	2.0000	-1.3244	0.705	-0.125	0.047	
+ATA	2.0000	1.4403	0.284	0.494	0.047	
+
+Covariance matrix
+6.4840	-1.7454	0.0845	
+-1.7454	0.4975	-0.0691	
+0.0845	-0.0691	0.0804	
+Estimation
+Observed graph statistics:
+90.00	257.72	158.59	
+Phase1 simulation:
+Mean statistics:
+90.94	259.98	145.14	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+1.1981	-1.5287	1.5357	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+1.2255	-1.8767	2.1264	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+1.0963	-1.9646	2.3463	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+0.7503	-1.9379	2.4602	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+0.6222	-1.9439	2.5348	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 4140 
+Mean statistics:
+90.3660	258.6112	155.0521	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	0.6222	2.537	-0.031	0.356	
+ASA	2.0000	-1.9439	0.652	-0.019	0.359	*
+ATA	2.0000	2.5348	0.362	0.143	0.321	
+
+Covariance matrix
+6.4343	-1.5815	-0.1611	
+-1.5815	0.4257	-0.0285	
+-0.1611	-0.0285	0.1310	
+Estimation
+Observed graph statistics:
+90.00	257.72	158.59	
+Phase1 simulation:
+Mean statistics:
+93.38	270.11	160.26	
+Phase2 estimation
+Subphase 1 started with a = 0.0100
+Parameters after subphase 1:
+-0.3903	-1.9164	2.9796	
+Subphase 2 started with a = 0.0100
+Parameters after subphase 2:
+-0.5923	-1.9150	3.0759	
+Subphase 3 started with a = 0.0050
+Parameters after subphase 3:
+-0.5966	-1.9388	3.1196	
+Subphase 4 started with a = 0.0025
+Parameters after subphase 4:
+-0.7141	-1.8755	3.0658	
+Subphase 5 started with a = 0.0013
+Parameters after subphase 5:
+-0.7524	-1.8705	3.0747	
+Phase3 simulation
+Number of steps: 500 
+nNumber of iteration in steps: 4140 
+Mean statistics:
+91.2660	262.6432	161.2109	
+Estimation results
+NOTE: t-statistics = (observation - sample mean)/standard error
+NOTE: SACF (sample autocorrelation)
+Effects	Lambda	Parameter	Stderr	t-ratio	SACF
+EdgeA	2.0000	-0.7524	1.819	-0.084	0.642	
+ASA	2.0000	-1.8705	0.447	-0.084	0.649	*
+ATA	2.0000	3.0747	0.381	-0.085	0.602	*
+
+Covariance matrix
+3.3104	-0.7361	-0.2239	
+-0.7361	0.1996	-0.0183	
+-0.2239	-0.0183	0.1453	

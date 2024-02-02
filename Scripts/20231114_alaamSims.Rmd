@@ -1,0 +1,1104 @@
+---
+title: "20231114_alaamSims"
+author: "Jon Januar"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Simulating an ALAAM
+
+This example's going to be using the London gangs dataset
+
+```{r load data}
+# packages
+library(here)
+library(sna)
+library(stringr)
+
+# load in the BayesALAAM
+source(here("Scripts", "bayesNetworkRoutines", "MultivarALAAMalt.R"))
+
+# this proof of concept works for simulating an ALAAM,
+# now let's try doing this with a UCINet empirical covert network
+# load in the london gangs dataset (Net 6)
+load(here("Data", "20231006_missNetsEnMasse.RData"))
+
+# take the specific adjmat
+exampleMat = adjMatList[[6]]
+
+```
+
+```{r line graph stuff}
+
+### TODO:: check to make sure the function's actually doing what it's supposed to. Ideally figure out a unit test for it
+# a function made in May 2022 to translate an adjmat into a line graph, go 2022 me
+lineGraph <- function(adjMat, directed = FALSE){
+  
+  ## lineGraph(adjMat, directed) takes an adjacency matrix and generates its 
+  ## corresponding line graph for its edges. 
+  ##
+  ## Input:
+  ## - adjMat:   An adjacency matrix describing a graph. Not sure if missing data 
+  ##             will mess with the conversion. 
+  ##
+  ## - directed: A logical value to indicate whether the graph is directed or not.
+  ##
+  ## Output:
+  ## - The line graph for the input adjacency matrix, stored as another matrix.
+  
+  ### count the number of edges
+  edgeCount = sum(adjMat)
+  
+  # if undirected, divide in half.
+  if (directed == FALSE){
+    edgeCount = edgeCount/2
+    adjMat[lower.tri(adjMat)] = 0
+  }
+  
+  # make a matrix of indices for edges (basically an edgelist)
+  inds = which(adjMat == 1, arr.ind = TRUE)
+  
+  # order it for readability
+  inds = inds[order(inds),]
+  
+  # make an empty matrix for the edges (represented as nodes)
+  lineMat = matrix(data = 0, 
+                   nrow = edgeCount,
+                   ncol = edgeCount)
+  
+  # use the edge list to make the line graph matrix
+  for(edgeInd in 1:edgeCount){                              # for every edge in the edge list
+    tempMat = matrix(data = c(inds %in% inds[edgeInd,]),    # match the edge with the same nodes
+                     ncol = 2)    
+    tempMat[edgeInd,] = FALSE                               # remove the selected edge in the matches
+    lineMat[edgeInd,] = tempMat[,1] + tempMat[,2]           # and put all the edges with the same nodes in the matrix
+  }
+  
+  
+  # make a vector of labels for the nodes
+  nodeLabel = apply(inds,
+                    MARGIN = 1,
+                    FUN = toString)
+  
+  # remove whitespace
+  nodeLabel = gsub(" ", "", nodeLabel, fixed = TRUE)
+  
+  # name the matrix
+  rownames(lineMat) = nodeLabel
+  
+  # return the line graph matrix
+  return(lineMat)
+}
+
+# grab the line graph
+lineTest = lineGraph(adjMat = exampleMat, directed = FALSE)
+
+# what does the line graph look like?
+gplot(lineTest, gmode = "graph", main = "Line graph")
+
+# but for the siulation, you don't need an outcome vectorspecified beforehand.. so
+emptyLineOutcome = rep(0, times = ncol(lineTest))
+
+# get unique ids for dyadic cov
+lineTestEdgeListStr = str_split(rownames(lineTest), pattern = ",")
+
+# reformat into a more friendly data frame
+lineTestEdgeList = data.frame(sender = as.numeric(unlist(lapply(lineTestEdgeListStr, FUN = function(x){x[1]}))), 
+                              receiver = as.numeric(unlist(lapply(lineTestEdgeListStr, FUN = function(x){x[2]}))))
+
+# some covariates, these need to be specifc to the edge... so they need to be formatted as dyadic covariates
+centeredAge = (londonGangsAtt$Age - mean(londonGangsAtt$Age))/sd(londonGangsAtt$Age)
+
+# turn into a 'edge' covariate using the indices in the edge list data frame
+centAgeDiffEdgeCov = c()
+prisonEdgeCov = c()
+
+# just loop it
+for(edgeNo in 1:nrow(lineTestEdgeList)){
+
+  sender = lineTestEdgeList[edgeNo, "sender"]
+  receiver = lineTestEdgeList[edgeNo, "receiver"]
+
+  centAgeDiffEdgeCov[edgeNo] = centeredAge[sender] - centeredAge[receiver]
+  prisonEdgeCov[edgeNo] = londonGangsAtt$Prison[sender] + londonGangsAtt$Prison[receiver]
+
+}
+
+# since Prison is a binary variable, the dyad cov can be 0, 1 or 2.
+# let's keep it to mutual ties for now
+prisonEdgeCov[prisonEdgeCov == 2] = 1
+
+
+# taking prison out for now since it's not that much heterogeneity
+
+
+# covs
+lineAlaamCovs = cbind(centAgeDiffEdgeCov)
+
+# ALAAM stuff
+linePrep = prepALAAMdata(y = emptyLineOutcome,
+                         ADJ = lineTest,
+                         covariates = lineAlaamCovs,
+                         directed = FALSE,
+                         useDegree = FALSE,
+                         contagion = "simple")
+
+# simulate
+simAlaamOutcome = simulateALAAM(y = emptyLineOutcome, 
+                                EdgeList = linePrep$EdgeList, 
+                                RowIn = linePrep$RowIn, 
+                                degree = linePrep$degree, 
+                                covariates = linePrep$covariates, 
+                                NumIterations = 3000,
+                                thinning= 10,
+                                theta = c(-2, 0.1, 0.1),
+                                statsvec = getALAAMstats(linePrep),  # getALAAMstats doesn't work when the y is empty (no obs stats)
+                                returnNet = TRUE,
+                                canchange = c(1:nrow(lineTest)),
+                                DoSave = FALSE)  
+print(simAlaamOutcome)
+
+# check how many edges are sampled
+table(simAlaamOutcome$y)
+
+
+
+```
+
+```{r multiple cont values}
+# #### Set some values for all the models
+trials = 1000
+ 
+# ### objects that will contain simulated statistics
+# zeroSimStats = matrix(data = 0, nrow = trials, ncol = ncol(lineAlaamCovs) + 2)  # covariates + edges + contagion
+# smallSimStats = matrix(data = 0, nrow = trials, ncol = ncol(lineAlaamCovs) + 2)
+# largeSimStats = matrix(data = 0, nrow = trials, ncol = ncol(lineAlaamCovs) + 2)
+# zeroSampledEdges = matrix(data = 0, nrow = trials, ncol = nrow(lineTest))
+# smallSampledEdges = matrix(data = 0, nrow = trials, ncol = nrow(lineTest))
+# largeSampledEdges = matrix(data = 0, nrow = trials, ncol = nrow(lineTest))
+
+
+# set thetas
+zeroTheta = c(-0.8, 0, 0.2)
+
+
+# now do the same for multiple values for contagion
+zeroContSim = simulateALAAM(y = emptyLineOutcome, 
+                            EdgeList = linePrep$EdgeList, 
+                            RowIn = linePrep$RowIn, 
+                            degree = linePrep$degree, 
+                            covariates = linePrep$covariates, 
+                            NumIterations = trials,
+                            thinning= 5,
+                            theta = zeroTheta,
+                            statsvec = getALAAMstats(linePrep),  # getALAAMstats doesn't work when the y is empty (no obs stats)
+                            returnNet = TRUE,
+                            canchange = c(1:nrow(lineTest)))
+print(zeroContSim)
+
+# check how many edges are sampled
+table(zeroContSim$y)
+
+
+## do this multiple times to get an approximate range of simulated statistics
+  # using the same objects so...
+zeroStatSim = suppressWarnings(simulateALAAM(y = emptyLineOutcome, 
+                          EdgeList = linePrep$EdgeList, 
+                          RowIn = linePrep$RowIn, 
+                          degree = linePrep$degree, 
+                          covariates = linePrep$covariates, 
+                          NumIterations = trials,
+                          thinning= 5,
+                          theta = zeroTheta,
+                          statsvec = getALAAMstats(linePrep),  # getALAAMstats doesn't work when the y is empty (no obs stats)
+                          returnNet = TRUE,
+                          canchange = c(1:nrow(lineTest)),
+                          DoSave = TRUE))
+
+# save the vector of statistics
+zeroSimStats = t(zeroStatSim$statsvec)
+
+# save the sampled edges
+zeroSampledEdges = t(zeroStatSim$y)
+
+
+
+## Brief inspection of the simulated statistics
+summary(zeroSimStats)
+
+# calculate to increase the amount of observed contagion, needs to be done sequentially 
+# inverse covariance matrix
+zeroInvCov = solve(cov(zeroSimStats))
+
+# amount of changed statistics
+smallThetaIncrease = c(0, -15, 0)
+
+# compute the scaled 'increase'
+smallScaledDiff = zeroInvCov %*% smallThetaIncrease
+
+# and then the changes in the theta values
+smallTheta = as.vector(zeroTheta - smallScaledDiff)
+
+# a small contagion value
+smallContSim = simulateALAAM(y = emptyLineOutcome, 
+                            EdgeList = linePrep$EdgeList, 
+                            RowIn = linePrep$RowIn, 
+                            degree = linePrep$degree, 
+                            covariates = linePrep$covariates, 
+                            NumIterations = trials,
+                            thinning= 5,
+                            theta = smallTheta,
+                            statsvec = getALAAMstats(linePrep),  # getALAAMstats doesn't work when the y is empty (no obs stats)
+                            returnNet = TRUE,
+                            canchange = c(1:nrow(lineTest)))
+print(smallContSim)
+
+# check how many edges are sampled
+table(smallContSim$y)
+
+## do this multiple times to get an approximate range of simulated statistics
+
+  # using the same objects so...
+smallStatSim = suppressWarnings(simulateALAAM(y = emptyLineOutcome, 
+                          EdgeList = linePrep$EdgeList, 
+                          RowIn = linePrep$RowIn, 
+                          degree = linePrep$degree, 
+                          covariates = linePrep$covariates, 
+                          NumIterations = trials,
+                          thinning= 5,
+                          theta = smallTheta,
+                          statsvec = getALAAMstats(linePrep),  # getALAAMstats doesn't work when the y is empty (no obs stats)
+                          returnNet = TRUE,
+                          canchange = c(1:nrow(lineTest)),
+                          DoSave = TRUE))
+
+# save the vector of statistics
+smallSimStats = t(smallStatSim$statsvec) 
+
+# save the sampled edges
+smallSampledEdges = t(smallStatSim$y)  
+  
+
+
+
+# ## tetoing different theta values and the sufficient contagion statisc\
+# contSimStats = matrix(data = 0, nrow = trials, ncol = ncol(lineAlaamCovs) + 2)
+# 
+# tempTheta = smallTheta
+# 
+# tempInvCov = smallInvCov
+# 
+# tempStatsVec = c(0, 0, 0)
+# 
+# tempScaledDiff = smallScaledDiff
+# 
+# tempOutcome = emptyLineOutcome
+# 
+# for(trialInd in 1:trials){
+#   
+#   
+#   
+#     # using the same objects so...
+#   contValueSim = suppressWarnings(simulateALAAM(y = tempOutcome, 
+#                             EdgeList = linePrep$EdgeList, 
+#                             RowIn = linePrep$RowIn, 
+#                             degree = linePrep$degree, 
+#                             covariates = linePrep$covariates, 
+#                             NumIterations = 1000,
+#                             thinning= 5,
+#                             theta = as.vector(tempTheta),
+#                             statsvec = tempStatsVec,  # getALAAMstats doesn't work when the y is empty (no obs stats)
+#                             returnNet = TRUE,
+#                             canchange = c(1:nrow(lineTest)),
+#                             DoSave = TRUE))
+#   
+#   # save the vector of statistics
+#   contSimStats[trialInd,] = contValueSim$statsvec[,1000] 
+#   tempStatsVec = contValueSim$statsvec[,1000]
+#   
+#   tempOutcome = contValueSim$y[, 1000]
+#   
+#   # update the covariance matrix
+#   tempInvCov = solve(cov(t(contValueSim$statsvec)))
+# 
+#   # find the scaled difference
+#   tempScaledDiff = tempInvCov %*% c(0, -1, 0)
+#   
+# 
+#   
+#   
+#   # change the theta values
+#     tempTheta = tempTheta - tempScaledDiff
+# 
+# }
+# 
+# par(mfrow=c(1,2))
+# plot(contSimStats[,1])
+# plot(contSimStats[,2])
+
+## Brief inspection of the simulated statistics
+summary(smallSimStats)
+
+# calculate to increase the amount of observed contagion, needs to be done sequentially 
+# inverse covariance matrix
+smallInvCov = solve(cov(smallSimStats))
+
+# amount of changed statistics, note that this is in addition to the small theta increase above
+largeThetaIncrease = c(0, -25, 0)
+
+# compute the scaled 'increase'
+largeScaledDiff = smallInvCov %*% largeThetaIncrease
+
+# and then the changes in the theta values
+largeTheta = as.vector(smallTheta - largeScaledDiff)
+
+print(largeTheta)
+
+# a larger contagion value
+largeContSim = simulateALAAM(y = emptyLineOutcome, 
+                             EdgeList = linePrep$EdgeList, 
+                             RowIn = linePrep$RowIn, 
+                             degree = linePrep$degree, 
+                             covariates = linePrep$covariates, 
+                             NumIterations = trials,
+                             thinning= 5,
+                             theta = largeTheta,
+                             statsvec = getALAAMstats(linePrep),  # getALAAMstats doesn't work when the y is empty (no obs stats)
+                             returnNet = TRUE,
+                             canchange = c(1:nrow(lineTest)))
+print(largeContSim)
+
+# check how many edges are sampled
+table(largeContSim$y)
+
+## do this multiple times to get an approximate range of simulated statistics
+  
+  # using the same objects so...
+largeStatSim = suppressWarnings(simulateALAAM(y = emptyLineOutcome, 
+                          EdgeList = linePrep$EdgeList, 
+                          RowIn = linePrep$RowIn, 
+                          degree = linePrep$degree, 
+                          covariates = linePrep$covariates, 
+                          NumIterations = trials,
+                          thinning= 5,
+                          theta = largeTheta,
+                          statsvec = getALAAMstats(linePrep),  # getALAAMstats doesn't work when the y is empty (no obs stats)
+                          returnNet = TRUE,
+                          canchange = c(1:nrow(lineTest)),
+                          DoSave = TRUE))
+
+# save the vector of statistics
+largeSimStats = t(largeStatSim$statsvec) 
+
+# save the sampled edges
+largeSampledEdges = t(largeStatSim$y)
+
+
+# brief inspection of simulated statistics
+summary(largeSimStats)
+```
+
+
+```{r turn into nets}
+# code to get their respective edge lists, the contagion parameter is real finicky
+zeroContEdgeList = lineTestEdgeList[zeroContSim$y == 1,]
+smallContEdgeList = lineTestEdgeList[smallContSim$y == 1,]
+largeContEdgeList = lineTestEdgeList[largeContSim$y == 1,]
+
+# edge list to adjMat
+emptyExampleMat = matrix(data = 0, nrow = nrow(exampleMat), ncol = ncol(exampleMat))
+zeroContMat = emptyExampleMat
+smallContMat = emptyExampleMat
+largeContMat = emptyExampleMat
+
+# loops one at a time
+for(edgeNo in 1:nrow(zeroContEdgeList)){
+  
+  # grab the sender
+  sender = zeroContEdgeList[edgeNo, 1]
+  
+  # grab the rceiver
+  receiver = zeroContEdgeList[edgeNo, 2]
+  
+  # fill in the empty matrix
+  zeroContMat[sender, receiver] = 1
+  
+  # do the same for the other end because undirected
+  zeroContMat[receiver, sender] = 1
+}
+
+
+# but anyways
+for(edgeNo in 1:nrow(smallContEdgeList)){
+  
+  # grab the sender
+  sender = smallContEdgeList[edgeNo, 1]
+  
+  # grab the rceiver
+  receiver = smallContEdgeList[edgeNo, 2]
+  
+  # fill in the empty matrix
+  smallContMat[sender, receiver] = 1
+  
+  # do the same for the other end because undirected
+  smallContMat[receiver, sender] = 1
+}
+
+for(edgeNo in 1:nrow(largeContEdgeList)){
+  
+  # grab the sender
+  sender = largeContEdgeList[edgeNo, 1]
+  
+  # grab the rceiver
+  receiver = largeContEdgeList[edgeNo, 2]
+  
+  # fill in the empty matrix
+  largeContMat[sender, receiver] = 1
+  
+  # do the same for the other end because undirected
+  largeContMat[receiver, sender] = 1
+}
+
+# and plot
+gplot(zeroContMat, gmode = "graph", main = "Zero contagion")
+
+gplot(smallContMat, gmode = "graph", main = "Small contagion")
+
+gplot(largeContMat, gmode = "graph", main = "Large contagion")
+
+
+# now do this for all the simulated networks
+
+# an array because we are gonna have a lot of matrices
+zeroSampledArray = array(data = 0, dim = c(nrow(exampleMat), ncol(exampleMat), trials))
+smallSampledArray = array(data = 0, dim = c(nrow(exampleMat), ncol(exampleMat), trials))
+largeSampledArray = array(data = 0, dim = c(nrow(exampleMat), ncol(exampleMat), trials))
+
+# a loop for all of the simulated sampled edges
+for(trialInd in 1:trials){
+  
+  # turn the line graph into edge lists
+  zeroSampledEdgeList = lineTestEdgeList[zeroSampledEdges[trialInd,] == 1,]
+  smallSampledEdgeList = lineTestEdgeList[smallSampledEdges[trialInd,] == 1,]
+  largeSampledEdgeList = lineTestEdgeList[largeSampledEdges[trialInd,] == 1,]
+
+    # loops one at a time
+  for(edgeNo in 1:nrow(zeroSampledEdgeList)){
+    
+    # grab the sender
+    sender = zeroSampledEdgeList[edgeNo, 1]
+    
+    # grab the rceiver
+    receiver = zeroSampledEdgeList[edgeNo, 2]
+    
+    # fill in the empty matrix
+    zeroSampledArray[sender, receiver, trialInd] = 1
+    
+    # do the same for the other end because undirected
+    zeroSampledArray[receiver, sender, trialInd] = 1
+  }
+  
+  
+  # but anyways
+  for(edgeNo in 1:nrow(smallSampledEdgeList)){
+    
+    # grab the sender
+    sender = smallSampledEdgeList[edgeNo, 1]
+    
+    # grab the rceiver
+    receiver = smallSampledEdgeList[edgeNo, 2]
+    
+    # fill in the empty matrix
+    smallSampledArray[sender, receiver, trialInd] = 1
+    
+    # do the same for the other end because undirected
+    smallSampledArray[receiver, sender, trialInd] = 1
+  }
+  
+  for(edgeNo in 1:nrow(largeSampledEdgeList)){
+    
+    # grab the sender
+    sender = largeSampledEdgeList[edgeNo, 1]
+    
+    # grab the rceiver
+    receiver = largeSampledEdgeList[edgeNo, 2]
+    
+    # fill in the empty matrix
+    largeSampledArray[sender, receiver, trialInd] = 1
+    
+    # do the same for the other end because undirected
+    largeSampledArray[receiver, sender, trialInd] = 1
+  }
+}
+
+```
+
+## Contagion increase
+
+$$\theta_t = \theta - H(\theta)^{-1}S(\theta)$$
+```{r cont manip, eval = F}
+# assume ~64% edge sampled as in small cont
+startTheta = c(-2, 0.3, 0.1)
+
+# one step to increase contagion values to 0.6
+# I need two things-
+# actual changes in the theta values
+changeTheta = c(0, -0.3, 0)
+
+# covariance matrix for to scale the theta values
+# to get this, let's first try with 100 simulations of the same model
+trials = 100
+
+# initialising dataframe for sufficient statistics for a model
+alaamSuffStats = matrix(data = 0, nrow = trials, ncol = length(startTheta))
+
+# loop to get the statistics
+for(i in 1:trials){
+  
+  # using the same objects so...
+  suffStatSim = suppressWarnings(simulateALAAM(y = emptyLineOutcome, 
+                            EdgeList = linePrep$EdgeList, 
+                            RowIn = linePrep$RowIn, 
+                            degree = linePrep$degree, 
+                            covariates = linePrep$covariates, 
+                            NumIterations = 1000,
+                            thinning= 5,
+                            theta = c(-2, 0.3, 0.1),
+                            statsvec = getALAAMstats(linePrep),  # getALAAMstats doesn't work when the y is empty (no obs stats)
+                            returnNet = TRUE,
+                            canchange = c(1:nrow(lineTest))))
+  
+  # save the vector of statistics
+  alaamSuffStats[i,] = suffStatSim$statsvec 
+  
+  
+}
+
+# object type stuff
+invCov = solve(cov(alaamSuffStats))
+
+# then (matrix) multply the inverse covariace matrix with the theta change values
+scalingFactor = invCov %*% changeTheta
+
+# does this work..?
+newTheta = startTheta - scalingFactor
+
+# re-simulate
+newThetaSim = simulateALAAM(y = emptyLineOutcome, 
+                            EdgeList = linePrep$EdgeList, 
+                            RowIn = linePrep$RowIn, 
+                            degree = linePrep$degree, 
+                            covariates = linePrep$covariates, 
+                            NumIterations = 1000,
+                            thinning= 5,
+                            theta = as.vector(newTheta),
+                            statsvec = getALAAMstats(linePrep),  # getALAAMstats doesn't work when the y is empty (no obs stats)
+                            returnNet = TRUE,
+                            canchange = c(1:nrow(lineTest)))
+
+# print stuff
+print(startTheta)
+
+print(scalingFactor)
+
+print(newTheta)
+
+print(smallContSim)
+
+print(newThetaSim)
+```
+
+
+## Calculating metrics
+
+```{r metrics}
+
+### two possible avenues with the 'sampled' adjacency matrices
+## Turn into network objects
+zeroContNet = as.network(zeroContMat, directed = FALSE)
+smallContNet = as.network(smallContMat, direced = FALSE)
+largeContNet = as.network(largeContMat, directed = FALSE)
+
+
+## calculating various metrics
+getMetrics = function(net, directed = FALSE){
+  
+  # fork for directed/undirecited
+  mode = "digraph"
+  
+  if(directed == FALSE){
+    mode = "graph"
+  } 
+  
+  # density
+  density = gden(net, mode = mode)
+  
+  # clustering coefficient
+  clustCoeff = gtrans(net, mode = mode)
+  
+  # centralisation
+  centralisation = centralization(net, FUN = degree, mode = mode)
+  
+  # average geodesic
+  avgGeod = mean(geodist(net, inf.replace= NA)$gdist, na.rm = T)
+  
+  # diameter
+  diameter = max(geodist(net, inf.replace= NA)$gdist, na.rm = T)
+  
+  # avg degree
+  avgDegree = mean(sna::degree(net, gmode = mode))
+  
+  # avg betweenness
+  avgBetw = mean(betweenness(net, gmode = mode))
+  
+  # slap them all in a list
+  metricList = list(
+    density = density,
+    clustCoeff = clustCoeff,
+    centralisation = centralisation,
+    avgGeod = avgGeod,
+    diameter = diameter,
+    avgDegree = avgDegree,
+    avgBetw = avgBetw
+  )
+  
+  # reutrn the metric list
+  return(metricList)
+}
+
+# apply to the networks
+zeroContMetrics = getMetrics(zeroContNet)
+smallContMetrics = getMetrics(smallContNet)
+largeContMetrics = getMetrics(largeContNet)
+
+# print for now before plotting
+print(zeroContMetrics)
+print(smallContMetrics)
+print(largeContMetrics)
+
+# NOTE: if I wanted to compare to independently sampled dyads, I would need to match the density... right?
+
+
+## appplying the calculations en masse
+# turn them into networkssss
+zeroSampledNets = apply(zeroSampledArray, MARGIN = 3, FUN = as.network, directed = FALSE)
+smallSampledNets = apply(smallSampledArray, MARGIN = 3, FUN = as.network, directed = FALSE)
+largeSampledNets = apply(largeSampledArray, MARGIN = 3, FUN = as.network, directed = FALSE)
+
+# and calculate
+zeroMetricList = lapply(zeroSampledNets, FUN = getMetrics)
+smallMetricList = lapply(smallSampledNets, FUN = getMetrics)
+largeMetricList = lapply(largeSampledNets, FUN = getMetrics)
+
+# getting individual metrics
+zeroDensity = sapply(zeroMetricList, function(x){x[["density"]]})
+zeroClust = sapply(zeroMetricList, function(x){x[["clustCoeff"]]})
+zeroCentr = sapply(zeroMetricList, function(x){x[["centralisation"]]})
+zeroAvgGeo = sapply(zeroMetricList, function(x){x[["avgGeod"]]})
+zeroDiam = sapply(zeroMetricList, function(x){x[["diameter"]]})
+zeroAvgDeg = sapply(zeroMetricList, function(x){x[["avgDegree"]]})
+zeroAvgBetw = sapply(zeroMetricList, function(x){x[["avgBetw"]]})
+
+smallDensity = sapply(smallMetricList, function(x){x[["density"]]})
+smallClust = sapply(smallMetricList, function(x){x[["clustCoeff"]]})
+smallCentr = sapply(smallMetricList, function(x){x[["centralisation"]]})
+smallAvgGeo = sapply(smallMetricList, function(x){x[["avgGeod"]]})
+smallDiam = sapply(smallMetricList, function(x){x[["diameter"]]})
+smallAvgDeg = sapply(smallMetricList, function(x){x[["avgDegree"]]})
+smallAvgBetw = sapply(smallMetricList, function(x){x[["avgBetw"]]})
+
+largeDensity = sapply(largeMetricList, function(x){x[["density"]]})
+largeClust = sapply(largeMetricList, function(x){x[["clustCoeff"]]})
+largeCentr = sapply(largeMetricList, function(x){x[["centralisation"]]})
+largeAvgGeo = sapply(largeMetricList, function(x){x[["avgGeod"]]})
+largeDiam = sapply(largeMetricList, function(x){x[["diameter"]]})
+largeAvgDeg = sapply(largeMetricList, function(x){x[["avgDegree"]]})
+largeAvgBetw = sapply(largeMetricList, function(x){x[["avgBetw"]]})
+
+
+# get the 'true' metric value
+trueMetrics = getMetrics(as.network(exampleMat, directed = FALSE))
+```
+
+
+## Independent sampling
+
+Independent sampling of dyads
+
+```{r indep sampling}
+# truly independent sampling of the matrix
+# since the matrix chosen is undirected, there are only n(n-1)/2 dyads
+# I basically need this sampling to sample a triangle, ignoring the diagonal
+numberMat = matrix(data = 1:(nrow(exampleMat))^2, ncol = ncol(exampleMat), nrow = nrow(exampleMat))
+possibleSampledNumbers = numberMat[upper.tri(numberMat)]
+
+# if I wanted a sampled density that roughly matches the density of the simulated sampled networks, I want to...
+# consider density as the % success, work backwards for the actual amount of sampled dyads to match
+# the average simulated densities
+indepSampledNumbers = replicate(n = trials,
+                                    expr = sample(possibleSampledNumbers, size = ((mean(zeroDensity)/trueMetrics$density)* length(possibleSampledNumbers)), replace = FALSE))
+
+# divide by 2 in the sample size because we symmetrise later
+
+# turn these into networks somehow
+# for a given set of sampled numbers...,
+indepSampledMat = matrix(data = as.numeric(numberMat %in% indepSampledNumbers[, 1]), nrow = nrow(numberMat), ncol = ncol(numberMat))
+
+# symmetrise
+indepSampledMat[lower.tri(indepSampledMat)] = t(indepSampledMat)[lower.tri(indepSampledMat)]
+
+# then get the actual matrix
+indepAdjMat = indepSampledMat * exampleMat
+
+# an array because we are gonna have a lot of matrices
+indepSampledArray = array(data = 0, dim = c(nrow(exampleMat), ncol(exampleMat), trials))
+
+
+
+# now do for all
+for(trialInd in 1:trials){
+  
+  # same code as above
+  indepSampledMat = matrix(data = as.numeric(numberMat %in% indepSampledNumbers[, trialInd]), nrow = nrow(numberMat), ncol = ncol(numberMat))
+
+  # symmetrise
+  indepSampledMat[lower.tri(indepSampledMat)] = t(indepSampledMat)[lower.tri(indepSampledMat)]
+
+  # then get the actual matrix
+  indepSampledArray[,,trialInd] = indepSampledMat * exampleMat
+}
+
+# turn into networks and calculate metrics
+# turn them into networkssss
+indepSampledNets = apply(indepSampledArray, MARGIN = 3, FUN = as.network, directed = FALSE)
+
+# and calculate
+indepMetricList = lapply(indepSampledNets, FUN = getMetrics)
+
+
+# getting individual metrics
+indepDensity = sapply(indepMetricList, function(x){x[["density"]]})
+indepClust = sapply(indepMetricList, function(x){x[["clustCoeff"]]})
+indepCentr = sapply(indepMetricList, function(x){x[["centralisation"]]})
+indepAvgGeo = sapply(indepMetricList, function(x){x[["avgGeod"]]})
+indepDiam = sapply(indepMetricList, function(x){x[["diameter"]]})
+indepAvgDeg = sapply(indepMetricList, function(x){x[["avgDegree"]]})
+indepAvgBetw = sapply(indepMetricList, function(x){x[["avgBetw"]]})
+
+
+
+```
+
+
+
+## ERGM Re-estimation
+
+```{r ergm reest}
+## re-estimation of some ERGMs and compare to the baseline
+# can grab code from miss net reests
+# doesn't need to be parallelised to the extent as that script
+
+
+```
+
+
+## ALAAM on simulated S
+
+```{r}
+### the 'extra credit' for seeing how the markov assumption in dyads translate to the contagion parameter in the ALAAM
+# we first need to get an outcome variable (the sampled edge indicator S_l)
+# ... first simulate a sampling matrix so that the outcome variable (the sampling indicator) isn't all 1s
+# I can use a missNet generator to generate a sampling matrix
+# i.e., 75% sampled = 25% missing
+source(here("Scripts", "20230811_missNetFunctions.R"))
+
+## Start with a completely independnet example just for computational ease (just sorting out the code first)
+randomSampleInd = initMissAdj(n = nrow(exampleMat), propMiss = 0.75, mode = "graph")
+
+# multiply the sampling indicator with the true matrix t get the sampled adjmat
+sampledMat = exampleMat * randomSampleInd
+
+## finding which edges remain (in a very roundabout way)
+# turn the sampled mat into a line graph
+sampledLines = lineGraph(sampledMat, directed = FALSE)
+
+# grab the edge list
+sampledEdgeListStr = str_split(rownames(sampledLines), pattern = ",")
+
+# foramat the edge list
+sampledEdgeList = data.frame(sender = as.numeric(unlist(lapply(sampledEdgeListStr, FUN = function(x){x[1]}))), 
+                             receiver = as.numeric(unlist(lapply(sampledEdgeListStr, FUN = function(x){x[2]}))))
+
+# find which edges overlap
+# can't access internet right now so... i'm combining both edge lists and seeing if there are any duplicates
+# since the non-duplicates would be the complement to the sampled edge list, they are 0s in the sampled edge indicator (S_L)
+
+combinedEdgeListStr = c(rownames(lineTest), rownames(sampledLines))
+
+# find which ones only appear once
+unsampledEdgeStr = names(which(table(combinedEdgeListStr) == 1))
+
+# then do some testing to ensure the two sets are complementary
+combinedEdgeTest = c(rownames(sampledLines), unsampledEdgeStr, rownames(lineTest))
+
+# should be 0
+sum(table(combinedEdgeTest) != 2)
+
+# therefore the two sets are complements
+# so now let's define an outcome variable to be estimated
+sampledOutcomeVar = rep(1, nrow(lineTest))
+sampledOutcomeVar[rownames(lineTest) %in% unsampledEdgeStr] = 0
+
+# this is then technically ready to estimate
+### Estimation model for the ALAAM here.
+
+```
+
+## Snowball simulation
+
+```{r snowsim}
+### Simulation of a snowball sample mechanism
+# with the london gangs as the example
+# let's say we have a wave size of between 15 for each wave
+waveSize = 15
+
+possibleNodes = 1:nrow(exampleMat)
+
+# sample the seed set
+seedSet = sample(x = possibleNodes, size = waveSize, replace = FALSE)
+
+# initialise an empty matrix
+snowMat = matrix(data = 0, nrow = length(possibleNodes), ncol = length(possibleNodes))
+
+# then sample the ones that have been sampled
+snowMat[seedSet,] = exampleMat[seedSet,]
+
+# symmetrising because undirected
+snowMat[, seedSet] = exampleMat[, seedSet]
+
+# plot it
+gplot(snowMat, gmode = "graph", main = "Seed")
+
+# then prioritise sampling nodes that are incident on the already sampled nodes
+seedEdgeList = which(snowMat==1, arr.ind = TRUE)
+
+# then check which columns are incident to the seed set
+possibleWave1 = setdiff(as.numeric(names(table(seedEdgeList))), seedSet)
+
+# so sample wave 1
+wave1Set = sample(x = possibleWave1, size = waveSize, replace = FALSE)
+
+# sample wave 1
+snowMat[wave1Set,] = exampleMat[wave1Set,]
+snowMat[,wave1Set] = exampleMat[,wave1Set]
+
+# plot it
+gplot(snowMat, gmode = "graph", main = "Wave 1")
+
+# check which ones can be sampled again
+wave1EdgeList = which(snowMat==1, arr.ind = TRUE)
+
+# then check which columns are incident to the seed set
+possibleWave2 = setdiff(as.numeric(names(table(wave1EdgeList))), c(seedSet, wave1Set))
+
+# keep going
+# so sample wave 2
+wave2Set = possibleWave2
+
+if( length(possibleWave2) > waveSize){
+  wave2Set = sample(x = possibleWave2, size = waveSize, replace = FALSE)
+}
+
+
+# sample wave 2
+snowMat[wave2Set,] = exampleMat[wave2Set,]
+snowMat[,wave2Set] = exampleMat[,wave2Set]
+
+# plot it
+gplot(snowMat, gmode = "graph", main = "Wave 2")
+
+# check which ones can be sampled again
+wave2EdgeList = which(snowMat==1, arr.ind = TRUE)
+
+# then check which columns are incident to the seed set
+possibleWave3 = setdiff(as.numeric(names(table(wave2EdgeList))), c(seedSet, wave1Set, wave2Set))
+
+# wave 3 migth not happen depending on which nodes are sampled since some have fairly high degree
+if(length(possibleWave3) > 0){
+# so sample wave 3, no randomised sampling here because there are not enough nodes
+wave3Set = possibleWave3
+
+# sample wave 3
+snowMat[wave3Set,] = exampleMat[wave3Set,]
+snowMat[,wave3Set] = exampleMat[,wave3Set]
+
+# plot it
+gplot(snowMat, gmode = "graph", main = "Wave 3")
+
+# check which ones can be sampled again
+wave3EdgeList = which(snowMat==1, arr.ind = TRUE)
+}
+
+
+```
+
+Use node colour to show which nodes have been sampled vs. not sampled? Also maybe mess with starting with a smaller matrix before adding rows and columns to it.
+
+
+## Plotting code
+
+```{r plotcode}
+# package
+library(ggplot2)
+
+
+# density
+densityPlotData = data.frame(density = c(indepDensity, zeroDensity, smallDensity, largeDensity), 
+                            model = factor(c(rep("Indep", trials), rep("ZeroCont", trials), rep("SmallCont", trials), rep("LargeCont", trials)),
+                                           levels = c("Indep", "ZeroCont", "SmallCont", "LargeCont")),
+                            runs = rep(1:trials, 4))
+
+densityPlot = ggplot( data = densityPlotData,
+                    aes( x = density, col = model, fill = model)) + 
+             xlab("Density") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$density, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Density") + 
+             theme_classic()
+
+densityPlot
+
+# Clustering coefficient
+clustPlotData = data.frame(clust = c(indepClust, zeroClust, smallClust, largeClust), 
+                            model = factor(c(rep("Indep", trials), rep("ZeroCont", trials), rep("SmallCont", trials), rep("LargeCont", trials)),
+                                           levels = c("Indep", "ZeroCont", "SmallCont", "LargeCont")),
+                            runs = rep(1:trials, 4))
+
+clustPlot = ggplot( data = clustPlotData,
+                    aes( x = clust, col = model, fill = model)) + 
+             xlab("Clustering coefficient") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$clustCoeff, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Clustering coefficient") + 
+             theme_classic()
+
+clustPlot
+
+
+# Centralisation
+centrPlotData = data.frame(centr = c(indepCentr, zeroCentr, smallCentr, largeCentr), 
+                            model = factor(c(rep("Indep", trials), rep("ZeroCont", trials), rep("SmallCont", trials), rep("LargeCont", trials)),
+                                           levels = c("Indep", "ZeroCont", "SmallCont", "LargeCont")),
+                            runs = rep(1:trials, 4))
+
+centrPlot = ggplot( data = centrPlotData,
+                    aes( x = centr, col = model, fill = model)) + 
+             xlab("Centralisation") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$centralisation, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Centralisation") + 
+             theme_classic()
+
+centrPlot
+
+
+# Avg geod
+avgGeoPlotData = data.frame(avgGeo = c(indepAvgGeo, zeroAvgGeo, smallAvgGeo, largeAvgGeo), 
+                            model = factor(c(rep("Indep", trials), rep("ZeroCont", trials), rep("SmallCont", trials), rep("LargeCont", trials)),
+                                           levels = c("Indep", "ZeroCont", "SmallCont", "LargeCont")),
+                            runs = rep(1:trials, 4))
+
+avgGeoPlot = ggplot( data = avgGeoPlotData,
+                    aes( x = avgGeo, col = model, fill = model)) + 
+             xlab("Average geodesic") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$avgGeod, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Average geodesic") + 
+             theme_classic()
+
+avgGeoPlot
+
+
+# Diameter
+diamPlotData = data.frame(diam = c(indepDiam, zeroDiam, smallDiam, largeDiam), 
+                            model = factor(c(rep("Indep", trials), rep("ZeroCont", trials), rep("SmallCont", trials), rep("LargeCont", trials)),
+                                           levels = c("Indep", "ZeroCont", "SmallCont", "LargeCont")),
+                            runs = rep(1:trials, 4))
+
+diamPlot = ggplot( data = diamPlotData,
+                    aes( x = diam, col = model, fill = model)) + 
+             xlab("Diameter") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$diameter, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Diameter") + 
+             theme_classic()
+
+diamPlot
+
+# Avg degree
+avgDegPlotData = data.frame(avgDeg = c(indepAvgDeg, zeroAvgDeg, smallAvgDeg, largeAvgDeg), 
+                            model = factor(c(rep("Indep", trials), rep("ZeroCont", trials), rep("SmallCont", trials), rep("LargeCont", trials)),
+                                           levels = c("Indep", "ZeroCont", "SmallCont", "LargeCont")),
+                            runs = rep(1:trials, 4))
+
+avgDegPlot = ggplot( data = avgDegPlotData,
+                    aes( x = avgDeg, col = model, fill = model)) + 
+             xlab("Average degree") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$avgDegree, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Average degree") + 
+             theme_classic()
+
+avgDegPlot
+
+# betw
+avgBetwPlotData = data.frame(avgBetw = c(indepAvgBetw, zeroAvgBetw, smallAvgBetw, largeAvgBetw), 
+                            model = factor(c(rep("Indep", trials), rep("ZeroCont", trials), rep("SmallCont", trials), rep("LargeCont", trials)),
+                                           levels = c("Indep", "ZeroCont", "SmallCont", "LargeCont")),
+                            runs = rep(1:trials, 4))
+
+avgBetwPlot = ggplot( data = avgBetwPlotData,
+                    aes( x = avgBetw, col = model, fill = model)) + 
+             xlab("Average betweenness centrality") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$avgBetw, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Average betweenness centrality") + 
+             theme_classic()
+
+avgBetwPlot
+```
+
+## Some more figs
+
+```{r line graph fig}
+# colouring nodes manually... kinda.
+coord = gplot(lineTest, gmode = "graph")
+
+lineNodeCol = rep("orange", nrow(lineTest))
+lineNodeCol[largeContSim$y == 1] = "blue"
+
+gplot(lineTest, gmode = "graph", vertex.col = lineNodeCol, coord = coord, main = "Sampled line graph")
+
+
+coord = gplot(exampleMat, gmode = "graph")
+
+edgeCol = rep("orange", nrow(lineTest))
+edgeCol[largeContSim$y ==1] = "blue"
+
+gplot(exampleMat, gmode = "graph", edge.col = edgeCol, coord = coord, main = "Sampled adjacency matrix")
+
+
+```
+
+

@@ -1,0 +1,512 @@
+---
+title: "20230625_sunbelt_plots"
+author: "Jon Januar"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setting up
+
+```{r reading in data}
+# packages
+library(here)
+library(sna)
+library(network)
+library(ggplot2)
+
+# as taken from UCINET (17 Nov Greek Bombings)
+greeceBombs = as.matrix(read.csv(file = here("Data", "17Nov Greece Bombing", "17NOV_GREECE_19751984.csv"), header = T, row.names = "X"))
+
+# symmetrising column and row names because isSymmetric checks this
+colnames(greeceBombs) = rownames(greeceBombs)
+
+# add in the missing tie, ONLY FOR 19952002, the other two versions already have this as 1.
+greeceBombs[4,18] = 1
+
+# making sure it's an undirected network
+print(paste("Check on whether the network is undirected:", isSymmetric(greeceBombs)))
+
+# brief inspection
+# density
+print(paste("Density:", round(mean(greeceBombs), 3)))
+
+par(mfrow = c(1,2))
+
+# plot network
+gplot(greeceBombs,
+      gmode = "graph",
+      edge.col = "grey",
+      vertex.cex = sna::degree(greeceBombs) * 0.15,
+      main = "Nov 17 bombing network")
+
+# check degree distribution
+plot(table(colSums(greeceBombs)), type = "h", main = "Degree distribution", xlab = "Degree", ylab = "Frequency")
+
+```
+
+
+### Wrangling models
+
+```{r reading in models}
+## True model
+load(here("Output", "20230625_n17res_19751984.RData"))
+
+trueModCoefs = n17res$coef
+
+## print summary
+summary(n17res)
+
+## lists of reestimations
+# get the file list
+missModelFileList = list.files(path = here("Output", "20230625_n17_missModels"))
+
+# peter file names
+peterIndep = missModelFileList[grep("missModels_Indep", missModelFileList)]
+peterUM = missModelFileList[grep("missModels_UM", missModelFileList)]
+peterCM = missModelFileList[grep("missModels_CM", missModelFileList)]
+peterERGM = missModelFileList[grep("missModels_ERGM", missModelFileList)]
+
+# todd file names
+toddIndep = missModelFileList[grep("Todd_Indep", missModelFileList)]
+toddUM = missModelFileList[grep("Todd_UM", missModelFileList)]
+toddCM = missModelFileList[grep("Todd_CM", missModelFileList)]
+toddERGM = missModelFileList[grep("Todd_ERGM", missModelFileList)]
+
+# put em all in a list
+modelReest = list(peterIndep, peterUM, peterCM, peterERGM, toddIndep, toddUM, toddCM, toddERGM)
+
+## loop to grab reestimations and indices
+# initialising
+indexList = list()
+reestModelList = list()
+indepMissModelList = list()
+listInd = 1
+indepMissModelInd = 1
+
+# loop
+for(missModelInd in 1:8){
+  for(runIndex in 1:20){
+    
+    # loading only 20 files because not all are 30
+    load(here("Output", "20230625_n17_missModels", paste(modelReest[[missModelInd]][[runIndex]])))
+    
+    # handle the independent models differently since their indices are not useful
+    if( any(missModelInd == c(1,5))) {
+      
+      # specifically for Todd becuase 0 sucks
+      if(missModelInd ==5) {
+        
+        # save the D
+        indepMissModelList[[indepMissModelInd]] = chosenIndep
+        reestModelList[[listInd]] = chosenDepletedMiss
+        
+        # placeholder for index
+        indexList[[listInd]] = 0
+        
+        # iterate indices
+        indepMissModelInd = indepMissModelInd + 1
+        listInd = listInd + 1
+      } else {
+      
+      # the code below's only going to run for peterIndep
+      indepMissModelList[[indepMissModelInd]] = chosenDepletedNetwork
+      reestModelList[[listInd]] = chosenDepletedMiss
+      
+      # placeholder for index
+      indexList[[listInd]] = 0
+      
+      # iterate index
+      indepMissModelInd = indepMissModelInd + 1
+      listInd = listInd + 1}
+
+      
+    } else {
+      # the code below's for all the non independent models
+      reestModelList[[listInd]] = chosenDepletedMiss
+      
+      # index list
+      indexList[[listInd]] = index
+      
+      # iterate index
+      listInd = listInd + 1
+      
+    }
+  
+  }
+}
+
+### problem: indices are SOMEHOW repeated within miss models
+# especially the ERGM
+# just grab 10.
+indexVector = unlist(indexList)
+
+
+# subsetted modelreests and index
+indexSubset = c(indexVector[1:10],
+                indexVector[21:40][indexVector[21:40] %in% sample(as.numeric(names(table(indexVector[21:40])))[table(indexVector[21:40]) == 1], 10)],
+                indexVector[41:60][indexVector[41:60] %in% sample(as.numeric(names(table(indexVector[41:60])))[table(indexVector[41:60]) == 1], 10)],
+                indexVector[61:80][indexVector[61:80] %in% sample(as.numeric(names(table(indexVector[61:80])))[table(indexVector[61:80]) == 1], 10)],
+                indexVector[81:90],
+                indexVector[101:120][indexVector[101:120] %in% sample(as.numeric(names(table(indexVector[101:120])))[table(indexVector[101:120]) == 1], 10)],
+                indexVector[121:140][indexVector[121:140] %in% sample(as.numeric(names(table(indexVector[121:140])))[table(indexVector[121:140]) == 1], 10)],
+                indexVector[141:160][indexVector[141:160] %in% sample(as.numeric(names(table(indexVector[141:160])))[table(indexVector[141:160]) == 1], 10)])
+
+# get the vector 
+indexSubsetLogicalVec = c(rep(TRUE, 10), rep(FALSE, 10),
+                          indexVector[21:40] %in% indexSubset[11:20],
+                          indexVector[41:60] %in% indexSubset[21:30],
+                          indexVector[61:80] %in% indexSubset[31:40],
+                          rep(TRUE, 10), rep(FALSE, 10),
+                          indexVector[101:120] %in% indexSubset[51:60],
+                          indexVector[121:140] %in% indexSubset[61:70],
+                          indexVector[141:160] %in% indexSubset[71:80])
+
+#grab the models
+modelSubset = reestModelList[indexSubsetLogicalVec]
+indepMissMatSubset = indepMissModelList[c(1:10, 21:30)]
+
+# Peter indeps have NAs, this is not right.
+indepMissMatSubset[1:10] = lapply(lapply(indepMissModelList[1:10], is.na), function(mat){mat*1})
+
+## lists of simulated networks
+load(here("Output", "20230622_simulated_missing_nets.RData"))
+
+# take out the specific miss matrices
+peterUMMissMat =lapply(simMissNetsUM[indexSubset[11:20]], as.matrix)
+peterCMMissMat = lapply(simMissNetsCM[indexSubset[21:30]], as.matrix)
+peterERGMMissMat = lapply(simMissNetsERGM[indexSubset[31:40]], as.matrix)
+toddUMMissMat = lapply(simMissNetsUM[indexSubset[51:60]], as.matrix)
+toddCMMissMat = lapply(simMissNetsCM[indexSubset[61:70]], as.matrix)
+toddERGMMissMat = lapply(simMissNetsERGM[indexSubset[71:80]], as.matrix)
+
+# put all in a list
+missMatList = list(indepMissMatSubset[1:10],
+                   peterUMMissMat,
+                   peterCMMissMat,
+                   peterERGMMissMat,
+                   indepMissModelList[21:30],
+                   toddUMMissMat,
+                   toddCMMissMat,
+                   toddERGMMissMat)
+
+# list of depleted networks
+depletedNetworkList = list()
+depletedZeroList = list()
+trial = 1
+
+# loop to deplete the network
+for(modelInd in 1:8){
+  for(runInd in 1:10){
+    
+    # miss Mat
+    tempMissMat = missMatList[[modelInd]][[runInd]]
+     
+    # deplete
+    tempDepletedNet = greeceBombs
+    tempZeroNet = greeceBombs
+    tempDepletedNet[tempMissMat == 1] = NA
+    tempZeroNet[tempMissMat == 1] = 0
+    
+    # save
+    depletedNetworkList[[trial]] = tempDepletedNet
+    depletedZeroList[[trial]] = tempZeroNet
+    
+    # iterate
+    trial = trial + 1
+  
+  }
+}
+
+
+## grab coefficients for models
+modelSummaryList = lapply(modelSubset, summary)
+modelCoefList = lapply(modelSummaryList, function(summary){summary$coefs$Estimate})
+modelSEList = lapply(modelSummaryList, function(summary){summary$coefs$`Std. Error`})
+
+# model name index
+modelTypeLabels = c(rep("MissIndep", 10),
+                    rep("MissUM", 10),
+                    rep("MissCM", 10),
+                    rep("MissFull", 10),
+                    rep("ZeroIndep", 10),
+                    rep("ZeroUM", 10),
+                    rep("ZeroCM", 10),
+                    rep("ZeroFull", 10))
+
+```
+
+### Calculating metrics
+
+```{r metrics}
+# unforunately a lot of them don't work with NAs 
+# density
+densityList = lapply(depletedZeroList, gden, mode = "graph")
+
+# clustering coefficient
+clusterCoeffList = lapply(depletedZeroList, gtrans, mode = "graph")
+
+# centralisation
+centralisationList = lapply(depletedZeroList, function(net) {centralization(net, FUN = degree, mode = "graph")})
+
+# mean geodesic
+avgGeodesicList = lapply(depletedZeroList, function(net){mean(geodist(net, inf.replace = NA)$gdist, na.rm = T)})
+
+# diameter?
+diameterList = lapply(depletedZeroList, function(net){max(geodist(net, inf.replace = NA)$gdist, na.rm = T)})
+
+# avg degree
+avgDegreeList = lapply(depletedZeroList, function(net){mean(sna::degree(net, gmode = "graph"))})
+
+# avg betweenness centrality
+avgBetweenList = lapply(depletedZeroList, function(net){mean(betweenness(net, gmode = "graph"))})
+
+# true values for all the metrics
+trueDensity = gden(greeceBombs, mode = "graph")
+trueClusterCoeff = gtrans(greeceBombs, mode = "graph")
+trueCentralisation = centralization(greeceBombs, degree, mode = "graph")
+trueAvgGeodesic = mean(geodist(greeceBombs, inf.replace = NA)$gdist, na.rm = T)
+trueDiameter = max(geodist(greeceBombs, inf.replace = NA)$gdist, na.rm = T)
+trueAvgDegree = mean(sna::degree(greeceBombs, gmode = "graph"))
+trueAvgBetween = mean(betweenness(greeceBombs, gmode = "graph"))
+
+
+```
+
+
+## Plotting
+
+### Model estimate caterpillars
+
+```{r estimate caterpillars}
+## Gwdeg
+# making the dataset
+gwdegPlotData = data.frame(gwdeg = c(unlist(lapply(modelCoefList, `[[`, 2) )), 
+                           model = factor(rep(c(rep("Indep", 10), rep("UM", 10), rep("CM", 10), rep("Full", 10)), 2), levels = c("Indep", "UM", "CM", "Full")),
+                           missType = factor(c(rep("Miss", 40), rep("Zero", 40)), levels = c("Miss", "Zero")),
+                           SE = c(unlist(lapply(modelSEList, `[[`, 2))),
+                           runs = rep(1:10, 8))
+
+# getting the true gwdeg value
+truegwdeg = trueModCoefs[2]
+truegwdegSE = summary(n17res)$coefs$`Std. Error`[2]
+
+# caterpillar?
+gwdegPlot = ggplot( data = gwdegPlotData,
+                    aes( x = runs, y = gwdeg, col = missType)) + 
+             geom_errorbar(aes (ymin = (gwdeg - 1.96*SE), ymax = (gwdeg + 1.96*SE), width = 0.4)) + 
+             xlab("") + 
+             ylab("GWDeg estimate (95% Confidence Int)") + 
+             labs(col = "missType") + 
+             geom_hline(yintercept = truegwdeg, col = "darkblue") + 
+             geom_hline(yintercept = 0, col = "black", lty = 2) +
+             geom_point() + 
+             ggtitle("Diagnostics - GWDeg") + 
+             theme_classic() + 
+             theme(axis.ticks.x = element_blank(),
+                   axis.text.x = element_blank(),
+                   legend.position = "none") +
+             geom_rect(aes(xmin = 0,
+                           xmax = 10, 
+                           ymin = (truegwdeg - 1.96*truegwdegSE),
+                           ymax = (truegwdeg + 1.96*truegwdegSE)),
+                           alpha = 0.015,
+                           colour = NA,
+                           fill = "darkblue") +
+             ylim(-4,4) +
+             facet_grid(cols = vars(model), rows = vars(missType))
+
+gwdegPlot
+
+## Gwesp
+# making the dataset
+gwespPlotData = data.frame(gwesp = c(unlist(lapply(modelCoefList, `[[`, 3) )), 
+                           model = factor(rep(c(rep("Indep", 10), rep("UM", 10), rep("CM", 10), rep("Full", 10)), 2), levels = c("Indep", "UM", "CM", "Full")),
+                           missType = factor(c(rep("Miss", 40), rep("Zero", 40)), levels = c("Miss", "Zero")),
+                           SE = c(unlist(lapply(modelSEList, `[[`, 3))),
+                           runs = rep(1:10, 8))
+
+# getting the true gwdeg value
+truegwesp = trueModCoefs[3]
+truegwespSE = summary(n17res)$coefs$`Std. Error`[3]
+
+# caterpillar?
+gwespPlot = ggplot( data = gwespPlotData,
+                    aes( x = runs, y = gwesp, col = missType)) + 
+             geom_errorbar(aes (ymin = (gwesp - 1.96*SE), ymax = (gwesp + 1.96*SE), width = 0.4)) + 
+             xlab("") + 
+             ylab("GWESP estimate (95% Confidence Int)") + 
+             labs(col = "missType") + 
+             geom_hline(yintercept = truegwesp, col = "darkblue") + 
+             geom_hline(yintercept = 0, col = "black", lty = 2) +
+             geom_point() + 
+             ggtitle("Diagnostics - GWESP") + 
+             theme_classic() + 
+             theme(axis.ticks.x = element_blank(),
+                   axis.text.x = element_blank(),
+                   legend.position = "none") +
+             geom_rect(aes(xmin = 0,
+                           xmax = 10, 
+                           ymin = (truegwesp - 1.96*truegwespSE),
+                           ymax = (truegwesp + 1.96*truegwespSE)),
+                           alpha = 0.015,
+                           colour = NA,
+                           fill = "darkblue") +
+             ylim(-1.5,4.5) +
+             facet_grid(cols = vars(model), rows = vars(missType))
+
+gwespPlot
+
+```
+
+
+### Metric histograms
+
+```{r metric hists}
+# making the dataset
+densityPlotData = data.frame(density = unlist(densityList), 
+                            model = factor(rep(c(rep("Indep", 10), rep("UM", 10), rep("CM", 10), rep("Full", 10)), 2), levels = c("Indep", "UM", "CM", "Full")),
+                            missType = factor(c(rep("Miss", 40), rep("Zero", 40)), levels = c("Miss", "Zero")),
+                           runs = rep(1:10, 8))
+
+# histogram?
+densityPlot = ggplot( data = densityPlotData,
+                    aes( x = density, col = missType, fill = missType)) + 
+             xlab("Density") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueDensity, col = "darkblue") + 
+             geom_histogram(bins = 10, col = "black") +
+             ggtitle("Diagnostics - Density") + 
+             theme_classic() + 
+             theme(legend.position = "none") +
+             facet_grid(cols = vars(model), rows = vars(missType))
+
+densityPlot
+
+# making the dataset
+clustCoeffPlotData = data.frame(clustCoeff = unlist(clusterCoeffList), 
+                            model = factor(rep(c(rep("Indep", 10), rep("UM", 10), rep("CM", 10), rep("Full", 10)), 2), levels = c("Indep", "UM", "CM", "Full")),
+                            missType = factor(c(rep("Miss", 40), rep("Zero", 40)), levels = c("Miss", "Zero")),
+                           runs = rep(1:10, 8))
+
+# histogram?
+clustCoeffPlot = ggplot( data = clustCoeffPlotData,
+                    aes( x = clustCoeff, col = missType, fill = missType)) + 
+             xlab("Clustering coefficient") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueClusterCoeff, col = "darkblue") + 
+             geom_histogram(bins = 10, col = "black") +
+             ggtitle("Diagnostics - Clustering coefficient") + 
+             theme_classic() + 
+             theme(legend.position = "none") +
+             facet_grid(cols = vars(model), rows = vars(missType))
+
+clustCoeffPlot
+
+# making the dataset
+centralisationPlotData = data.frame(centralisation = unlist(centralisationList), 
+                            model = factor(rep(c(rep("Indep", 10), rep("UM", 10), rep("CM", 10), rep("Full", 10)), 2), levels = c("Indep", "UM", "CM", "Full")),
+                            missType = factor(c(rep("Miss", 40), rep("Zero", 40)), levels = c("Miss", "Zero")),
+                           runs = rep(1:10, 8))
+
+# histogram?
+centralisationPlot = ggplot( data = centralisationPlotData,
+                    aes( x = centralisation, col = missType, fill = missType)) + 
+             xlab("Centralisation") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueCentralisation, col = "darkblue") + 
+             geom_histogram(bins = 10, col = "black") +
+             ggtitle("Diagnostics - Centralisation") + 
+             theme_classic() + 
+             theme(legend.position = "none") +
+             facet_grid(cols = vars(model), rows = vars(missType))
+
+centralisationPlot
+
+# making the dataset
+avgGeodesicPlotData = data.frame(avgGeodesic = unlist(avgGeodesicList), 
+                            model = factor(rep(c(rep("Indep", 10), rep("UM", 10), rep("CM", 10), rep("Full", 10)), 2), levels = c("Indep", "UM", "CM", "Full")),
+                            missType = factor(c(rep("Miss", 40), rep("Zero", 40)), levels = c("Miss", "Zero")),
+                           runs = rep(1:10, 8))
+
+# histogram?
+avgGeodesicPlot = ggplot( data = avgGeodesicPlotData,
+                    aes( x = avgGeodesic, col = missType, fill = missType)) + 
+             xlab("Average geodesic") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueAvgGeodesic, col = "darkblue") + 
+             geom_histogram(bins = 10, col = "black") +
+             ggtitle("Diagnostics - Average geodesic") + 
+             theme_classic() + 
+             theme(legend.position = "none") +
+             facet_grid(cols = vars(model), rows = vars(missType))
+
+avgGeodesicPlot
+
+# making the dataset
+diameterPlotData = data.frame(diameter = unlist(diameterList), 
+                            model = factor(rep(c(rep("Indep", 10), rep("UM", 10), rep("CM", 10), rep("Full", 10)), 2), levels = c("Indep", "UM", "CM", "Full")),
+                            missType = factor(c(rep("Miss", 40), rep("Zero", 40)), levels = c("Miss", "Zero")),
+                           runs = rep(1:10, 8))
+
+# histogram?
+diameterPlot = ggplot( data = diameterPlotData,
+                    aes( x = diameter, col = missType, fill = missType)) + 
+             xlab("Diameter") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueDiameter, col = "darkblue") + 
+             geom_histogram(bins = 10, col = "black") +
+             ggtitle("Diagnostics - Diameter") + 
+             theme_classic() + 
+             theme(legend.position = "none") +
+             facet_grid(cols = vars(model), rows = vars(missType))
+
+diameterPlot
+
+# making the dataset
+avgDegreePlotData = data.frame(avgDegree = unlist(avgDegreeList), 
+                            model = factor(rep(c(rep("Indep", 10), rep("UM", 10), rep("CM", 10), rep("Full", 10)), 2), levels = c("Indep", "UM", "CM", "Full")),
+                            missType = factor(c(rep("Miss", 40), rep("Zero", 40)), levels = c("Miss", "Zero")),
+                           runs = rep(1:10, 8))
+
+# histogram?
+avgDegreePlot = ggplot( data = avgDegreePlotData,
+                    aes( x = avgDegree, col = missType, fill = missType)) + 
+             xlab("Mean degree") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueAvgDegree, col = "darkblue") + 
+             geom_histogram(bins = 10, col = "black") +
+             ggtitle("Diagnostics - Mean degree") + 
+             theme_classic() + 
+             theme(legend.position = "none") +
+             facet_grid(cols = vars(model), rows = vars(missType))
+
+avgDegreePlot
+
+# making the dataset
+avgBetweenPlotData = data.frame(avgBetween = unlist(avgBetweenList), 
+                            model = factor(rep(c(rep("Indep", 10), rep("UM", 10), rep("CM", 10), rep("Full", 10)), 2), levels = c("Indep", "UM", "CM", "Full")),
+                            missType = factor(c(rep("Miss", 40), rep("Zero", 40)), levels = c("Miss", "Zero")),
+                           runs = rep(1:10, 8))
+
+# histogram?
+avgBetweenPlot = ggplot( data = avgBetweenPlotData,
+                    aes( x = avgBetween, col = missType, fill = missType)) + 
+             xlab("Mean betweenness centrality") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueAvgBetween, col = "darkblue") + 
+             geom_histogram(bins = 10, col = "black") +
+             ggtitle("Diagnostics - Betweenness centrality") + 
+             theme_classic() + 
+             theme(legend.position = "none") +
+             facet_grid(cols = vars(model), rows = vars(missType))
+
+avgBetweenPlot
+
+
+```
+
+

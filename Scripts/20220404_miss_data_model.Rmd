@@ -1,6 +1,7 @@
 ---
 title: "20220404_miss_data_model"
-output: html_document
+output:
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -69,12 +70,12 @@ diag(degradedNet) = 0
 
 # plot side by side
 par(mfrow = c(1,2))
-gplot(testNet, xlab = "Toy net", gmode = "graph")
-gplot(degradedNet, xlab = "Degraded net", gmode = "graph", main = paste("Depleted network, mean = " ,mean(degree(degradedNet)), sep = ""))
+coord = gplot(testNet, xlab = "Toy net", gmode = "graph")
+gplot(degradedNet, xlab = "Degraded net", gmode = "graph", coord = coord)
 
 # degree distributions
-hist(degree(testNet), main = paste("Full network, mean = ", mean(degree(testNet)), sep = ""))
-hist(degree(degradedNet), main = paste("Depleted network, mean = " ,mean(degree(degradedNet)), sep = ""))
+hist(degree(testNet), main = paste("Mean = ",mean(degree(testNet)), " SD = ", round(sd(degree(testNet)), 2), sep = ""))
+hist(degree(degradedNet),main = paste("Mean = ",mean(degree(testNet)), " SD = ", round(sd(degree(degradedNet)), 2), sep = ""))
 
 ```
 
@@ -104,7 +105,7 @@ If we start by explaining the model,
 
 $$\Pr(\mathbf{D}_{ij} = 1) = logistic(\alpha + \beta(\mathbf{X}_{i+} + \mathbf{X}_{+j}) )$$
 
-Note that $\mathbf{X}_{i+} + \mathbf{X}_{+j}$ is meant to reflect degree (centrality). For the undirected case, this should equal ($2 \times \mathbf{X}_{i+}$ or $2 \times \mathbf{X}_{+j}$).
+Note that $\mathbf{X}_{i+} + \mathbf{X}_{+j}$ is meant to reflect degree (centrality). ~~For the undirected case, this should be equivalent to  $2 \times \mathbf{X}_{i+}$ or $2 \times \mathbf{X}_{+j}$.~~ No! Even for undirected networks, we should account for the 'sender' and 'receiver' of the tie as they are different nodes. Despite the tie being symmetric and these values may match up, it's important to acknowledge the two ends of the undirected edge.
 
 This needs to be set up in a way such that the higher the degree, the more likely for the tie to be missing.
 
@@ -161,7 +162,7 @@ $$\exp(-\alpha - 20.6\beta) = 4,$$
 $$-\alpha - 20.6\beta = \log(4),$$
 
 
-$$\beta = \frac{-\log(4) - \alpha}{20.6},$$
+$$\beta = \frac{-\log(4) - \alpha}{20.6}.$$
 
 
 Let's graph that...
@@ -219,13 +220,10 @@ sum(missDatIndicator)
 degradedNetMNAR = testNet
 degradedNetMNAR[missDatIndicator==1] = NA
 
-# check how many tie variables are missing
-sum(is.na(degradedNetMNAR))
-
 # plot side by side
 par(mfrow = c(1,2))
-gplot(testNet, xlab = "Toy net", gmode = "graph")
-gplot(degradedNetMNAR, xlab = "MNAR degraded net", gmode = "graph")
+coord = gplot(testNet, xlab = "Toy net", gmode = "graph")
+gplot(degradedNetMNAR, xlab = "MNAR degraded net", gmode = "graph", coord = coord)
 
 # it's quite hard to see, but if we see the average degree centrality and their histograms,
 hist(degree(testNet), main = paste("Mean = ",mean(degree(testNet)), " SD = ", round(sd(degree(testNet)), 2), sep = ""))
@@ -241,17 +239,17 @@ First, we use a binomial distribution to generate missing tie variables for each
 
 So really,
 
-$$\mathbf{D}| \mathbf{X}_i \sim Bi(n, p_i).$$
+$$\mathbf{D}_{ij}| \mathbf{X}_{ij} \mathop{\sim}\limits^{iid} Bi(n, p_i),$$
 
-Where the index $i$ here refers to each actor with their own missing tie variable probabiltity which we modelled earlier,
+where the index $i$ here refers to each actor with their own missing tie variable probability which we modelled earlier (or the entire row),
 
 
 
-$$\Pr(\mathbf{D}|\mathbf{X}_i) = logistic(-\alpha - \beta \times (2 \times \mathbf{X}_{i+})),$$
+$$\Pr(\mathbf{D}|\mathbf{X}_i) = logistic(\alpha + \beta \times (2 \times \mathbf{X}_{i+})),$$
 
-which is also equivalent to saying:
+which can also be written as:
 
-$$p_i = logistic(-\alpha - \beta \times (2 \times \mathbf{X}_{i+}).$$
+$$p_i = logistic(\alpha + \beta \times (2 \times \mathbf{X}_{i+}).$$
 
 Also reminder that $2 \times \mathbf{X}_{i+}$ here just reflects an actor's degree centralisation in this undirected network.
 
@@ -261,21 +259,392 @@ With that in mind, I made some manual adjustments so the adjacency matrix makes 
 
 As seen in the missing data model,
 
-$$\Pr(\mathbf{D}|\mathbf{X}_i) = logistic(-\alpha - \beta \times (2 \times \mathbf{X}_{i+})),$$
+$$\Pr(\mathbf{D}|\mathbf{X}_i) = logistic(\alpha + \beta \times (2 \times \mathbf{X}_{i+})),$$
 
 The fact that $\mathbf{X}$ is there at all rules out MCAR.
 
 The reason why this missing data model is not MAR is because of $\mathbf{X}_{i+}$ since this sum would need both the observed and depleted tie variables,
 
-$$\mathbf{X}_{i+} = \mathbf{X_{mis}}_{i+} +  \mathbf{X_{obs}}_{i+},$$
+$$\mathbf{X}_{i+} = \mathbf{X_{obs}}_{i+} +  \mathbf{X_{mis}}_{i+},$$
 
-So conceptually,
+so conceptually,
 
-$$\Pr(\mathbf{D}|\mathbf{X}, p) = \Pr(\mathbf{D} | \mathbf{X}_{obs}, \mathbf{X}_{mis}, p) \text{ for all X and } p$$
+$$\Pr(\mathbf{D}|\mathbf{X}, p) = \Pr(\mathbf{D} | \mathbf{X}_{obs}, \mathbf{X}_{mis}, p) \text{ for all X and } p,$$
 
 Which both rules out MAR and would then imply MNAR.
 
 In plain language terms, as we know from the missing data model, the probability of a missing tie variable depends on degree centrality, which can only be calculated if we have all the actors' ties. If we were to use the depleted network's degree centralisation to model the missing data indicator, we would be missing the degrees that were depleted, which would result in a different set of missing tie variable probabilities than the one we found from the missing data model for the full network.
+
+
+## Turning into a function
+
+Another way to think of the depleting process above is the function below,
+
+$$f(\mathbf{X}, \alpha, \beta) = \mathbf{D}.$$
+
+In this case, the inputs are the adjacency matrix $\mathbf{X}$ and model parameters $\alpha$ and $\beta$ while the output is the missing data indicator $\mathbf{D}$.
+
+```{r turn into a fn}
+# fixing seed to check output
+set.seed(132)
+
+## making a function to degrade a net with respect to a logistic model for a binomial dist per actor
+
+## 20220411 update: expanded to include multiple coefficients
+
+degradeNetLogis = function(net, alpha, beta, netStats, directed = TRUE){
+  
+  ## degradeNetLogis(net, alpha, beta, directed) takes a graph and replaces the tie variables
+  ## with missing values (NA). The mechanism here specifically uses degree (centrality) 
+  ## to weigh the probability of a missing tie variable. The function can probably be
+  ## improved to accommodate different network statistics. It also currently only uses one
+  ## variable to weigh the probability of a missing tie variable, but can (and probably will)
+  ## be expanded to use more than one variable (and slope).
+  ##
+  ## Input:
+  ## - net:      An adjacency matrix describing the fully observed graph including all tie variables.
+  ##             This matrix shouldn't have any missing values.
+  ## - alpha:    The single intercept value for the logistic model.
+  ## - beta:     The slope parameter in the logistic model. Its absolute value describes the weight of 
+  ##             the related variable to the probability of a missing tie variable. Its sign refers to the
+  ##             relationship between the related variable and the probability of a missing tie variable.
+  ##             Can be a p-long vector when the probability of a missing tie variable depends on more than one 
+  ##             aspect of the network.
+  ## - netStats: An n x p dataframe of network values for each actor. Index-wise, the first column should 
+  ##             match the first value in 'beta', the second column the second value in beta, so on.
+  ## - directed: Logical value to indicate whether the network is a directed or undirected network.
+  ##             Default is set to directed.
+  ##
+  ## Output:
+  ## - A matrix of missing data indicators (i.e., matrix 'D').
+  
+  ## spit out an error if the directed argument is misspecified
+  if(directed != TRUE & !isSymmetric(net)){
+    stop("The undirected network doesn't have a symmetric matrix")
+  }
+  
+  ## spit out an error if there are not an equal amount of slope weights and network structures
+  if(length(beta) != ncol(netStats)){
+    stop("The parameter vector has a different length to the network structures")
+  }
+  
+  ## Get the number of nodes
+  n = nrow(net)
+  
+  ## Compute the linear combination
+  # this line just multiples each column of beta with the matching column in netStats and sums each row (i.e., for each actor)
+  linComb = rowSums(mapply(FUN = '*', as.data.frame(netStats), beta))
+    
+  ## Make the missing tie probabilities for each actor
+  missTieProb = 1/(1 + exp(-alpha - (linComb)))
+  
+  ## Make the missing tie indicator matrix
+  missDatIndicator = t(replicate(n, rbinom(n, size = 1, prob = missTieProb)))
+  
+  ## symmetrise if undirected
+  if(directed == FALSE){
+    missDatIndicator[upper.tri(missDatIndicator)] = t(missDatIndicator)[upper.tri(missDatIndicator)]
+  }
+  
+  ## Turn diagonal to 0 because adjmat
+  diag(missDatIndicator) = 0
+  
+  return(missDatIndicator)
+}
+
+```
+
+**An example with degree and indegree**
+
+```{r example with multiple predictors}
+# fix seed to match
+set.seed(132)
+
+# check the indegree of the test network
+hist(colSums(testNet))
+mean(colSums(testNet))
+
+# choosing some parameter values
+alpha = -5
+beta = c(0.05, 0.23)
+netStats = data.frame(degree = degree(testNet), indeg = colSums(testNet))
+
+# make missing data indicator
+missDatInd = degradeNetLogis(net = testNet,
+                             alpha = alpha,
+                             beta = beta,
+                             netStats = netStats,
+                             directed = FALSE)
+
+# check total amount of missing ties after the adjmat adjustments, should be ~80 (20^2 * 0.2), maybe a bit less because of the adjmat adjustments
+sum(missDatInd)
+
+# and we deplete
+degradedNetMNAR2 = testNet
+degradedNetMNAR2[missDatInd==1] = NA
+
+# plot side by side
+par(mfrow = c(1,2))
+coord = gplot(testNet, xlab = "Toy net", gmode = "graph")
+gplot(degradedNetMNAR2, xlab = "MNAR degraded net", gmode = "graph", coord = coord)
+
+# it's quite hard to see, but if we see the average degree centrality and their histograms,
+hist(degree(testNet), main = paste("Mean = ",mean(degree(testNet)), " SD = ", round(sd(degree(testNet)), 2), sep = ""))
+hist(degree(degradedNetMNAR2), main = paste("Mean = ",mean(degree(degradedNetMNAR2)), " SD = ", round(sd(degree(degradedNetMNAR2)), 2), sep = ""))
+
+```
+
+The model above can be thought of as:
+
+$$\Pr(\mathbf{D}_{ij} = 1) = logistic(\alpha + \beta_1(\mathbf{X}_{i+} + \mathbf{X}_{+j}) + \beta_2(\mathbf{X}_{+j})),$$
+
+
+and similar to the example before, if we wanted ~20% missingness,
+
+$$\frac{\sum_{i = 1..n} \frac{1}{1 + \exp(-\alpha - \beta_1(\mathbf{X}_{i+} + \mathbf{X}_{+j}) - \beta_2(\mathbf{X}_{+j}))}}{n} = 0.2.$$
+
+After filling in the values with the test network (testNet), where the mean degree is 20.6 (above), and the mean indegree is $\mathbf{\overline{X}}_{j+} = 10.3$
+
+$$\exp(-\alpha - 20.6\beta_1 - 10.3\beta_2) = 4,$$
+
+$$-\alpha - 20.6\beta_1 - 10.3\beta_2= \log(4),$$
+
+Don't exactly know how to solve this, I just kept guessing numbers to get a mean of ~0.2.
+
+The model itself isn't particularly intuitive either, the higher the degree (which counts indegree, so it's counted twice) and the higher the indegree, the more likely a tie variable is to be missing. But the important(?) part is that I can put multiple things in the model and weigh certain aspects of the network more than other aspects (e.g., I might think indegree matters more than the overall degree)
+
+> what can we do from here on?
+
+Two sides:
+
+> the modelling front (i.e., wrt to methods)
+
+The modelling front can be improved and extended in a lot of ways... Programming-wise, sensitivity plots where parameters scale to missing data proportions would be nice (i.e., a fn to spit out parameter values for a set proportion of missingness would be useful). Undirected networks also need to acknowledge both ends (i.e., the $\beta$ model that's just a slightly modified Bernoulli model where we may conceptualise it as the probability of a sender sending a tie with the probability the receiver receives the tie.). We could always use more complicated models, but I believe it's a better idea to neaten our conceptual front before we make things more complex for the sake of being complex.
+
+An example from Diaconis' beta model for not really an ERGM, but a slightly modified undirected Bernoulli model may be good to acknowledge that undirected ties need to be reciprocated from both ends for the tie to be established (e.g., a reciever needs to receive the sender's sent tie).
+
+Maybe there's something to do in the modelling front to disentangle the missing data mechanism ($\mathbf{D}$) with whatever decision-making-mechanism the network analyst is doing (similar to Batchelder's false positive/miss rates?). This may be a meta perspective if we were to account for differences in the way analysts approach the collected resources to represent the network- that is that there may be different ways for the 'archaeological' approach to be done.
+
+Would it be useful (or possible) to simulate how a covert network grows over time from some semantically coded 'data' (e.g., A is suspect, B is connected to A by coarrests, C is A's non-illicit friend in legitimate businesses), similar to how Pete made that gif of a network growing over time, and then introducing missing data via a pre-specified mechanism? This somehow sounds doable in my head, That being said, we're still talking about unknown unknowns when we model MNAR missing data mechanisms, so in terms of 'how useful is this?', I don't really have a clear answer.
+
+Multiplexity, if we were to acknowledge covert networks as another type of social network, they would have their own social dynamics in it and so we may be able to represent valenced ties (e.g., position in the hierarchy perhaps since actual data asking the covert actors how they feel about other actors would be extremely unfeasible). Heterophily may be another aspect to consider here in terms of roles in the covert network. I feel like there's a lot of value in specifying types of ties/relationships in elaborating particular network properties, but I also think that this might grow to be very unfeasible in a ridiculous pace if we wanted to *really* describe multipartite nodes and/or multiplex ties. Also, proximity (or physical distance). How do we deal with that? Using some dodgy surveillance/data collection sources to identify meetings? Maybe ethnographical measures are more sensible than heavy computation semantic analysis solutions here? 
+
+> the conceptual front (i.e., wrt to plausibility of the mechanisms)
+
+We can consider 'popular' psych effects that replicate-ish to justify the plausibility of some missing data mechanisms (e.g., the 'bystander' effect). Another think to think about is sampling frames for investigators/detectives. How would two people approach and analyse a covert network differently? Given n observers, perhaps the observers systematically 'sample' the network as a fn of 'visibility' or whatever. This would again be similar to having a model for missing data indicator D that depends on characteristics of the network. However, the final observed network(s) would be a product of many models for sampling and actual missing mechanisms... Is some kind of triangulation a benefit of multiple network analysts' perspectives?
+
+What do I need to brainstorm this? I'd love to know how 'data' is 'collected'. What are the nuances that come up when we discuss missing data mechanisms? Let alone from a data analyst's perspective, but from the observed network's perspective as well. How important are brokers? Spies? High-social-capital-actors? 'Extreme' actors? This might just result in a 'betweenness' argument, but maybe something to look into is the brokerage aspects in a conceptual front? I mean, assuming that the actors will act in a way to optimise network efficiency with security, the 'ideal' position probably is being sparsely connected to high-connected nodes. Sparsely connected to decrease visibility, but connected to well-connected nodes so that this particular node has a lot of 'reach'. In that sense, would geodesic distance (or just generally path lengths) be a useful metric? Or inverse average geodesic ('efficiency'). I don't really think centralities are the be-all-end-all in identifying potentially important actors in a network. In simple and ideal cases sure, but when the network gets complicated (and maybe if the 'authority' is sparsely connected), centrality's usefulness goes down real fast. Do we need abstract algebras for identifying roles now, or is this something we can leave to data??
+
+When acknowledging that the archaelogical approaches to 'representing' a network may differ, how exactly can they differ? Some analysts may have resources that emphasise some nodes more than the other. There's also the time element since investigations are cumulative efforts (i.e., only more information can be gained through the passage of time). It would be neat if we had *something* to describe how a network evolves w.r.t. the progress of an investigation (e.g., perhaps how prime suspects change through time and how this matches up with whatever evidence is recorded). Of course, one other thing is the politics (?) of the situation. I'm assuming resources are limited, so investigations may be ushered to 'wrap up' and prosecute the prime suspect due to various pressures (e.g., political, economical, etc.).
+
+How does the 'investigation' network grow? Is it via a snowball mechanism? Surely informants play a role here to connect potential covert actors...  If I were to imagine I were an analyst part of an investigation collating information, I would simply just represent what the most common threads in the evidence are if I were to 'construct' a network. I (the network analyst) feel like I would have no agency on which possible ties I'd want to investigate since it would be somewhat data-driven. Is it a collaborative effort with more than one analyst, all of whom have different sources of information? Or is it usually done under a central figure commanding the analysis like a head analyst?
+
+Can the missing data mechanism 'progress' over time as the investigation proceeds as a response to the investigation? Some kind of defensive mechanism for the covert network to reorganise itself in response to the investigation? In that sense, would I need to acknowledge the missing data mechanism to be a temporal process or from an 'omniscient observer' perspective where I assume I know the entire covert network? How would I even acknowledge how a missing data mechanism can grow? The missingness just gets snowballed?
+
+What about using qualitative aspects of ties? If we knew that certain actors in the covert network share antagonistic ties, would they be more reliable informants? Given the scattered aspect of the 'raw data', multiplexity may be a boon in disguise if we wanted to identify important actors or potential informants for further information. Point is, in the most basic sense, 'ties' can mean different things to different actors and I don't see why this would be different for covert networks (i.e., a covert network is still a network with its own dynamics).
+
+Do covert networks 'grow' in the same way a non-covert network does in a snowball sense?
+
+How do we go about identifying 'extreme actors' (i.e., 'outliers' who are incredibly influential in the network) beyond centrality? What kind of structures would we want to try see? Perhaps path-length measures, alternating n stars (though this would just be a degree centrality...)?
+
+## Questions for someone who's actually involved in these kinds of analyses
+
+### Data collection
+
+* How is data collected and interpreted?  Witness testimonies? Investigation reports? Surveillance reports?
+
+* Where do you get your data and how do you gauge its reliability?  
+
+* How do you identify potential informants?  (i.e., is it a network metric that guides this or something else?)  
+
+* How do you draw boundaries between criminal actors and their non-criminal ties (e.g., identifying the perpetrator's family or friends who are not illicitly connected with the perp)?
+
+* As a result, are the non-illicit ties/actors potential informants?
+
+* Do you ever account for the potential of covert actors controlling information within their network (e.g., some peripheral members are not informed on some topics to restrict information spreading)? If so, what do you do to account for this kind of behaviour within the network? I'd imagine this is a double-edged sword ala the security v efficiency tradeoff.
+
+### Tie definition and specification
+
+* How would you decide what defines a tie? Do you collapse categories of tie definitions (e.g., co-arrests and co-offences)?
+
+* Are multiplex ties taken into account in analyses? If so, how are they?
+
+### Temporal aspects of the investigation
+
+* Given the evolving nature of the investigation, and consequently the network, how do your analyses (or analysis plans for the future) change? Basically, do your analyses adapt depending on the state of the network at different points of investigation?
+
+### Involvement from investigation-adjacent parties
+
+* Are there also internal (i.e., organisational or judicial) pressures within the investigative party that force less-than-desirable decisions to be made (e.g., rushing an investigation or prosecution)?
+
+* How does communication within the investigative force occur? Is it a collaborative effort where everyone in the team gives their own interpretation of whatever data available or is it more of a solo (or partnered) investigation to avoid a cacophony of interpretations (too many cooks...)? 
+
+^The point I want to think of above is when different analysts have different sampling schemes and interpretations so the 'true' network may appear differently for different analysts.
+
+### Missing data
+
+* Given how network data is composed by a variety of sources, how then would data be considered 'missing'? Is this information from yet another source that didn't have a network data analogue? (e.g., informants talk of person X, but no collected data has ties or identified person X)
+
+* Echoing the temporal aspect, if you think your initial (seed) network might have missing data based on secondary information, is this a 'lead' to pursue or does it also snowball into even more missingness?
+
+### Practical considerations
+
+* Given how missing data is a rampant issue in the research side of things, what would be useful in an active analyst's viewpoint when missing data is considered? 
+
+The idea brought up in the PhD is the explicit modelling of missing data based on a pre-specified missing data model, so you would need to assume that you know how data were missing, and with the missing data model in hand, you'd have a 'more complete' view of the network processes that form (and obscure) the covert network. From then on, you can use certain model characteristics (on both sides, not just the missing data model) to infer certain characteristics of the network which (may?) help in investigations.
+
+I think there's something that's just practically different to a researcher and what an active analyst would want. While explicitly describing the missing data model may be attractive in hindsight (i.e., for researchers), its purposes and potential benefits are less clear for someone in the thick of analysing networks as the investigation is progressing.
+
+* If you had the tools to apply various missing data models to predict how the data are missing (and uncover potential covert actors), do you think this would be a good thing or would false accusations be more rampant?
+
+### Personal viewpoint questions
+
+The more cynical the response, the better!
+
+* What's the 'hardest' step in the investigation process? Red tape bureaucracy? The inherently risky job? The sheer lack of direction since the people you're pursuing are covering up their tracks?
+
+* What is something you'd personally like to be improved?
+
+## The privilege of hindsight
+
+I feel that research about missing data mechanisms in the covert network literature is almost always in hindsight (e.g., the depletion of an assumed fully observed network). However, due to the evolving nature of investigations, I'd think it's unlikely for a network to be considered 'fully observed' for a number of reasons. Firstly, the nature of covert actors being covert will make it comparatively less likely to observe them compared to non-covert actors since we could use name generators or interpreters.
+
+Secondly, when exactly is a covert network's data collection 'finished'? Researchers tend to use data acquired after the investigation has wrapped up, but shouldn't really be the case if you were involved in the investigation from the get-go as new leads and more potential data sources will keep adding on to the network. 
+Lastly, covert networks achieve the purpose of performing the covert activity, so after that specific covert network's activity has been successfully been disrupted (e.g., important members of the covert net were detained, but not the perceived 'not-important' peripheral members), will the investigation wrap up even if all the involved actors are not identified? I'm somewhat referring to the Al Capone case here where his removal didn't stop his underlings from flourishing as (in)famous gangs of organised crime or other cases of covert networks recovering from the disruption. 
+
+Another consideration is how we can model covert network responses to 'disruptions' and would it be useful? In an ideal world, we'd incorporate a temporal element to (snowball-y?) evolving networks to match how networks change as the investigation progresses... This would tell us more about the nature of investigations rather than covert networks itself, but the increase in accuracy would allow us to apply the temporal angle somehow (e.g., what if person A at time t-1 were removed by time t? What if person B at time t-1 brings in person C at time t because B knew that C would be a good co-conspirator). I know little about temporal network models outside of the SAOM...
+
+What can working from hindsight tell us? I suppose we'd get an omniscient viewpoint for how the data were missing. It'd be nice if we could connect certain points of how the missing data mechanism manifested in different steps of the investigation (e.g., early -> middle -> end?). However, a couple of things make this hard. We wouldn't truly be 'omniscient' unless we assumed that we actually had the 'full' network, which I'd think is a pretty strong assumption too (is this what MAR conceptually assumes with having all the data relevant to missing indicators...?).
+
+What can we as network modellers interested in learning about covert networks do to improve their methodology? Increasing network modelling literacy? That already sounds tough, but if investigations were to consider relevant principles of network formation (e.g., role heterophily for optimised network efficiency? the use of multiplex ties to recruit co-conspirators?) I think that'd help somehow?
+
+Bottom line, it's not that I think covert network research in hindsight is pointless in any way. Learning from these networks in hindsight gives us an archaelogical account for these covert networks which is useful in understanding how they worked when they were active. However, if we were to move away from a 'fully collected' network, we'd be able to understand the decisions made when active investigators are 'collecting' the data as the investigation proceeds to understand how the decisions made may affect the collected network. 
+
+This all just kind of leads to boundaries... Practically, there's no real need to collect data endlessly if we knew how the theoretical limits to the covert network. Also realistically, I'd think that potential covert actors may have already been identified in some database (e.g., previous arrests, etc.), so it's not like investigators always have to start with blank slates every time they start an investigation... right?
+
+
+## Points of discussion post 29 Apr 2022 lab meeting
+
+AKA post Tim Beckinsale.
+
+### Data collection during the investigation
+
+* I'd argue the considerations taken to 'collect' data (relational or otherwise) about covert networks often gets ignored when academics conduct research about covert networks. 
+    + There may be situations where the data looks good, an explanation seems reasonable, but any explanation is completely overturned when the data entry process is acknowledged (e.g., the most common time recorded for criminal accidents is ~noon because it's the average of the entire day).
+
+* Usually conducted by Crime Investigation Units (CIUs) which are local investigative units that conduct surveillance with detective cruisers. 
+
+* Seniors are in charge of multiple detectives (i.e., chain of command)
+
+* Within the CIU, a few (1~3) intelligence officers (analysts). Intelligence side deals with the analyses (and is usually less mobile than the field-working-detectives)
+
+* Task forces depend on the community they're in charge of (e.g., communities with more active drug events would prompt a drug-based task force)
+
+* Open source investigations usually run into the idiot problem.
+
+* Following the money is a sensible trail.
+
+### 'Reactive' investigation
+
+* Identified seed suspects related to the crime (e.g., from victim testimonies, institutional knowledge)
+
+* Contains uncertainties within the covert network as hierarchies are difficult to clarify
+    + Call tracing may be helpful here (i.e., qualitatively identifying network hierarchies)
+
+* Police work is constrained by civil liberties (opposed to academics with funding)
+    + It costs money (i.e., a limited resource) to request outsourced information like wiretap requests
+
+* Potential informants and suspects are identified by the known network's social network (neither strictly covert or non-covert; 'who do we know who that person knows?')
+
+* Note that identifying potential suspects are not necessarily the same thing as identifying covert actors.
+
+* Even drawing small boundaries (and iteratively expanding that boundary) helps
+
+* A lot of guesswork or 'intelligence directed' work. 
+
+### 'Intelligence probing' investigation
+
+* When certain behaviours prompt surveillance or observation of some groups (e.g., 'you people are of interest to us')
+
+* Situation where we know something is going on, we aren't sure what and nobody's actively investigating them.
+
+### 'End' of an investigation
+
+* Very rarely does an investigation ever 'end'.
+
+* Even if you target key members, this does not imply the criminal activities are completely dismantled as recovery may be possible (i.e., come at the king and the entire round table).
+
+* Largely dependent on finding 'breakthroughs' for possible related people or funding runs out.
+
+### Notes about criminal data
+
+* A unique aspect of criminal networks (beyond that they're a network doing criminal things) is that stakes are *high* (e.g., possibility of prosecution, death), which may change the nature of the social relationships within these networks when compared to non-covert social relationships.
+
+* 'The idiot problem' where highly connected individuals (e.g., in co-offending networks) may just be a really bad criminal instead of a highly connected and influential individual.
+
+* Generally very unpredictable information (e.g., no idea what to seek next)
+
+### Analyst notebook
+
+* A tool to help visualising various networks related to entities relevant to the criminal investigation (not necessarily just people). 
+
+* Can include phones, weapons, events, etc.
+
+* Detectives usually like simple networks (not a complicated multiplex and multimodal network).
+
+* Would be nice if some technology could be used to identify potentially connected actors (e.g., given the current network, which actors have the potential to be the most influential broker so we can investigate them?)
+
+### Missing data
+
+* Criminals do not leave journal entries.
+
+* Incomplete or bad data collection (police reports are still done on paper before someone enters them in institutional databases)
+
+* Missing MO codes are common
+
+* Clearance rates tend to go down as more time progresses (not just weeks but years).
+
+* Time tends to be an issue (e.g., 5 year gaps between new evidence breakthroughs)
+
+* How much time do you consider co-offenders associates if you have those gaps of time between evidence?
+
+* Due to the unpredictability and dependence on opportune situations in finding leads, not all leads may be captured by some form of data (e.g., perhaps qualitative approaches may apply here...)
+
+* That being said, being **completely** invisible is very hard and expensive.
+
+* 'Anaysing brown' is difficult when a lot of motivations are being collapsed into one offense category (e.g., maybe 300 out of 400 criminal events in a category all have a distinct motivation to the other 100.)
+
+### 'Secondhand' data
+
+* To an extent, all data are all approximate measurements of some underlying process.
+
+* What makes surveillance data or criminal justice records different to self-reported ties?
+    + I agree with the overarching point (i.e., it's all measurement error of an abstract concept in the end), but I just think this distinction exists to describe a situation where the relational data is being given by actors who are not involved in the network itself (i.e., an observer's perspective)
+
+## Notes postscript
+
+After the meeting, what exactly are my thoughts?
+
+* I'd like to view snowball models a bit more, simply because I think the investigative process fits the iterative idea of a snowball process,
+    + Start with a seed set of suspects,
+    + Gather information about the seed suspects (incl relational ties)
+    + Either consider them additional suspects or informants in some way
+    + Narrow down the list of suspects
+    + Either arrest the reasonable suspects or gather more information
+
+* Are there any temporal network models where actors have a high turnover in leaving and entering the network?
+    + Like how SAOMs iteratively evaluate ties changing over time, but with actors joining/leaving for instance? (This sounds terribly chaotic for boundary definition)
+    + Berlusconi (2021) notes how SAOMs and TERGMs require stable actors in the network, which usually isn't the case for covert network data.
+    
+* How do we apply missing data models? 
+    + We could start from the 'typical' academic starting point where the data are already collected
+    + or we could somehow acknowledge collection methods to indicate how some missing data may have snowballed throughout the investigation?
+    
+
+
+
+
+
 
 
 

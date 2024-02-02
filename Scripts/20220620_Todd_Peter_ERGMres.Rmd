@@ -1,0 +1,361 @@
+---
+title: "20220620_Todd_Peter_ERGMres"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading results
+
+```{r loading datafiles, eval = T, warning = F, error = F, message = F}
+### Packages
+library(here)
+library(ergm)
+library(ggplot2)
+
+## loading a reference ERGM
+load(here("Output", "20220531_sagemanFullSummary_CD.RData"))
+
+## loading in the reference network too
+load(here("Data", "SagemanImputedData.RData"))
+
+
+## loading results files in a list
+resList = list()
+
+for(i in 1:10){
+  load(here("Output", "20220616_sagemanERGMs_Todd_Peter", paste("20220616_sagemanERGMs_Todd_Peter_", i, ".RData", sep = "")))
+  ergmList = list('mod2ergm' = mod2ergm, 
+                  'mod2summary' = mod2summary,
+                  'mod3ergm' = mod3ergm, 
+                  'mod3summary' = mod3summary)
+  
+  resList[[i]] = ergmList
+}
+
+## loading todd and peters
+load(here("Output", "20220616_sagemanERGMs_todd_peter_nets.RData"))
+
+# checking full model results
+mod1summary
+
+# # save as table
+# write.csv(mod1summary$coefs, "Sageman_full_data_ERGMres.csv")
+
+
+```
+
+## Todd and Peter
+
+```{r grab coefs}
+## loading dyadic covariates
+# load(here("Output", "sagemanClumpDyadcovs.RData")) 
+# load(here("Output", "sagemanSchoolDyadcovs.RData")) 
+# 
+# # label the dyad covs
+# clump.1.1.dyadcov = clumpMatrices[[1]]
+# clump.1.2.dyadcov = clumpMatrices[[2]]
+# clump.1.3.dyadcov = clumpMatrices[[3]]
+# clump.2.2.dyadcov = clumpMatrices[[5]]
+# clump.2.3.dyadcov = clumpMatrices[[6]]
+# clump.3.3.dyadcov = clumpMatrices[[8]]
+# 
+# school.1.1.dyadcov = schoolMatrices[[1]]
+# school.1.2.dyadcov = schoolMatrices[[2]]
+# school.2.2.dyadcov = schoolMatrices[[4]]
+
+## looping through the various ergms to simulate
+gwdegToddList = list()
+gwdegPeterList = list()
+gwespToddList = list()
+gwespPeterList = list()
+educToddList = list()
+educPeterList = list()
+educToddpvals = list()
+educPeterpvals = list()
+
+for( i in 1:10 ){
+  ## choose the right models
+  # chosenTodd = resList[[i]][['mod2ergm']]
+  # chosenPeter = resList[[i]][['mod3ergm']]
+  # 
+  # # simulate
+  # toddSim = simulate(object = chosenTodd, nsim = 50,
+  #                     control=control.simulate.ergm(MCMC.burnin=1024,MCMC.interval=1024),
+  #                     output='stats')
+  #   
+  # peterSim = simulate(object = chosenPeter, nsim = 50,
+  #                     control=control.simulate.ergm(MCMC.burnin=1024,MCMC.interval=1024),
+  #                     output='stats')
+  # 
+  # 
+  # # compare degrees somehow?
+  # gwdegPeter = peterSim[,"gwdeg.fixed.0.693147180559945"]
+  # gwdegTodd = toddSim[,"gwdeg.fixed.0.693147180559945"]
+  # 
+  # # edges?
+  # edgeCountTodd = toddSim[,"edges"]
+  # edgeCountPeter = peterSim[,"edges"]
+  # 
+  # # put them in lists
+  # gwdegToddList[[i]] = gwdegTodd
+  # gwdegPeterList[[i]] = gwdegPeter
+  # edgeCountToddList[[i]] = edgeCountTodd
+  # edgeCountPeterList[[i]] = edgeCountPeter
+  
+  # take model coeffs
+  # gwdeg
+  gwdegToddList[[i]] = c(resList[[i]]$mod2summary$coefs["gwdeg.fixed.0.693147180559945","Estimate"],
+                         resList[[i]]$mod2summary$coefs["gwdeg.fixed.0.693147180559945","Std. Error"])
+  
+  gwdegPeterList[[i]] = c(resList[[i]]$mod3summary$coefs["gwdeg.fixed.0.693147180559945","Estimate"],
+                          resList[[i]]$mod3summary$coefs["gwdeg.fixed.0.693147180559945","Std. Error"])
+  
+  
+  # gwesp
+  gwespToddList[[i]] = c(resList[[i]]$mod2summary$coefs["gwesp.fixed.0.693147180559945","Estimate"],
+                         resList[[i]]$mod2summary$coefs["gwesp.fixed.0.693147180559945","Std. Error"])
+  gwespPeterList[[i]] = c(resList[[i]]$mod3summary$coefs["gwesp.fixed.0.693147180559945","Estimate"],
+                          resList[[i]]$mod3summary$coefs["gwesp.fixed.0.693147180559945","Std. Error"])
+  
+  # absdiff2.year.joined
+  educToddList[[i]] = c(resList[[i]]$mod2summary$coefs["nodecov.educ","Estimate"],
+                        resList[[i]]$mod2summary$coefs["nodecov.educ","Std. Error"])
+  educPeterList[[i]] = c(resList[[i]]$mod3summary$coefs["nodecov.educ","Estimate"],
+                         resList[[i]]$mod3summary$coefs["nodecov.educ","Std. Error"])
+  educToddpvals[[i]] = resList[[i]]$mod2summary$coefs["nodecov.educ","Pr(>|z|)"]
+  
+  educPeterpvals[[i]] = resList[[i]]$mod3summary$coefs["nodecov.educ","Pr(>|z|)"]
+  
+}
+
+# get some reference values
+gwdegRef = mod1summary$coefs["gwdeg.fixed.0.693147180559945","Estimate"]
+gwdefRefSE = mod1summary$coefs["gwdeg.fixed.0.693147180559945","Std. Error"]
+gwespRef = mod1summary$coefs["gwesp.fixed.0.693147180559945","Estimate"]
+gwespRefSE = mod1summary$coefs["gwesp.fixed.0.693147180559945","Std. Error"]
+educRef = mod1summary$coefs["nodecov.educ", "Estimate"]
+educRefSE = mod1summary$coefs["nodecov.educ", "Std. Error"]
+
+
+```
+
+
+## Computing diagnostics
+
+```{r diagnostics, fig.width = 10, fig.height = 7, eval = F, echo = F}
+# ## get some reference value for the gwdegree
+# mod <- ergm_model( mod1ergm$formula , alqnet )
+# stats <- summary( mod , alqnet )
+# 
+# gwDegRef = stats["gwdeg.fixed.0.693147180559945"]
+# 
+# 
+# # get values from the ergms rather than the simulated networks
+# gwdegToddNoSim = list()
+# gwdegPeterNoSim = list()
+# edgeToddNoSim = list()
+# edgePeterNoSim = list()
+# 
+# # loop
+# for(i in 1:10){
+#   
+#   # extract values
+#   toddTemp = summary(ergm_model(resList[[i]]$mod2ergm$formula, toddNets[[i]]), toddNets[[i]])
+#   peterTemp = summary(ergm_model(resList[[i]]$mod3ergm$formula, peterNets[[i]]), peterNets[[i]])
+#     
+#   # for todd
+#   gwdegToddNoSim[[i]] = toddTemp["gwdeg.fixed.0.693147180559945"]
+#   edgeToddNoSim[[i]] = toddTemp["edges"]
+#   
+#   # for peter
+#   gwdegPeterNoSim[[i]] = peterTemp["gwdeg.fixed.0.693147180559945"]
+#   edgePeterNoSim[[i]] = peterTemp["edges"]  
+# }
+
+
+# ## Rather than being lazy, I think plotting can be done with all the collected data, so no (big) loops here
+# # data to plot
+# gwdegPooled = c(unlist(gwdegToddList), unlist(gwdegPeterList))
+# 
+# gwdegPlotDat = data.frame(gwdeg = gwdegPooled, model = c(rep("Zero", 500), rep("Miss", 500)))
+# 
+# ggplot(data = gwdegPlotDat, aes(x = gwdeg, fill = model)) +
+#     geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity', binwidth = 1) +
+#     labs(fill="") + 
+#     geom_vline(xintercept = gwDegRef, col = "black", lty = 2)
+# 
+# edgePooled = c(unlist(edgeCountToddList), unlist(edgeCountPeterList))
+# 
+# edgePlotDat = data.frame(edge = edgePooled, model = c(rep("Zero", 500), rep("Miss", 500)))
+# 
+# ggplot(data = edgePlotDat, aes(x = edge, fill = model)) +
+#     geom_histogram( color="#e9ecef", alpha=1, position = 'identity', binwidth = 1) +
+#     labs(fill="") + 
+#     geom_vline(xintercept = network.edgecount(alqnet), col = "black", lty = 2)
+# 
+# 
+# ## Instead of making a cdf of the pooled counts (which is weird), plot the cdfs separately.
+# # getting plotting dimensions right
+# # initialise with 1
+# cdfTodd = ecdf(gwdegToddList[[1]])
+# cdfPeter = ecdf(gwdegPeterList[[1]])
+# 
+# curve(cdfTodd,xlim = c(min(gwdegPooled) -25, gwDegRef +25), ylab = "CDF", xlab = "gwDeg count", col = "blue")
+# curve(cdfPeter, add = TRUE, col = "orange")
+# abline(v = gwDegRef, col = "black", lty = 2)
+# 
+# 
+# for(i in 2:10){
+#   
+#   # take out the right set of gwdeg counts
+#   cdfTodd = ecdf(gwdegToddList[[i]])
+#   cdfPeter = ecdf(gwdegPeterList[[i]])
+#   
+#   # add them to the existing plot
+#   curve(cdfTodd, add = TRUE, col = "blue")
+#   curve(cdfPeter, add = TRUE, col = "orange")
+# }
+# 
+# # add legend
+# legend(x = min(gwdegPooled) -25, y = 1, legend = c("Zero", "Miss"), col = c("blue", "orange"), lty = c(1,1))
+# 
+# 
+# ## now the same for edges
+# # initialise with 1
+# cdfEdgesTodd = ecdf(edgeCountToddList[[1]])
+# cdfEdgesPeter = ecdf(edgeCountPeterList[[1]])
+# 
+# curve(cdfEdgesTodd,xlim = c(min(edgePooled) -100, network.edgecount(alqnet) +40), ylab = "CDF", xlab = "Edge count", col = "blue")
+# curve(cdfEdgesPeter, add = TRUE, col = "orange")
+# abline(v = network.edgecount(alqnet), col = "black", lty = 2)
+# 
+# for(i in 2:10){
+#   
+#   # take out the right set of gwdeg counts
+#   cdfEdgesTodd = ecdf(edgeCountToddList[[i]])
+#   cdfEdgesPeter = ecdf(edgeCountPeterList[[i]])
+#   
+#   # add them to the existing plot
+#   curve(cdfEdgesTodd, add = TRUE, col = "blue")
+#   curve(cdfEdgesPeter, add = TRUE, col = "orange")
+# }
+# 
+# # add legend
+# legend(x = min(edgePooled) -100, y = 1, legend = c("Zero", "Miss"), col = c("blue", "orange"), lty = c(1,1))
+# 
+
+
+### Switch to box plots of the non-simulated values
+# # data to plot
+# gwdegPooled = c(unlist(gwdegToddNoSim), unlist(gwdegPeterNoSim))
+# 
+# gwdegPlotDat = data.frame(gwdeg = gwdegPooled, model = c(rep("Zero", 10), rep("Miss", 10)))
+# 
+# ggplot(data = gwdegPlotDat, aes(x = model, y = gwdeg)) +
+#     geom_boxplot() +
+#     labs(fill="") +
+#     geom_hline(yintercept = gwDegRef, col = "black", lty = 2) +
+#     ylim(400,700)
+
+
+```
+
+```{r scatter plots}
+## scatter plots
+# gw deg
+plot(x = unlist(lapply(gwdegToddList, `[[`, 1)), y =unlist(lapply(gwdegPeterList, `[[`, 1)), xlim = c(1.2,4), ylim = c(1.2,4),
+     ylab = "Miss gwdeg coefficient", xlab = "Zero gwdeg coefficient", main = "Diagnostics - gwdeg")
+abline(v = gwdegRef, h = gwdegRef, col = 'red')
+
+# gwesp
+plot(x = unlist(lapply(gwespToddList, `[[`, 1)), y =unlist(lapply(gwespPeterList, `[[`, 1)), xlim = c(1.1, 2.7), ylim = c(1.1,2.7),
+     ylab = "Miss gwesp coefficient", xlab = "Zero gwesp coefficient", main = "Diagnostics - gwesp")
+abline(v = gwespRef, h = gwespRef, col = 'red')
+
+
+# educ
+plot(x = unlist(lapply(educToddList, `[[`, 1)), y =unlist(lapply(educPeterList, `[[`, 1)), xlim = c(0.008, 0.043), ylim = c(0.008, 0.043),
+     ylab = "Miss educ coefficient", xlab = "Zero educ coefficient", main = "Diagnostics - nodecov.education")
+abline(v = educRef, h = educRef, col = 'red')
+
+
+```
+
+
+If data were truly missing at random, Peter's estimates would be closer to the true value. However, due to the non-random missingness, the estimates are off. This is even worse for Todd.
+
+## Caterpillars?
+
+```{r caterpillars}
+# making the dataset
+gwdegPlotData = data.frame(gwdeg = c(unlist(lapply(gwdegToddList, `[[`, 1)), unlist(lapply(gwdegPeterList, `[[`, 1))), 
+                           model = c(rep("Zero", 10), rep("Miss", 10)),
+                           SE = c(unlist(lapply(gwdegToddList, `[[`, 2)), unlist(lapply(gwdegPeterList, `[[`, 2))))
+
+# caterpillar?
+gwdegPlot = ggplot( data = gwdegPlotData,
+                    aes( x = 1:nrow(gwdegPlotData ), y = gwdeg, col = model)) + 
+             geom_errorbar(aes (ymin = (gwdeg - 1.96*SE), ymax = (gwdeg + 1.96*SE), width = 0.4)) + 
+             xlab("") + 
+             ylab("gwdeg estimate (95% Confidence Int)") + 
+             labs(col = "Model") + 
+             geom_hline(yintercept = gwdegRef, col = "darkblue") + 
+             geom_point() + 
+             ggtitle("Diagnostics - gwdeg") + 
+             theme_classic() + 
+             theme(axis.ticks.x = element_blank(),
+                   axis.text.x = element_blank())
+
+gwdegPlot
+
+# making the dataset
+gwespPlotData = data.frame(gwesp = c(unlist(lapply(gwespToddList, `[[`, 1)), unlist(lapply(gwespPeterList, `[[`, 1))), 
+                           model = c(rep("Zero", 10), rep("Miss", 10)),
+                           SE = c(unlist(lapply(gwespToddList, `[[`, 2)), unlist(lapply(gwespPeterList, `[[`, 2))))
+
+# caterpillar?
+gwespPlot = ggplot( data = gwespPlotData,
+                    aes( x = 1:nrow(gwespPlotData ), y = gwesp, col = model)) + 
+             geom_errorbar(aes (ymin = (gwesp - 1.96*SE), ymax = (gwesp + 1.96*SE), width = 0.4)) + 
+             xlab("") + 
+             ylab("gwesp estimate (95% Confidence Int)") + 
+             labs(col = "Model") + 
+             geom_hline(yintercept = gwespRef, col = "darkblue") + 
+             geom_point() + 
+             ggtitle("Diagnostics - gwesp") + 
+             theme_classic() + 
+             theme(axis.ticks.x = element_blank(),
+                   axis.text.x = element_blank())
+
+gwespPlot
+
+# making the dataset
+educPlotData = data.frame(educ = c(unlist(lapply(educToddList, `[[`, 1)), unlist(lapply(educPeterList, `[[`, 1))), 
+                           model = c(rep("Zero", 10), rep("Miss", 10)),
+                           SE = c(unlist(lapply(educToddList, `[[`, 2)), unlist(lapply(educPeterList, `[[`, 2))))
+
+# caterpillar?
+educPlot = ggplot( data = educPlotData,
+                    aes( x = 1:nrow(educPlotData ), y = educ, col = model)) + 
+             geom_errorbar(aes (ymin = (educ - 1.96*SE), ymax = (educ + 1.96*SE), width = 0.4)) + 
+             xlab("") + 
+             ylab("educ nodecov estimate (95% Confidence Int)") + 
+             labs(col = "Model") + 
+             geom_hline(yintercept = educRef, col = "darkblue") + 
+             geom_hline(yintercept = 0, col = "black", lty = 2) +
+             geom_point() + 
+             ggtitle("Diagnostics - nodecov.education") + 
+             theme_classic() + 
+             theme(axis.ticks.x = element_blank(),
+                   axis.text.x = element_blank())
+
+educPlot
+
+
+
+```
+

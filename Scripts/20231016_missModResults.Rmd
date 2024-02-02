@@ -1,0 +1,2763 @@
+---
+title: "20231016_missModResults"
+author: "Jon Januar"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# {.tabset}
+
+## Missingness plots
+
+### First code bashing
+
+```{r loading flies}
+# packages
+library(ggplot2)
+library(here)
+library(dplyr)
+
+# true estimates
+resultsFiles = list.files(path = here("Output", "20230726_missNetsTrueModels"))
+
+# initialise list
+trueCoefList = list()
+trueSeList = list()
+
+# index for how missingness is saved
+missSaveLabel = c("Peter", "Todd")
+missSaveValue = c("NA", "0")
+
+# TODO:: specify the missingness saved for current chunk, 1 = "NA"/peter, 2 = "0"/Todd
+chunkMissSave = 1
+
+# TODO:: specify the chosen missingness proportion for each chunk (1/3 or 3.5/6)
+chunkMissProp = 1
+
+# take out the index for the chosen missingness saved value
+chosenMissLabel = missSaveLabel[chunkMissSave]
+chosenMissValue = missSaveValue[chunkMissSave]
+
+# loop to load model parameters
+for(netInd in 1:6){
+  
+  # load in results for each network
+  load(here("Output", "20230726_missNetsTrueModels", resultsFiles[[netInd]]))
+  
+  # and take the coefficients only
+  trueCoefList[[netInd]] = coef(modelres)
+  trueSeList[[netInd]] = summary(modelres)$coefficients[,2]
+}
+  
+# loading in the output results
+outputList = list.files(here("Output", "20230825_simMissReest", chosenMissLabel))
+
+# set up some lists to put in the ergm re-estimations
+modelResList = list()
+modelSeList = list()
+missModelList = list()
+propMissList = list()
+
+# hmm... what's the best way to handle this....
+# I have specific indices,
+# but there are different amounts of each file because re-estimations tend to fail
+# especially for some combinations
+
+# some regular expressions
+# net1Ind = grep("net1", outputList)
+# missMod2Ind = grep("missModel2", outputList)
+# 
+# # check which indices overlap
+# net1MissMod2 = missMod2Ind[missMod2Ind %in% net1Ind]
+
+# set a specific index for the network
+chosenNetInd = 2
+
+# file list for the chosen network index
+chosenNetOutFiles = grep(paste("20230814_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+##### For the MNAR files (coefSet1), the Miss Model is always 2... so what I can do is:
+## regex the MNAR files 
+chosenMnarOutFiles = grep(paste("20231011_missErgmNetReest_Miss", chosenMissLabel, "_net", chosenNetInd, sep = ""), outputList)
+
+# combine the two indices
+combinedNetOutList = c(chosenNetOutFiles, chosenMnarOutFiles)
+
+# check to make sure there aren't any duplicates
+if( length(unique(combinedNetOutList)) != length(combinedNetOutList)){
+  stop("Duplicate re-estimation datafiles! BAD.")
+}
+
+# loop to load
+chosenNetOutList = outputList[combinedNetOutList]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", "Peter", chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+  
+  # slight difference for the chosenMnarOutFiles because missModelList[[fileInd]] = always 4 (let 2 be mar ergm, 4 be mnar ergm)
+  
+  # this branch *should* be setting the miss model to 4 if they were regexed to be a part of the mnar list.
+  if(combinedNetOutList[fileInd] %in% chosenMnarOutFiles){
+   missModelList[[fileInd]] = 4
+  } else {
+   missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  }
+
+  # propMiss is fine (or should be.)
+  
+  # regex to get the first number after the specified text
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  
+}
+
+```
+
+
+```{r firstplotattempts}
+# plotting
+# note: I think I should have a plot for each missingness proportion
+chosenProp = 1
+
+# there should only be 3 miss props, 1 for 10%, 3.5 for 35%, and 6 for 60%
+# subset the lists to only be a single chosen proportion
+chosenPropIndex = propMissList == chosenProp
+
+modelResChosenPropList = modelResList[chosenPropIndex]
+modelSeChosenPropList = modelSeList[chosenPropIndex]
+missModelChosenPropList = missModelList[chosenPropIndex]
+
+## AltStar
+# making the dataset
+altStarPlotData = data.frame(altStar = c(unlist(lapply(modelResChosenPropList, `[[`, 2) )), 
+                             SE = c(unlist(lapply(modelSeChosenPropList, `[[`, 2))),
+                             missModel = factor(c(unlist(missModelChosenPropList)), levels = c(1,2,3,4), labels = c("Indep", "marErgm", "Latent", "mnarErgm")))
+
+# order the plot data
+altStarPlotOrd = altStarPlotData[order(altStarPlotData[,"altStar"]),]
+
+# one more ordering with the missing model type
+altStarPlotOrd = altStarPlotOrd[order(altStarPlotOrd[,"missModel"]),]
+
+
+
+# getting the true altStar value
+trueAltStar = trueCoefList[[chosenNetInd]][2]
+trueAltStarSE = trueSeList[[chosenNetInd]][2]
+
+# caterpillar?
+altStarPlot = ggplot( data = altStarPlotOrd,
+                    aes( x = 1:nrow(altStarPlotOrd), y = altStar, col = missModel)) + 
+             geom_errorbar(aes (ymin = (altStar - 1.96*SE), ymax = (altStar + 1.96*SE), width = 0.4)) + 
+             xlab("") + 
+             ylab("AltStar estimate (95% Confidence Int)") + 
+             geom_hline(yintercept = trueAltStar, col = "darkblue") + 
+             geom_hline(yintercept = 0, col = "black", lty = 2) +
+             geom_point() + 
+             ggtitle(paste("Diagnostics - Net", chosenNetInd, " - Prop", chosenProp, sep = "")) + 
+             theme_classic() + 
+             theme(axis.ticks.x = element_blank(),
+                   axis.text.x = element_blank()) +
+         #          legend.position = "none") +
+             geom_rect(aes(xmin = -Inf,
+                           xmax = Inf, 
+                           ymin = (trueAltStar - 1.96*trueAltStarSE),
+                           ymax = (trueAltStar + 1.96*trueAltStarSE)),
+                           alpha = 0.01,
+                           colour = NA,
+                           fill = "grey") +
+             ylim(min(altStarPlotData$altStar) - 2*max(abs(altStarPlotData$SE)), max(altStarPlotData$altStar) + 2*max(abs(altStarPlotData$SE)))
+
+altStarPlot
+
+## Gwesp
+# making the dataset
+gwespPlotData = data.frame(gwesp = c(unlist(lapply(modelResChosenPropList, `[[`, 3) )), 
+                             SE = c(unlist(lapply(modelSeChosenPropList, `[[`, 3))),
+                             missModel = factor(c(unlist(missModelChosenPropList)), levels = c(1,2,3,4), labels = c("Indep", "marErgm", "Latent", "mnarErgm")))
+
+# order the plot data
+gwespPlotOrd = gwespPlotData[order(gwespPlotData[,"gwesp"]),]
+
+# one more ordering with the missing model type
+gwespPlotOrd = gwespPlotOrd[order(gwespPlotOrd[,"missModel"]),]
+
+
+# getting the true gwdeg value
+truegwesp = trueCoefList[[chosenNetInd]][3]
+truegwespSE = trueSeList[[chosenNetInd]][3]
+
+# caterpillar?
+gwespPlot = ggplot( data = gwespPlotOrd,
+                    aes( x = 1:nrow(gwespPlotOrd), y = gwesp, col = missModel)) + 
+             geom_errorbar(aes (ymin = (gwesp - 1.96*SE), ymax = (gwesp + 1.96*SE), width = 0.4)) + 
+             xlab("") + 
+             ylab("GWESP estimate (95% Confidence Int)") + 
+             labs(col = "missType") + 
+             geom_hline(yintercept = truegwesp, col = "darkblue") + 
+             geom_hline(yintercept = 0, col = "black", lty = 2) +
+             geom_point() + 
+             ggtitle(paste("Diagnostics - Net", chosenNetInd, " - Prop", chosenProp, sep = "")) + 
+             theme_classic() + 
+             theme(axis.ticks.x = element_blank(),
+                   axis.text.x = element_blank()) +
+           #        legend.position = "none") +
+             geom_rect(aes(xmin = -Inf,
+                           xmax = Inf, 
+                           ymin = (truegwesp - 1.96*truegwespSE),
+                           ymax = (truegwesp + 1.96*truegwespSE)),
+                           alpha = 0.01,
+                           colour = NA,
+                           fill = "grey") +
+              ylim(min(gwespPlotOrd$gwesp) - 2*max(abs(gwespPlotOrd$SE)), max(gwespPlotOrd$gwesp) + 2*max(abs(gwespPlotOrd$SE)))
+    
+
+gwespPlot
+
+
+```
+
+```{r fail rate test}
+# code to try computing a fail rate dataset
+
+# fixed value for the amount of estimation attempts
+estAttempts = 50
+
+# choose a proportion
+chosenProp = 1
+
+# annoyingly how the missingness is saved is missing in this set of results so...
+# there should only be one way the missingness is saved, keep it as a string
+chosenMiss = chosenMissValue
+
+# subset the lists to only be a single chosen proportion
+# get the index
+chosenPropIndex = propMissList == chosenProp
+
+# and subset
+propMissChosenPropList = propMissList[chosenPropIndex]
+missModelChosenPropList = missModelList[chosenPropIndex]
+
+# these lists will always be used so...
+# there should only be one missing proportion
+# note that there can sometimes be more than one missingness proportion in the list...
+
+# turn the list of missingness proportions into a single numeric value
+failMissProp = as.numeric(names(table(unlist(propMissChosenPropList))))
+
+# check to make sure there's only one proportion
+if(length(failMissProp) != 1){
+  stop("More than one missingness proportion after subsetting")
+}
+
+# calculate the success rate
+successRate = as.numeric(table(unlist(missModelChosenPropList))/estAttempts)
+
+# and which miss model it is, these can technically range from 1 to 4
+failMissModel = as.numeric(names(table(unlist(missModelChosenPropList))))
+  
+# and put it all together
+failData = data.frame(failRate = (1 - successRate), 
+                      netInd = rep(chosenNetInd, length(failMissModel)),
+                      missModel = failMissModel, 
+                      missProp = rep(failMissProp, length(failMissModel)),
+                      missSave = rep(chosenMiss, length(failMissModel)))
+
+
+
+```
+
+
+### Turn them into functions
+
+I want these functions to take the entire file list, choose specific networks and missingness proportions. The thing is, I might need a few helper functions beforehand to get the right data....
+
+Multiple smaller functions doing very specific things are preferred over one giant function that does a lot of stuff all at once
+
+
+```{r function it}
+
+### Function to turn the data from the extracted lists into plot-friendly format
+
+# start from the list of coefficients and standard errors
+# these can have varying rows per model because not all re-estimations converge
+
+
+prepMissPlot = function(modelResList, modelSeList, missModelList, propMissList, chosenProp, chosenPara){
+
+  ## prepMissPlot(modelResList, modelSeList, missModelList, propMissList, chosenProp, chosenPara) takes 
+  ## four different containing various estimated values and extracted indices to be used 
+  ## in making a plot-friendly dataset.
+  ##
+  ## Input:
+  ## - modelResList: A k-long list containing the estimated model parameters for k re-estimated models.
+  ##
+  ## - modelSeList: A k-long list containing the estimated standard errors for k re-estimated models.
+  ##                
+  ## - missModelList: A k-long list containing the chosen missingness model index for k re-estimated models.
+  ##                  
+  ## - propMissList: A k-long list containing the missingness proportion index for k re-estimated models.
+  ##
+  ## - chosenProp: The specified proportion of missingness to plot. Three possible values here:
+  ##               1 = 10%, 3 = 35%, 6 = 60%.
+  ##
+  ## - chosenPara: The specified parameter to plot. Three possible values here:
+  ##               "edges" for edges, "altStar" for alternating stars, "gwesp" for gwesp.
+  ##
+  ## Output: 
+  ## - A k x 3 dataframe containing the parameter values, standard error values, and missing model index.
+  ##   The dataframe is ordered by parameter value (smallest to largest) for each missingness model.
+
+
+  ## Check to make sure all the lists are of the same length
+  listLengths = lapply(list(modelResList, modelSeList, missModelList, propMissList), FUN = length)
+  
+  ## A unit test that spits out an error if there's more than one unique length in the list of lengths
+  if( length(unique(listLengths)) != 1 ){
+    stop("Lists have differing lengths")
+  }
+  
+  # subset the lists to only be a single chosen proportion
+  chosenPropIndex = propMissList == chosenProp
+  
+  modelResChosenPropList = modelResList[chosenPropIndex]
+  modelSeChosenPropList = modelSeList[chosenPropIndex]
+  missModelChosenPropList = missModelList[chosenPropIndex]
+  
+  # Specify indices for the chosen parameter
+  # doing it this way because parameter names get very lengthy
+  paraIndex = c(1:3)
+  modelParaNames = c("edges", "altStar", "gwesp")
+  chosenParaIndex = paraIndex[modelParaNames == chosenPara]
+  
+  
+  # making the dataset
+  plotData = data.frame(parameter = c(unlist(lapply(modelResChosenPropList, `[[`, chosenParaIndex) )), 
+                        SE = c(unlist(lapply(modelSeChosenPropList, `[[`, chosenParaIndex))),
+                        missModel = factor(c(unlist(missModelChosenPropList)), levels = c(1,2,3,4), labels = c("Indep", "marErgm", "Latent", "mnarErgm")))
+  
+  # change to allow 4 = mnarErgm and change missModel 2 = marErgm
+  
+  # order the plot data
+  plotOrd = plotData[order(plotData[,"parameter"]),]
+  
+  # one more ordering with the missing model type
+  plotOrd = plotOrd[order(plotOrd[,"missModel"]),]
+  
+  # return the ordered plot data
+  return(plotOrd)
+}
+
+## actual plotting function
+
+missCaterpillarPlot = function(plotData, truePara, trueSe, chosenPara, chosenNetInd, chosenProp, chosenMiss){
+  
+  ## missCaterpillarPlot(plotData, truePara, trueSe, chosenPara, chosenNetInd, chosenProp) is a very specialised
+  ## plotting function that produces a caterpillar plot to compare parameter estimates for very specific data.
+  ##
+  ## Input:
+  ## - plotData: Needs to be a k x 3 data frame for k re-estimated models containing parameter values,
+  ##             standard error values, and a missing model index. Ordering is optional, but visually
+  ##             useful. Ideally from prepMissPlot().
+  ##
+  ## - truePara: A single float (can technically be integer, but unlikely). Represents the true model estimate.
+  ##                
+  ## - trueSe: A single float (can technically be integer, but unlikely). Represents the true standard error.
+  ##
+  ## - chosenPara: A string with three (but really two) options. The chosen string is the parameter that is 
+  ##               plotted. The options, in order, are "edges", "altStar", and "gwesp"
+  ##
+  ## - chosenNetInd: An integer between 1 to 6 for current purposes. Each integer represents one of the six
+  ##                 datasets from UCINet chosen for the current round of re-estimations.
+  ##                
+  ## - chosenProp: A single integer or float with three options representing the proportion of missingness.
+  ##               Options are 1 = 10%, 3.5 = 35%, 6 = 60%.
+  ##
+  ## - chosenMiss: A value to indicate what missingness is saved as (e.g., NA is Peter, 0 is Todd).
+  ##               Input should be strings that are directly used for the label.
+  ##                  
+  ## Output: 
+  ## - The output should be a caterpillar plot containing with k datapoints for k re-estimated models.
+  ##   Colours are labelled and represent the missingness model used. True values are represented as a 
+  ##   grey rectangle. All error bars or other depictions of spread are 95% confidence intervals. Plot
+  ##   title should also be adaptive to the parameters in the function.
+  
+  # requires ggplot2 to work
+  require(ggplot2)
+
+
+  # caterpillar?
+  caterPlot = ggplot( data = plotData,
+                      aes( x = 1:nrow(plotData), y = parameter, col = missModel)) + 
+               geom_errorbar(aes (ymin = (parameter - 1.96*SE), ymax = (parameter + 1.96*SE), width = 0.4)) + 
+               xlab("") + 
+               ylab(paste(chosenPara,"estimate (95% Confidence Int)", sep = " ")) + 
+               labs(col = "missType") + 
+               geom_hline(yintercept = truePara, col = "darkblue") + 
+               geom_hline(yintercept = 0, col = "black", lty = 2) +
+               geom_point() + 
+               ggtitle(paste("Diagnostics - Net", chosenNetInd, " - Prop", chosenProp, " - Miss", chosenMiss ,sep = "")) + 
+               theme_classic() + 
+               theme(axis.ticks.x = element_blank(),
+                     axis.text.x = element_blank()) +
+               geom_rect(aes(xmin = -Inf,
+                             xmax = Inf, 
+                             ymin = (truePara - 1.96*trueSe),
+                             ymax = (truePara + 1.96*trueSe)),
+                             alpha = 0.01,
+                             colour = NA,
+                             fill = "grey") +
+                ylim(min(min(plotData$parameter) - 2*max(abs(plotData$SE)), (truePara - 1.96*trueSe)), 
+                     max(max(plotData$parameter) + 2*max(abs(plotData$SE)), (truePara + 1.96*trueSe)))
+      
+  # print out the plot
+  caterPlot
+  
+    
+}
+
+
+## function for calculating failure rate (for each datafile read in)
+# a function for this because I overwrite which networks I read in for the caterpillar plots
+# this function captures every combination of which missingness model, which chosen missingness, which missingness proportion, and which network.
+
+prepFailPlot = function(propMissList, missModelList, chosenNetInd, chosenProp, chosenMiss, estAttempts = 50){
+  
+  ## prepFailPlot(propMissList, missModelList, chosenNetInd, chosenProp, chosenMiss, estAttempts = 50) calculates
+  ## the failure rates of re-estimations of degraded networks with specific object type requirements.
+  ##
+  ## Input:
+  ## - missModelList: A k-long list containing the chosen missingness model index for k re-estimated models.
+  ##                  Can technically range between 1 to 4.
+  ##                  
+  ## - propMissList: A k-long list containing the missingness proportion index for k re-estimated models.
+  ##
+  ## - chosenNetInd: An integer between 1 to 6 for current purposes. Each integer represents one of the six
+  ##                 datasets from UCINet chosen for the current round of re-estimations.
+  ##                
+  ## - chosenProp: A single integer or float with three options representing the proportion of missingness.
+  ##               Options are 1 = 10%, 3 = 35% (... yes, it's annoying.), 6 = 60%.
+  ##
+  ## - chosenMiss: A string to indicate what missingness is saved as (e.g., "NA" is Peter, "0" is Todd).
+  ##                                
+  ## Output: 
+  ## - The output should be a data frame containing the failure rate for the specified combination of network, 
+  ##   proportion of missingness, how the missingness is saved, and all the missingness models in the input list.
+    
+  
+  # subset the lists to only be a single chosen proportion
+  # get the index
+  chosenPropIndex = propMissList == chosenProp
+  
+  # and subset
+  propMissChosenPropList = propMissList[chosenPropIndex]
+  missModelChosenPropList = missModelList[chosenPropIndex]
+
+  # turn the list of missingness proportions into a single numeric value
+  failMissProp = as.numeric(names(table(unlist(propMissChosenPropList))))
+  
+  # check to make sure there's only one proportion
+  if(length(failMissProp) != 1){
+    stop("More than one missingness proportion after subsetting")
+  }
+  
+  # calculate the success rate
+  successRate = as.numeric(table(unlist(missModelChosenPropList))/estAttempts)
+  
+  # and which miss model it is, these can technically range from 1 to 4
+  failMissModel = as.numeric(names(table(unlist(missModelChosenPropList))))
+    
+  # and put it all together
+  failData = data.frame(failRate = (1 - successRate), 
+                        netInd = rep(chosenNetInd, length(failMissModel)),
+                        missModel = failMissModel, 
+                        missProp = rep(failMissProp, length(failMissModel)),
+                        missSave = rep(chosenMiss, length(failMissModel)))
+  
+  
+  # return the data frame
+  return(failData)
+
+}
+
+## no need for a function to plot fail rates for each combination since I would only want one plot
+
+
+
+
+```
+
+
+### Function test run
+
+```{r plot fn testrun}
+# choose a network
+chosenNetInd = 2
+
+# generate relative bias and relative variance (...standard error?) data structures
+relBiasData = data.frame(rBias = c(), netInd = c(), missSave = c(), propMiss = c(), missModel = c(), paraName = c())
+relSeData = data.frame(rSe = c(),  netInd = c(), missSave = c(), propMiss = c(), missModel = c(), paraName = c())
+
+# select a parameter
+modelParaOptions = c("edges", "altStar", "gwesp")
+
+# this can be a loop!
+for( chosenPara in 1:length(modelParaOptions)){
+  
+  # grab the chosen parameter name
+  chosenParaName = modelParaOptions[chosenPara]
+  
+  # still need to take out true parameter values
+  tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+  tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+  
+  # including edges
+  # test run of the plot function
+  testPlotData = prepMissPlot(modelResList = modelResList,
+                              modelSeList = modelSeList,
+                              missModelList = missModelList,
+                              propMissList = propMissList,
+                              chosenProp = chunkMissProp,
+                              chosenPara = chosenParaName)
+  
+  # brief inspection just to make sure nothing's wrong
+  head(testPlotData) %>% 
+    print()
+  
+  
+  # and plot it
+  missCaterpillarPlot(plotData = testPlotData,
+                      truePara = tempTruePara,
+                      trueSe = tempTrueSe,
+                      chosenPara = chosenParaName,
+                      chosenNetInd = chosenNetInd,
+                      chosenProp = chunkMissProp,
+                      chosenMiss = chosenMissValue) %>% 
+    print()
+
+  # make a temp rbias/rSe data structure to bind with the data frame
+  tempRelBias = data.frame(rBias = (testPlotData$parameter - tempTruePara)/tempTruePara,
+                           netInd = rep(chosenNetInd, nrow(testPlotData)),
+                           missSave = rep(chosenMissLabel, nrow(testPlotData)),
+                           propMiss = rep(chunkMissProp, nrow(testPlotData)),
+                           missModel = testPlotData$missModel,
+                           paraName = rep(chosenParaName, nrow(testPlotData)))
+  tempRelSe = data.frame(rSe = (testPlotData$SE/tempTrueSe),
+                          netInd = rep(chosenNetInd, nrow(testPlotData)),
+                          missSave = rep(chosenMissLabel, nrow(testPlotData)),
+                          propMiss = rep(chunkMissProp, nrow(testPlotData)),
+                          missModel = testPlotData$missModel,
+                          paraName = rep(chosenParaName, nrow(testPlotData)))
+
+  # bind them
+  relBiasData = rbind(relBiasData, tempRelBias)
+  relSeData = rbind(relSeData, tempRelSe)
+  
+}
+
+
+# test run for the fail rate data
+# a data frame to initialise
+failRateData = data.frame()
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = prepFailPlot(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = chunkMissProp,
+                            chosenMiss = chosenMissValue)
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+
+
+```
+
+### Rest of 10% Peter
+
+```{r apply to lots of results}
+# applying the code above to different reestimations
+# TODO: specify the missingness saved for current chunk, 1 = "NA"/peter, 2 = "0"/Todd
+chunkMissSave = 1
+
+# TODO: specify the chosen missingness proportion for each chunk (1/3 or 3.5/6)
+chunkMissProp = 1
+
+# take out the index for the chosen missingness saved value
+chosenMissLabel = missSaveLabel[chunkMissSave]
+chosenMissValue = missSaveValue[chunkMissSave]
+
+
+# now looping with a specific vector of applicable networks
+# TODO: specify the UCINet networks for the chunk, these are networks with enough re-estimations
+chunkNetworks = c(4, 5, 6)
+
+# TODO: vector of file names for regex
+chunkRdataNames = c("20230814_missNetReest_net",
+                    "20230814_missNetReest_net",
+                    "20231010_missNetReest_net")
+
+chunkMnarNames = c("20231011_missErgmNetReest_Miss",
+                   "20231011_missErgmNetReest_Miss",
+                   "20231011_missErgmNetReest_Miss")
+
+# vector of parameter names to loop over
+modelParaOptions = c("edges", "altStar", "gwesp")
+
+# loop for all chosen networks
+for(chunkInd in 1:length(chunkNetworks)){
+  
+  # make sure the re-estimation lists are empty in the beginning
+  modelResList = list()
+  modelSeList = list()
+  missModelList = list()
+  propMissList = list()
+  
+  # set a specific index for the network
+  chosenNetInd = chunkNetworks[chunkInd]
+  
+  # file list for the chosen network index
+  chosenNetOutFiles = grep(paste(chunkRdataNames[chunkInd], chosenNetInd, sep =""), outputList)
+  
+  ## regex the MNAR files 
+  chosenMnarOutFiles = grep(paste(chunkMnarNames[chunkInd], chosenMissLabel, "_net", chosenNetInd, sep = ""), outputList)
+  
+  # combine the two indices
+  combinedNetOutList = c(chosenNetOutFiles, chosenMnarOutFiles)
+  
+  # check to make sure there aren't any duplicates
+  if( length(unique(combinedNetOutList)) != length(combinedNetOutList)){
+    stop("Duplicate re-estimation datafiles! BAD.")
+  }
+  
+  # loop to load
+  chosenNetOutList = outputList[combinedNetOutList]
+  
+  for(fileInd in 1:length(chosenNetOutList)){
+    # load all files
+    load(here("Output", "20230825_simMissReest", chosenMissLabel, chosenNetOutList[fileInd]))
+    
+    # suppress these version difference warnings. 
+    suppressWarnings({
+    modelResList[[fileInd]] = modelres$coefficients
+    modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+    
+    })
+    
+    # slight difference for the chosenMnarOutFiles because missModelList[[fileInd]] = always 4 (let 2 be mar ergm, 4 be mnar ergm)
+    
+    # this branch *should* be setting the miss model to 4 if they were regexed to be a part of the mnar list.
+    if(combinedNetOutList[fileInd] %in% chosenMnarOutFiles){
+     missModelList[[fileInd]] = 4
+    } else {
+     missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+    }
+      
+    # propmiss should be the same
+    propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  
+  }
+  
+  
+  # this can be a loop!
+  for( chosenPara in 1:length(modelParaOptions)){
+    
+    # grab the chosen parameter name
+    chosenParaName = modelParaOptions[chosenPara]
+    
+    # still need to take out true parameter values
+    tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+    tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+    
+    # including edges
+    # test run of the plot function
+    testPlotData = prepMissPlot(modelResList = modelResList,
+                                modelSeList = modelSeList,
+                                missModelList = missModelList,
+                                propMissList = propMissList,
+                                chosenProp = chunkMissProp,
+                                chosenPara = chosenParaName)
+    
+    # brief inspection just to make sure nothing's wrong
+    head(testPlotData) %>% 
+      print()
+    
+    
+    # and plot it
+    missCaterpillarPlot(plotData = testPlotData,
+                        truePara = tempTruePara,
+                        trueSe = tempTrueSe,
+                        chosenPara = chosenParaName,
+                        chosenNetInd = chosenNetInd,
+                        chosenProp = chunkMissProp,
+                        chosenMiss = chosenMissValue) %>% 
+      print()
+  
+  # make a temp rbias/rSe data structure to bind with the data frame
+  tempRelBias = data.frame(rBias = (testPlotData$parameter - tempTruePara)/tempTruePara,
+                           netInd = rep(chosenNetInd, nrow(testPlotData)),
+                           missSave = rep(chosenMissLabel, nrow(testPlotData)),
+                           propMiss = rep(chunkMissProp, nrow(testPlotData)),
+                           missModel = testPlotData$missModel,
+                           paraName = rep(chosenParaName, nrow(testPlotData)))
+  tempRelSe = data.frame(rSe = (testPlotData$SE/tempTrueSe),
+                          netInd = rep(chosenNetInd, nrow(testPlotData)),
+                          missSave = rep(chosenMissLabel, nrow(testPlotData)),
+                          propMiss = rep(chunkMissProp, nrow(testPlotData)),
+                          missModel = testPlotData$missModel,
+                          paraName = rep(chosenParaName, nrow(testPlotData)))
+
+  # bind them
+  relBiasData = rbind(relBiasData, tempRelBias)
+  relSeData = rbind(relSeData, tempRelSe)
+  
+  }
+    
+
+  
+  # a temporary data frame from the output to be binded to the big data frame
+  tempFailData = prepFailPlot(propMissList = propMissList,
+                              missModelList = missModelList,
+                              chosenNetInd = chosenNetInd,
+                              chosenProp = chunkMissProp,
+                              chosenMiss = chosenMissValue)
+
+  # and bind it
+  failRateData = rbind(failRateData, tempFailData)
+
+}
+
+```
+
+
+
+
+
+
+## More missingness conditions {.tabset}
+
+
+### 35% Peter
+
+```{r med miss prop peter}
+# loading in the output results
+outputList = list.files(here("Output", "20230825_simMissReest", "Peter"))
+
+# applying the code above to different reestimations
+# TODO: specify the missingness saved for current chunk, 1 = "NA"/peter, 2 = "0"/Todd
+chunkMissSave = 1
+
+# TODO: specify the chosen missingness proportion for each chunk (1/3 or 3.5/6)
+chunkMissProp = 3
+chunkMissPropFloat = 3.5 # specifically for 35% missingness because I regex by taking the first number next to 'prop'.
+
+# take out the index for the chosen missingness saved value
+chosenMissLabel = missSaveLabel[chunkMissSave]
+chosenMissValue = missSaveValue[chunkMissSave]
+
+
+# now looping with a specific vector of applicable networks
+# TODO: specify the UCINet networks for the chunk, these are networks with enough re-estimations
+chunkNetworks = c(2, 4, 5, 6)
+
+# TODO: vector of file names for regex
+chunkRdataNames = c("20231004_missNetReest_net",
+                    "20231004_missNetReest_net",
+                    "20231004_missNetReest_net",
+                    "20231010_missNetReest_net")
+
+chunkMnarNames = c("20231011_missErgmNetReest_Miss",
+                   "20231011_missErgmNetReest_Miss",
+                   "20231011_missErgmNetReest_Miss",
+                   "20231011_missErgmNetReest_Miss")
+
+# vector of parameter names to loop over
+modelParaOptions = c("edges", "altStar", "gwesp")
+
+# loop for all specified networks 
+for(chunkInd in 1:length(chunkNetworks)){
+  
+  # make sure the re-estimation lists are empty in the beginning
+  modelResList = list()
+  modelSeList = list()
+  missModelList = list()
+  propMissList = list()
+  
+  # set a specific index for the network
+  chosenNetInd = chunkNetworks[chunkInd]
+  
+  # file list for the chosen network index
+  chosenNetOutFiles = grep(paste(chunkRdataNames[chunkInd], chosenNetInd, sep =""), outputList)
+  
+  ## regex the MNAR files 
+  chosenMnarOutFiles = grep(paste(chunkMnarNames[chunkInd], chosenMissLabel, "_net", chosenNetInd, sep = ""), outputList)
+  
+  # combine the two indices
+  combinedNetOutList = c(chosenNetOutFiles, chosenMnarOutFiles)
+  
+  # check to make sure there aren't any duplicates
+  if( length(unique(combinedNetOutList)) != length(combinedNetOutList)){
+    stop("Duplicate re-estimation datafiles! BAD.")
+  }
+  
+  # loop to load
+  chosenNetOutList = outputList[combinedNetOutList]
+  
+  for(fileInd in 1:length(chosenNetOutList)){
+    # load all files
+    load(here("Output", "20230825_simMissReest", chosenMissLabel, chosenNetOutList[fileInd]))
+    
+    # suppress these version difference warnings. 
+    suppressWarnings({
+    modelResList[[fileInd]] = modelres$coefficients
+    modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+    
+    })
+    
+    # slight difference for the chosenMnarOutFiles because missModelList[[fileInd]] = always 4 (let 2 be mar ergm, 4 be mnar ergm)
+    
+    # this branch *should* be setting the miss model to 4 if they were regexed to be a part of the mnar list.
+    if(combinedNetOutList[fileInd] %in% chosenMnarOutFiles){
+     missModelList[[fileInd]] = 4
+    } else {
+     missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+    }
+      
+    # propmiss should be the same
+    propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  }
+  
+    # this can be a loop!
+  for( chosenPara in 1:length(modelParaOptions)){
+    
+    # grab the chosen parameter name
+    chosenParaName = modelParaOptions[chosenPara]
+    
+    # still need to take out true parameter values
+    tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+    tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+    
+    # including edges
+    # test run of the plot function
+    testPlotData = prepMissPlot(modelResList = modelResList,
+                                modelSeList = modelSeList,
+                                missModelList = missModelList,
+                                propMissList = propMissList,
+                                chosenProp = chunkMissProp,
+                                chosenPara = chosenParaName)
+    
+    # brief inspection just to make sure nothing's wrong
+    head(testPlotData) %>% 
+      print()
+    
+    
+    # and plot it
+    missCaterpillarPlot(plotData = testPlotData,
+                        truePara = tempTruePara,
+                        trueSe = tempTrueSe,
+                        chosenPara = chosenParaName,
+                        chosenNetInd = chosenNetInd,
+                        chosenProp = chunkMissPropFloat,
+                        chosenMiss = chosenMissValue) %>% 
+      print()
+    
+  # make a temp rbias/rSe data structure to bind with the data frame
+  tempRelBias = data.frame(rBias = (testPlotData$parameter - tempTruePara)/tempTruePara,
+                           netInd = rep(chosenNetInd, nrow(testPlotData)),
+                           missSave = rep(chosenMissLabel, nrow(testPlotData)),
+                           propMiss = rep(chunkMissProp, nrow(testPlotData)),
+                           missModel = testPlotData$missModel,
+                           paraName = rep(chosenParaName, nrow(testPlotData)))
+  tempRelSe = data.frame(rSe = (testPlotData$SE/tempTrueSe),
+                          netInd = rep(chosenNetInd, nrow(testPlotData)),
+                          missSave = rep(chosenMissLabel, nrow(testPlotData)),
+                          propMiss = rep(chunkMissProp, nrow(testPlotData)),
+                          missModel = testPlotData$missModel,
+                          paraName = rep(chosenParaName, nrow(testPlotData)))
+
+  # bind them
+  relBiasData = rbind(relBiasData, tempRelBias)
+  relSeData = rbind(relSeData, tempRelSe)
+  
+  }
+  
+
+  
+  # a temporary data frame from the output to be binded to the big data frame
+  tempFailData = prepFailPlot(propMissList = propMissList,
+                              missModelList = missModelList,
+                              chosenNetInd = chosenNetInd,
+                              chosenProp = chunkMissProp,
+                              chosenMiss = chosenMissValue)
+  
+  # and bind it
+  failRateData = rbind(failRateData, tempFailData)
+
+}
+
+```
+
+
+### 60% Peter
+
+```{r large miss prop peter}
+# loading in the output results
+outputList = list.files(here("Output", "20230825_simMissReest", "Peter"))
+
+# applying the code above to different reestimations
+# TODO: specify the missingness saved for current chunk, 1 = "NA"/peter, 2 = "0"/Todd
+chunkMissSave = 1
+
+# TODO: specify the chosen missingness proportion for each chunk (1/3 or 3.5/6)
+chunkMissProp = 6
+
+# take out the index for the chosen missingness saved value
+chosenMissLabel = missSaveLabel[chunkMissSave]
+chosenMissValue = missSaveValue[chunkMissSave]
+
+
+# now looping with a specific vector of applicable networks
+# TODO: specify the UCINet networks for the chunk, these are networks with enough re-estimations
+chunkNetworks = c(2, 4, 5, 6)
+
+# TODO: vector of file names for regex
+chunkRdataNames = c("20231005_missNetReest_net",
+                    "20231005_missNetReest_net",
+                    "20231011_missNetReest_net",
+                    "20231011_missNetReest_net")
+
+chunkMnarNames = c("20231012_missErgmNetReest_Miss",
+                   "20231012_missErgmNetReest_Miss",
+                   "20231012_missErgmNetReest_Miss",
+                   "20231012_missErgmNetReest_Miss")
+
+# vector of parameter names to loop over
+modelParaOptions = c("edges", "altStar", "gwesp")
+
+# loop for all specified networks 
+for(chunkInd in 1:length(chunkNetworks)){
+  
+  # make sure the re-estimation lists are empty in the beginning
+  modelResList = list()
+  modelSeList = list()
+  missModelList = list()
+  propMissList = list()
+  
+  # set a specific index for the network
+  chosenNetInd = chunkNetworks[chunkInd]
+  
+  # file list for the chosen network index
+  chosenNetOutFiles = grep(paste(chunkRdataNames[chunkInd], chosenNetInd, sep =""), outputList)
+  
+  ## regex the MNAR files 
+  chosenMnarOutFiles = grep(paste(chunkMnarNames[chunkInd], chosenMissLabel, "_net", chosenNetInd, sep = ""), outputList)
+  
+  # combine the two indices
+  combinedNetOutList = c(chosenNetOutFiles, chosenMnarOutFiles)
+  
+  # check to make sure there aren't any duplicates
+  if( length(unique(combinedNetOutList)) != length(combinedNetOutList)){
+    stop("Duplicate re-estimation datafiles! BAD.")
+  }
+  
+  # loop to load
+  chosenNetOutList = outputList[combinedNetOutList]
+  
+  for(fileInd in 1:length(chosenNetOutList)){
+    # load all files
+    load(here("Output", "20230825_simMissReest", chosenMissLabel, chosenNetOutList[fileInd]))
+    
+    # suppress these version difference warnings. 
+    suppressWarnings({
+    modelResList[[fileInd]] = modelres$coefficients
+    modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+    
+    })
+    
+    # slight difference for the chosenMnarOutFiles because missModelList[[fileInd]] = always 4 (let 2 be mar ergm, 4 be mnar ergm)
+    
+    # this branch *should* be setting the miss model to 4 if they were regexed to be a part of the mnar list.
+    if(combinedNetOutList[fileInd] %in% chosenMnarOutFiles){
+     missModelList[[fileInd]] = 4
+    } else {
+     missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+    }
+      
+    # propmiss should be the same
+    propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  }
+  
+  # this can be a loop!
+  for( chosenPara in 1:length(modelParaOptions)){
+    
+    # grab the chosen parameter name
+    chosenParaName = modelParaOptions[chosenPara]
+    
+    # still need to take out true parameter values
+    tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+    tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+    
+    # including edges
+    # test run of the plot function
+    testPlotData = prepMissPlot(modelResList = modelResList,
+                                modelSeList = modelSeList,
+                                missModelList = missModelList,
+                                propMissList = propMissList,
+                                chosenProp = chunkMissProp,
+                                chosenPara = chosenParaName)
+    
+    # brief inspection just to make sure nothing's wrong
+    head(testPlotData) %>% 
+      print()
+    
+    
+    # and plot it
+    missCaterpillarPlot(plotData = testPlotData,
+                        truePara = tempTruePara,
+                        trueSe = tempTrueSe,
+                        chosenPara = chosenParaName,
+                        chosenNetInd = chosenNetInd,
+                        chosenProp = chunkMissProp,
+                        chosenMiss = chosenMissValue) %>% 
+      print()
+  
+  # make a temp rbias/rSe data structure to bind with the data frame
+  tempRelBias = data.frame(rBias = (testPlotData$parameter - tempTruePara)/tempTruePara,
+                           netInd = rep(chosenNetInd, nrow(testPlotData)),
+                           missSave = rep(chosenMissLabel, nrow(testPlotData)),
+                           propMiss = rep(chunkMissProp, nrow(testPlotData)),
+                           missModel = testPlotData$missModel,
+                           paraName = rep(chosenParaName, nrow(testPlotData)))
+  tempRelSe = data.frame(rSe = (testPlotData$SE/tempTrueSe),
+                          netInd = rep(chosenNetInd, nrow(testPlotData)),
+                          missSave = rep(chosenMissLabel, nrow(testPlotData)),
+                          propMiss = rep(chunkMissProp, nrow(testPlotData)),
+                          missModel = testPlotData$missModel,
+                          paraName = rep(chosenParaName, nrow(testPlotData)))
+
+  # bind them
+  relBiasData = rbind(relBiasData, tempRelBias)
+  relSeData = rbind(relSeData, tempRelSe)
+  }
+  
+  
+  
+  # a temporary data frame from the output to be binded to the big data frame
+  tempFailData = prepFailPlot(propMissList = propMissList,
+                              missModelList = missModelList,
+                              chosenNetInd = chosenNetInd,
+                              chosenProp = chunkMissProp,
+                              chosenMiss = chosenMissValue)
+  
+  # and bind it
+  failRateData = rbind(failRateData, tempFailData)
+
+}
+
+
+```
+
+
+### 10% Todd 
+
+```{r small miss prop todd}
+# loading in the output results
+outputList = list.files(here("Output", "20230825_simMissReest", "Todd"))
+
+# applying the code above to different reestimations
+# TODO: specify the missingness saved for current chunk, 1 = "NA"/peter, 2 = "0"/Todd
+chunkMissSave = 2
+
+# TODO: specify the chosen missingness proportion for each chunk (1/3 or 3.5/6)
+chunkMissProp = 1
+
+# take out the index for the chosen missingness saved value
+chosenMissLabel = missSaveLabel[chunkMissSave]
+chosenMissValue = missSaveValue[chunkMissSave]
+
+
+# now looping with a specific vector of applicable networks
+# TODO: specify the UCINet networks for the chunk, these are networks with enough re-estimations
+chunkNetworks = c(1, 2, 4, 5, 6)
+
+# TODO: vector of file names for regex
+chunkRdataNames = c("20231005_missNetReest_net",
+                    "20231005_missNetReest_net",
+                    "20231005_missNetReest_net",
+                    "20231005_missNetReest_net",
+                    "20231012_missNetReest_net")
+
+chunkMnarNames = c("20231012_missErgmNetReest_Miss",
+                   "20231012_missErgmNetReest_Miss",
+                   "20231012_missErgmNetReest_Miss",
+                   "20231012_missErgmNetReest_Miss",
+                   "20231012_missErgmNetReest_Miss")
+
+# vector of parameter names to loop over
+modelParaOptions = c("edges", "altStar", "gwesp")
+
+# loop for all specified networks 
+for(chunkInd in 1:length(chunkNetworks)){
+  
+  # make sure the re-estimation lists are empty in the beginning
+  modelResList = list()
+  modelSeList = list()
+  missModelList = list()
+  propMissList = list()
+  
+  # set a specific index for the network
+  chosenNetInd = chunkNetworks[chunkInd]
+  
+  # file list for the chosen network index
+  chosenNetOutFiles = grep(paste(chunkRdataNames[chunkInd], chosenNetInd, sep =""), outputList)
+  
+  ## regex the MNAR files 
+  chosenMnarOutFiles = grep(paste(chunkMnarNames[chunkInd], chosenMissLabel, "_net", chosenNetInd, sep = ""), outputList)
+  
+  # combine the two indices
+  combinedNetOutList = c(chosenNetOutFiles, chosenMnarOutFiles)
+  
+  # check to make sure there aren't any duplicates
+  if( length(unique(combinedNetOutList)) != length(combinedNetOutList)){
+    stop("Duplicate re-estimation datafiles! BAD.")
+  }
+  
+  # loop to load
+  chosenNetOutList = outputList[combinedNetOutList]
+  
+  for(fileInd in 1:length(chosenNetOutList)){
+    # load all files
+    load(here("Output", "20230825_simMissReest", chosenMissLabel, chosenNetOutList[fileInd]))
+    
+    # suppress these version difference warnings. 
+    suppressWarnings({
+    modelResList[[fileInd]] = modelres$coefficients
+    modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+    
+    })
+    
+    # slight difference for the chosenMnarOutFiles because missModelList[[fileInd]] = always 4 (let 2 be mar ergm, 4 be mnar ergm)
+    
+    # this branch *should* be setting the miss model to 4 if they were regexed to be a part of the mnar list.
+    if(combinedNetOutList[fileInd] %in% chosenMnarOutFiles){
+     missModelList[[fileInd]] = 4
+    } else {
+     missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+    }
+      
+    # propmiss should be the same
+    propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  }
+  
+  # this can be a loop!
+  for( chosenPara in 1:length(modelParaOptions)){
+    
+    # grab the chosen parameter name
+    chosenParaName = modelParaOptions[chosenPara]
+    
+    # still need to take out true parameter values
+    tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+    tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+    
+    # including edges
+    # test run of the plot function
+    testPlotData = prepMissPlot(modelResList = modelResList,
+                                modelSeList = modelSeList,
+                                missModelList = missModelList,
+                                propMissList = propMissList,
+                                chosenProp = chunkMissProp,
+                                chosenPara = chosenParaName)
+    
+    # brief inspection just to make sure nothing's wrong
+    head(testPlotData) %>% 
+      print()
+    
+    
+    # and plot it
+    missCaterpillarPlot(plotData = testPlotData,
+                        truePara = tempTruePara,
+                        trueSe = tempTrueSe,
+                        chosenPara = chosenParaName,
+                        chosenNetInd = chosenNetInd,
+                        chosenProp = chunkMissProp,
+                        chosenMiss = chosenMissValue) %>% 
+      print()
+    
+  # make a temp rbias/rSe data structure to bind with the data frame
+  tempRelBias = data.frame(rBias = (testPlotData$parameter - tempTruePara)/tempTruePara,
+                           netInd = rep(chosenNetInd, nrow(testPlotData)),
+                           missSave = rep(chosenMissLabel, nrow(testPlotData)),
+                           propMiss = rep(chunkMissProp, nrow(testPlotData)),
+                           missModel = testPlotData$missModel,
+                           paraName = rep(chosenParaName, nrow(testPlotData)))
+  tempRelSe = data.frame(rSe = (testPlotData$SE/tempTrueSe),
+                          netInd = rep(chosenNetInd, nrow(testPlotData)),
+                          missSave = rep(chosenMissLabel, nrow(testPlotData)),
+                          propMiss = rep(chunkMissProp, nrow(testPlotData)),
+                          missModel = testPlotData$missModel,
+                          paraName = rep(chosenParaName, nrow(testPlotData)))
+
+  # bind them
+  relBiasData = rbind(relBiasData, tempRelBias)
+  relSeData = rbind(relSeData, tempRelSe)  
+  }
+  
+
+  
+  
+  # a temporary data frame from the output to be binded to the big data frame
+  tempFailData = prepFailPlot(propMissList = propMissList,
+                              missModelList = missModelList,
+                              chosenNetInd = chosenNetInd,
+                              chosenProp = chunkMissProp,
+                              chosenMiss = chosenMissValue)
+  
+  # and bind it
+  failRateData = rbind(failRateData, tempFailData)
+
+}
+
+
+```
+
+### 35% Todd
+
+```{r med miss prop todd}
+# loading in the output results
+outputList = list.files(here("Output", "20230825_simMissReest", "Todd"))
+
+# applying the code above to different reestimations
+# TODO: specify the missingness saved for current chunk, 1 = "NA"/peter, 2 = "0"/Todd
+chunkMissSave = 2
+
+# TODO: specify the chosen missingness proportion for each chunk (1/3 or 3.5/6)
+chunkMissProp = 3
+chunkMissPropFloat = 3.5 # specifically for 35% missingness because I regex by taking the first number next to 'prop'.
+
+# take out the index for the chosen missingness saved value
+chosenMissLabel = missSaveLabel[chunkMissSave]
+chosenMissValue = missSaveValue[chunkMissSave]
+
+
+# now looping with a specific vector of applicable networks
+# TODO: specify the UCINet networks for the chunk, these are networks with enough re-estimations
+chunkNetworks = c(1, 2, 4, 5, 6)
+
+# TODO: vector of file names for regex
+chunkRdataNames = c("20231005_missNetReest_net",
+                    "20231005_missNetReest_net",
+                    "20231005_missNetReest_net",
+                    "20231012_missNetReest_net",
+                    "20231012_missNetReest_net")
+
+chunkMnarNames = c("20231012_missErgmNetReest_Miss",
+                   "20231012_missErgmNetReest_Miss",
+                   "20231012_missErgmNetReest_Miss",
+                   "20231012_missErgmNetReest_Miss",
+                   "20231012_missErgmNetReest_Miss")
+
+# vector of parameter names to loop over
+modelParaOptions = c("edges", "altStar", "gwesp")
+
+# loop for all specified networks 
+for(chunkInd in 1:length(chunkNetworks)){
+  
+  # make sure the re-estimation lists are empty in the beginning
+  modelResList = list()
+  modelSeList = list()
+  missModelList = list()
+  propMissList = list()
+  
+  # set a specific index for the network
+  chosenNetInd = chunkNetworks[chunkInd]
+  
+  # file list for the chosen network index
+  chosenNetOutFiles = grep(paste(chunkRdataNames[chunkInd], chosenNetInd, sep =""), outputList)
+  
+  ## regex the MNAR files 
+  chosenMnarOutFiles = grep(paste(chunkMnarNames[chunkInd], chosenMissLabel, "_net", chosenNetInd, sep = ""), outputList)
+  
+  # combine the two indices
+  combinedNetOutList = c(chosenNetOutFiles, chosenMnarOutFiles)
+  
+  # check to make sure there aren't any duplicates
+  if( length(unique(combinedNetOutList)) != length(combinedNetOutList)){
+    stop("Duplicate re-estimation datafiles! BAD.")
+  }
+  
+  # loop to load
+  chosenNetOutList = outputList[combinedNetOutList]
+  
+  for(fileInd in 1:length(chosenNetOutList)){
+    # load all files
+    load(here("Output", "20230825_simMissReest", chosenMissLabel, chosenNetOutList[fileInd]))
+    
+    # suppress these version difference warnings. 
+    suppressWarnings({
+    modelResList[[fileInd]] = modelres$coefficients
+    modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+    
+    })
+    
+    # slight difference for the chosenMnarOutFiles because missModelList[[fileInd]] = always 4 (let 2 be mar ergm, 4 be mnar ergm)
+    
+    # this branch *should* be setting the miss model to 4 if they were regexed to be a part of the mnar list.
+    if(combinedNetOutList[fileInd] %in% chosenMnarOutFiles){
+     missModelList[[fileInd]] = 4
+    } else {
+     missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+    }
+      
+    # propmiss should be the same
+    propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  }
+  
+  # this can be a loop!
+  for( chosenPara in 1:length(modelParaOptions)){
+    
+    # grab the chosen parameter name
+    chosenParaName = modelParaOptions[chosenPara]
+    
+    # still need to take out true parameter values
+    tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+    tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+    
+    # including edges
+    # test run of the plot function
+    testPlotData = prepMissPlot(modelResList = modelResList,
+                                modelSeList = modelSeList,
+                                missModelList = missModelList,
+                                propMissList = propMissList,
+                                chosenProp = chunkMissProp,
+                                chosenPara = chosenParaName)
+    
+    # brief inspection just to make sure nothing's wrong
+    head(testPlotData) %>% 
+      print()
+    
+    
+    # and plot it
+    missCaterpillarPlot(plotData = testPlotData,
+                        truePara = tempTruePara,
+                        trueSe = tempTrueSe,
+                        chosenPara = chosenParaName,
+                        chosenNetInd = chosenNetInd,
+                        chosenProp = chunkMissPropFloat,
+                        chosenMiss = chosenMissValue) %>% 
+      print()
+
+  # make a temp rbias/rSe data structure to bind with the data frame
+  tempRelBias = data.frame(rBias = (testPlotData$parameter - tempTruePara)/tempTruePara,
+                           netInd = rep(chosenNetInd, nrow(testPlotData)),
+                           missSave = rep(chosenMissLabel, nrow(testPlotData)),
+                           propMiss = rep(chunkMissProp, nrow(testPlotData)),
+                           missModel = testPlotData$missModel,
+                           paraName = rep(chosenParaName, nrow(testPlotData)))
+  tempRelSe = data.frame(rSe = (testPlotData$SE/tempTrueSe),
+                          netInd = rep(chosenNetInd, nrow(testPlotData)),
+                          missSave = rep(chosenMissLabel, nrow(testPlotData)),
+                          propMiss = rep(chunkMissProp, nrow(testPlotData)),
+                          missModel = testPlotData$missModel,
+                          paraName = rep(chosenParaName, nrow(testPlotData)))
+
+  # bind them
+  relBiasData = rbind(relBiasData, tempRelBias)
+  relSeData = rbind(relSeData, tempRelSe)
+  }
+  
+  
+
+  
+  # a temporary data frame from the output to be binded to the big data frame
+  tempFailData = prepFailPlot(propMissList = propMissList,
+                              missModelList = missModelList,
+                              chosenNetInd = chosenNetInd,
+                              chosenProp = chunkMissProp,
+                              chosenMiss = chosenMissValue)
+  
+  # and bind it
+  failRateData = rbind(failRateData, tempFailData)
+
+}
+
+
+```
+
+
+### 60% Todd
+
+```{r large miss prop todd}
+# loading in the output results
+outputList = list.files(here("Output", "20230825_simMissReest", "Todd"))
+
+# applying the code above to different reestimations
+# TODO: specify the missingness saved for current chunk, 1 = "NA"/peter, 2 = "0"/Todd
+chunkMissSave = 2
+
+# TODO: specify the chosen missingness proportion for each chunk (1/3 or 3.5/6)
+chunkMissProp = 6
+
+# take out the index for the chosen missingness saved value
+chosenMissLabel = missSaveLabel[chunkMissSave]
+chosenMissValue = missSaveValue[chunkMissSave]
+
+
+# now looping with a specific vector of applicable networks
+# TODO: specify the UCINet networks for the chunk, these are networks with enough re-estimations
+chunkNetworks = c(1, 2, 4, 5, 6)
+
+# TODO: vector of file names for regex
+chunkRdataNames = c("20231006_missNetReest_net",
+                    "20231006_missNetReest_net",
+                    "20231006_missNetReest_net",
+                    "20231011_missNetReest_net",
+                    "20231011_missNetReest_net")
+
+chunkMnarNames = c("20231012_missErgmNetReest_Miss",
+                   "20231012_missErgmNetReest_Miss",
+                   "20231012_missErgmNetReest_Miss",
+                   "20231012_missErgmNetReest_Miss",
+                   "20231012_missErgmNetReest_Miss")
+
+# vector of parameter names to loop over
+modelParaOptions = c("edges", "altStar", "gwesp")
+
+# loop for all specified networks 
+for(chunkInd in 1:length(chunkNetworks)){
+  
+  # make sure the re-estimation lists are empty in the beginning
+  modelResList = list()
+  modelSeList = list()
+  missModelList = list()
+  propMissList = list()
+  
+  # set a specific index for the network
+  chosenNetInd = chunkNetworks[chunkInd]
+  
+  # file list for the chosen network index
+  chosenNetOutFiles = grep(paste(chunkRdataNames[chunkInd], chosenNetInd, sep =""), outputList)
+  
+  ## regex the MNAR files 
+  chosenMnarOutFiles = grep(paste(chunkMnarNames[chunkInd], chosenMissLabel, "_net", chosenNetInd, sep = ""), outputList)
+  
+  # combine the two indices
+  combinedNetOutList = c(chosenNetOutFiles, chosenMnarOutFiles)
+  
+  # check to make sure there aren't any duplicates
+  if( length(unique(combinedNetOutList)) != length(combinedNetOutList)){
+    stop("Duplicate re-estimation datafiles! BAD.")
+  }
+  
+  # loop to load
+  chosenNetOutList = outputList[combinedNetOutList]
+  
+  for(fileInd in 1:length(chosenNetOutList)){
+    # load all files
+    load(here("Output", "20230825_simMissReest", chosenMissLabel, chosenNetOutList[fileInd]))
+    
+    # suppress these version difference warnings. 
+    suppressWarnings({
+    modelResList[[fileInd]] = modelres$coefficients
+    modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+    
+    })
+    
+    # slight difference for the chosenMnarOutFiles because missModelList[[fileInd]] = always 4 (let 2 be mar ergm, 4 be mnar ergm)
+    
+    # this branch *should* be setting the miss model to 4 if they were regexed to be a part of the mnar list.
+    if(combinedNetOutList[fileInd] %in% chosenMnarOutFiles){
+     missModelList[[fileInd]] = 4
+    } else {
+     missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+    }
+      
+    # propmiss should be the same
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+  # this can be a loop!
+  for( chosenPara in 1:length(modelParaOptions)){
+    
+    # grab the chosen parameter name
+    chosenParaName = modelParaOptions[chosenPara]
+    
+    # still need to take out true parameter values
+    tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+    tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+    
+    # including edges
+    # test run of the plot function
+    testPlotData = prepMissPlot(modelResList = modelResList,
+                                modelSeList = modelSeList,
+                                missModelList = missModelList,
+                                propMissList = propMissList,
+                                chosenProp = chunkMissProp,
+                                chosenPara = chosenParaName)
+    
+    # brief inspection just to make sure nothing's wrong
+    head(testPlotData) %>% 
+      print()
+    
+    
+    # and plot it
+    missCaterpillarPlot(plotData = testPlotData,
+                        truePara = tempTruePara,
+                        trueSe = tempTrueSe,
+                        chosenPara = chosenParaName,
+                        chosenNetInd = chosenNetInd,
+                        chosenProp = chunkMissProp,
+                        chosenMiss = chosenMissValue) %>% 
+      print()
+    
+  # make a temp rbias/rSe data structure to bind with the data frame
+  tempRelBias = data.frame(rBias = (testPlotData$parameter - tempTruePara)/tempTruePara,
+                           netInd = rep(chosenNetInd, nrow(testPlotData)),
+                           missSave = rep(chosenMissLabel, nrow(testPlotData)),
+                           propMiss = rep(chunkMissProp, nrow(testPlotData)),
+                           missModel = testPlotData$missModel,
+                           paraName = rep(chosenParaName, nrow(testPlotData)))
+  tempRelSe = data.frame(rSe = (testPlotData$SE/tempTrueSe),
+                          netInd = rep(chosenNetInd, nrow(testPlotData)),
+                          missSave = rep(chosenMissLabel, nrow(testPlotData)),
+                          propMiss = rep(chunkMissProp, nrow(testPlotData)),
+                          missModel = testPlotData$missModel,
+                          paraName = rep(chosenParaName, nrow(testPlotData)))
+
+  # bind them
+  relBiasData = rbind(relBiasData, tempRelBias)
+  relSeData = rbind(relSeData, tempRelSe)  
+  }
+
+  
+
+  
+  
+  # a temporary data frame from the output to be binded to the big data frame
+  tempFailData = prepFailPlot(propMissList = propMissList,
+                              missModelList = missModelList,
+                              chosenNetInd = chosenNetInd,
+                              chosenProp = chunkMissProp,
+                              chosenMiss = chosenMissValue)
+  
+  # and bind it
+  failRateData = rbind(failRateData, tempFailData)
+
+}
+
+
+```
+
+
+## Sparse plots {.tabset}
+
+The plots below are specifically plots with very sparse amounts of successful re-estimations.
+
+### 10% Peter
+
+```{r sparseplots 10 peter}
+# 10% missingness - Peter
+# loading in the output results
+outputList = list.files(here("Output", "20230825_simMissReest", "Peter"))
+
+# applying the code above to different reestimations
+# TODO: specify the missingness saved for current chunk, 1 = "NA"/peter, 2 = "0"/Todd
+chunkMissSave = 1
+
+# TODO: specify the chosen missingness proportion for each chunk (1/3 or 3.5/6)
+chunkMissProp = 1
+
+# take out the index for the chosen missingness saved value
+chosenMissLabel = missSaveLabel[chunkMissSave]
+chosenMissValue = missSaveValue[chunkMissSave]
+
+
+# now looping with a specific vector of applicable networks
+# TODO: specify the UCINet networks for the chunk, these are networks with enough re-estimations
+chunkNetworks = c(1)
+
+# note: 
+# net 3 is so messed up it has ONE converged estimation for this set 
+# 20231010_missNetReest_net3_missModel1_prop1_trial9.RData
+
+# handle fail rates separately. these data structures are very unstandardised.
+
+# TODO: vector of file names for regex
+chunkRdataNames = c("20231005_missNetReest_net")
+
+chunkMnarNames = c("20231011_missErgmNetReest_Miss")
+
+# vector of parameter names to loop over
+modelParaOptions = c("edges", "altStar", "gwesp")
+
+# loop for all specified networks 
+for(chunkInd in 1:length(chunkNetworks)){
+  
+  # make sure the re-estimation lists are empty in the beginning
+  modelResList = list()
+  modelSeList = list()
+  missModelList = list()
+  propMissList = list()
+  
+  # set a specific index for the network
+  chosenNetInd = chunkNetworks[chunkInd]
+  
+  # file list for the chosen network index
+  chosenNetOutFiles = grep(paste(chunkRdataNames[chunkInd], chosenNetInd, sep =""), outputList)
+  
+  ## regex the MNAR files 
+  chosenMnarOutFiles = grep(paste(chunkMnarNames[chunkInd], chosenMissLabel, "_net", chosenNetInd, sep = ""), outputList)
+  
+  # combine the two indices
+  combinedNetOutList = c(chosenNetOutFiles, chosenMnarOutFiles)
+  
+  # check to make sure there aren't any duplicates
+  if( length(unique(combinedNetOutList)) != length(combinedNetOutList)){
+    stop("Duplicate re-estimation datafiles! BAD.")
+  }
+  
+  # loop to load
+  chosenNetOutList = outputList[combinedNetOutList]
+  
+  for(fileInd in 1:length(chosenNetOutList)){
+    # load all files
+    load(here("Output", "20230825_simMissReest", chosenMissLabel, chosenNetOutList[fileInd]))
+    
+    # suppress these version difference warnings. 
+    suppressWarnings({
+    modelResList[[fileInd]] = modelres$coefficients
+    modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+    
+    })
+    
+    # slight difference for the chosenMnarOutFiles because missModelList[[fileInd]] = always 4 (let 2 be mar ergm, 4 be mnar ergm)
+    
+    # this branch *should* be setting the miss model to 4 if they were regexed to be a part of the mnar list.
+    if(combinedNetOutList[fileInd] %in% chosenMnarOutFiles){
+     missModelList[[fileInd]] = 4
+    } else {
+     missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+    }
+      
+    # propmiss should be the same
+    propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  }
+  
+  # this can be a loop!
+  for( chosenPara in 1:length(modelParaOptions)){
+    
+    # grab the chosen parameter name
+    chosenParaName = modelParaOptions[chosenPara]
+    
+    # still need to take out true parameter values
+    tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+    tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+    
+    # including edges
+    # test run of the plot function
+    testPlotData = prepMissPlot(modelResList = modelResList,
+                                modelSeList = modelSeList,
+                                missModelList = missModelList,
+                                propMissList = propMissList,
+                                chosenProp = chunkMissProp,
+                                chosenPara = chosenParaName)
+    
+    # brief inspection just to make sure nothing's wrong
+    head(testPlotData) %>% 
+      print()
+    
+    
+    # and plot it
+    missCaterpillarPlot(plotData = testPlotData,
+                        truePara = tempTruePara,
+                        trueSe = tempTrueSe,
+                        chosenPara = chosenParaName,
+                        chosenNetInd = chosenNetInd,
+                        chosenProp = chunkMissProp,
+                        chosenMiss = chosenMissValue) %>% 
+      print()
+  
+  }
+   
+  # a temporary data frame from the output to be binded to the big data frame
+  tempFailData = prepFailPlot(propMissList = propMissList,
+                              missModelList = missModelList,
+                              chosenNetInd = chosenNetInd,
+                              chosenProp = chunkMissProp,
+                              chosenMiss = chosenMissValue)
+
+  # and bind it
+  failRateData = rbind(failRateData, tempFailData)
+
+}
+
+# the 'converged' model for net 3
+# make sure the re-estimation lists are empty in the beginning
+modelResList = list()
+modelSeList = list()
+missModelList = list()
+propMissList = list()
+
+# set a specific index for the network
+chosenNetInd = 3
+
+# file list for the chosen network index
+chosenNetOutFiles = grep(paste("20231010_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", chosenMissLabel, chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+   missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+    
+  # propmiss should be the same
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+  # this can be a loop!
+  for( chosenPara in 1:length(modelParaOptions)){
+    
+    # grab the chosen parameter name
+    chosenParaName = modelParaOptions[chosenPara]
+    
+    # still need to take out true parameter values
+    tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+    tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+    
+    # including edges
+    # test run of the plot function
+    testPlotData = prepMissPlot(modelResList = modelResList,
+                                modelSeList = modelSeList,
+                                missModelList = missModelList,
+                                propMissList = propMissList,
+                                chosenProp = chunkMissProp,
+                                chosenPara = chosenParaName)
+    
+    # brief inspection just to make sure nothing's wrong
+    head(testPlotData) %>% 
+      print()
+    
+    
+    # and plot it
+    missCaterpillarPlot(plotData = testPlotData,
+                        truePara = tempTruePara,
+                        trueSe = tempTrueSe,
+                        chosenPara = chosenParaName,
+                        chosenNetInd = chosenNetInd,
+                        chosenProp = chunkMissProp,
+                        chosenMiss = chosenMissValue) %>% 
+      print()
+  
+  }
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = prepFailPlot(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = chunkMissProp,
+                            chosenMiss = chosenMissValue)
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+```
+
+### 35% Peter
+
+
+```{r sparseplots 35 peter}
+# 35% missingness
+# loading in the output results
+outputList = list.files(here("Output", "20230825_simMissReest", "Peter"))
+
+# applying the code above to different reestimations
+# TODO: specify the missingness saved for current chunk, 1 = "NA"/peter, 2 = "0"/Todd
+chunkMissSave = 1
+
+# TODO: specify the chosen missingness proportion for each chunk (1/3 or 3.5/6)
+chunkMissProp = 3
+chunkMissPropFloat = 3.5 # specifically for 35% missingness because I regex by taking the first number next to 'prop'.
+
+# take out the index for the chosen missingness saved value
+chosenMissLabel = missSaveLabel[chunkMissSave]
+chosenMissValue = missSaveValue[chunkMissSave]
+
+
+# now looping with a specific vector of applicable networks
+# TODO: specify the UCINet networks for the chunk, these are networks with enough re-estimations
+chunkNetworks = c(1)
+
+# note: 
+# net 3 is still so messed up it has three converged estimation for this set (out of 200)
+# 20231010_missNetReest_net3_missModel2_prop3.5_trial11.RData
+# 20231010_missNetReest_net3_missModel3_prop3.5_trial12.RData
+# 20231010_missNetReest_net3_missModel3_prop3.5_trial19.RData
+
+# no mnars, so the loop won't work.
+
+# handle fail rates separately. these data structures are very unstandardised.
+
+# TODO: vector of file names for regex
+chunkRdataNames = c("20231005_missNetReest_net")
+
+chunkMnarNames = c("20231011_missErgmNetReest_Miss")
+
+# vector of parameter names to loop over
+modelParaOptions = c("edges", "altStar", "gwesp")
+
+# loop for all specified networks 
+for(chunkInd in 1:length(chunkNetworks)){
+  
+  # make sure the re-estimation lists are empty in the beginning
+  modelResList = list()
+  modelSeList = list()
+  missModelList = list()
+  propMissList = list()
+  
+  # set a specific index for the network
+  chosenNetInd = chunkNetworks[chunkInd]
+  
+  # file list for the chosen network index
+  chosenNetOutFiles = grep(paste(chunkRdataNames[chunkInd], chosenNetInd, sep =""), outputList)
+  
+  ## regex the MNAR files 
+  chosenMnarOutFiles = grep(paste(chunkMnarNames[chunkInd], chosenMissLabel, "_net", chosenNetInd, sep = ""), outputList)
+  
+  # combine the two indices
+  combinedNetOutList = c(chosenNetOutFiles, chosenMnarOutFiles)
+  
+  # check to make sure there aren't any duplicates
+  if( length(unique(combinedNetOutList)) != length(combinedNetOutList)){
+    stop("Duplicate re-estimation datafiles! BAD.")
+  }
+  
+  # loop to load
+  chosenNetOutList = outputList[combinedNetOutList]
+  
+  for(fileInd in 1:length(chosenNetOutList)){
+    # load all files
+    load(here("Output", "20230825_simMissReest", chosenMissLabel, chosenNetOutList[fileInd]))
+    
+    # suppress these version difference warnings. 
+    suppressWarnings({
+    modelResList[[fileInd]] = modelres$coefficients
+    modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+    
+    })
+    
+    # slight difference for the chosenMnarOutFiles because missModelList[[fileInd]] = always 4 (let 2 be mar ergm, 4 be mnar ergm)
+    
+    # this branch *should* be setting the miss model to 4 if they were regexed to be a part of the mnar list.
+    if(combinedNetOutList[fileInd] %in% chosenMnarOutFiles){
+     missModelList[[fileInd]] = 4
+    } else {
+     missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+    }
+      
+    # propmiss should be the same
+    propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  }
+  
+  # this can be a loop!
+  for( chosenPara in 1:length(modelParaOptions)){
+    
+    # grab the chosen parameter name
+    chosenParaName = modelParaOptions[chosenPara]
+    
+    # still need to take out true parameter values
+    tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+    tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+    
+    # including edges
+    # test run of the plot function
+    testPlotData = prepMissPlot(modelResList = modelResList,
+                                modelSeList = modelSeList,
+                                missModelList = missModelList,
+                                propMissList = propMissList,
+                                chosenProp = chunkMissProp,
+                                chosenPara = chosenParaName)
+    
+    # brief inspection just to make sure nothing's wrong
+    head(testPlotData) %>% 
+      print()
+    
+    
+    # and plot it
+    missCaterpillarPlot(plotData = testPlotData,
+                        truePara = tempTruePara,
+                        trueSe = tempTrueSe,
+                        chosenPara = chosenParaName,
+                        chosenNetInd = chosenNetInd,
+                        chosenProp = chunkMissPropFloat,
+                        chosenMiss = chosenMissValue) %>% 
+      print()
+  
+  }
+   
+  # a temporary data frame from the output to be binded to the big data frame
+  tempFailData = prepFailPlot(propMissList = propMissList,
+                              missModelList = missModelList,
+                              chosenNetInd = chosenNetInd,
+                              chosenProp = chunkMissProp,
+                              chosenMiss = chosenMissValue)
+
+  # and bind it
+  failRateData = rbind(failRateData, tempFailData)
+
+}
+
+### A section specifically for the three re-estimations of net3 that made it
+# no MNAR files, so removing them from the code below
+
+# make sure the re-estimation lists are empty in the beginning
+modelResList = list()
+modelSeList = list()
+missModelList = list()
+propMissList = list()
+
+# set a specific index for the network
+chosenNetInd = 3
+
+# file list for the chosen network index
+chosenNetOutFiles = grep(paste("20231010_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", chosenMissLabel, chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+   missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+    
+  # propmiss should be the same
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# this can be a loop!
+for( chosenPara in 1:length(modelParaOptions)){
+  
+  # grab the chosen parameter name
+  chosenParaName = modelParaOptions[chosenPara]
+  
+  # still need to take out true parameter values
+  tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+  tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+  
+  # including edges
+  # test run of the plot function
+  testPlotData = prepMissPlot(modelResList = modelResList,
+                              modelSeList = modelSeList,
+                              missModelList = missModelList,
+                              propMissList = propMissList,
+                              chosenProp = chunkMissProp,
+                              chosenPara = chosenParaName)
+  
+  # brief inspection just to make sure nothing's wrong
+  head(testPlotData) %>% 
+    print()
+  
+  
+  # and plot it
+  missCaterpillarPlot(plotData = testPlotData,
+                      truePara = tempTruePara,
+                      trueSe = tempTrueSe,
+                      chosenPara = chosenParaName,
+                      chosenNetInd = chosenNetInd,
+                      chosenProp = chunkMissPropFloat,
+                      chosenMiss = chosenMissValue) %>% 
+    print()
+
+}
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = prepFailPlot(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = chunkMissProp,
+                            chosenMiss = chosenMissValue)
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+```
+
+### 60% Peter
+
+```{r sparseplots 60 peter}
+# 60% Peter
+# loading in the output results
+outputList = list.files(here("Output", "20230825_simMissReest", "Peter"))
+
+# applying the code above to different reestimations
+# TODO: specify the missingness saved for current chunk, 1 = "NA"/peter, 2 = "0"/Todd
+chunkMissSave = 1
+
+# TODO: specify the chosen missingness proportion for each chunk (1/3 or 3.5/6)
+chunkMissProp = 6
+
+# take out the index for the chosen missingness saved value
+chosenMissLabel = missSaveLabel[chunkMissSave]
+chosenMissValue = missSaveValue[chunkMissSave]
+
+
+# now looping with a specific vector of applicable networks
+# TODO: specify the UCINet networks for the chunk, these are networks with enough re-estimations
+chunkNetworks = c(1)
+
+# note: 
+# net 3 is still so messed up it has two converged estimation for this set (out of 200)
+# 20231011_missNetReest_net3_missModel2_prop6_trial40
+# 20231011_missNetReest_net3_missModel3_prop6_trial46
+
+# no mnars, so the loop won't work.
+
+# handle fail rates separately. these data structures are very unstandardised.
+
+# TODO: vector of file names for regex
+chunkRdataNames = c("20231005_missNetReest_net")
+
+chunkMnarNames = c("20231012_missErgmNetReest_Miss")
+
+# vector of parameter names to loop over
+modelParaOptions = c("edges", "altStar", "gwesp")
+
+# loop for all specified networks 
+for(chunkInd in 1:length(chunkNetworks)){
+  
+  # make sure the re-estimation lists are empty in the beginning
+  modelResList = list()
+  modelSeList = list()
+  missModelList = list()
+  propMissList = list()
+  
+  # set a specific index for the network
+  chosenNetInd = chunkNetworks[chunkInd]
+  
+  # file list for the chosen network index
+  chosenNetOutFiles = grep(paste(chunkRdataNames[chunkInd], chosenNetInd, sep =""), outputList)
+  
+  ## regex the MNAR files 
+  chosenMnarOutFiles = grep(paste(chunkMnarNames[chunkInd], chosenMissLabel, "_net", chosenNetInd, sep = ""), outputList)
+  
+  # combine the two indices
+  combinedNetOutList = c(chosenNetOutFiles, chosenMnarOutFiles)
+  
+  # check to make sure there aren't any duplicates
+  if( length(unique(combinedNetOutList)) != length(combinedNetOutList)){
+    stop("Duplicate re-estimation datafiles! BAD.")
+  }
+  
+  # loop to load
+  chosenNetOutList = outputList[combinedNetOutList]
+  
+  for(fileInd in 1:length(chosenNetOutList)){
+    # load all files
+    load(here("Output", "20230825_simMissReest", chosenMissLabel, chosenNetOutList[fileInd]))
+    
+    # suppress these version difference warnings. 
+    suppressWarnings({
+    modelResList[[fileInd]] = modelres$coefficients
+    modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+    
+    })
+    
+    # slight difference for the chosenMnarOutFiles because missModelList[[fileInd]] = always 4 (let 2 be mar ergm, 4 be mnar ergm)
+    
+    # this branch *should* be setting the miss model to 4 if they were regexed to be a part of the mnar list.
+    if(combinedNetOutList[fileInd] %in% chosenMnarOutFiles){
+     missModelList[[fileInd]] = 4
+    } else {
+     missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+    }
+      
+    # propmiss should be the same
+    propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  }
+  
+  # this can be a loop!
+  for( chosenPara in 1:length(modelParaOptions)){
+    
+    # grab the chosen parameter name
+    chosenParaName = modelParaOptions[chosenPara]
+    
+    # still need to take out true parameter values
+    tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+    tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+    
+    # including edges
+    # test run of the plot function
+    testPlotData = prepMissPlot(modelResList = modelResList,
+                                modelSeList = modelSeList,
+                                missModelList = missModelList,
+                                propMissList = propMissList,
+                                chosenProp = chunkMissProp,
+                                chosenPara = chosenParaName)
+    
+    # brief inspection just to make sure nothing's wrong
+    head(testPlotData) %>% 
+      print()
+    
+    
+    # and plot it
+    missCaterpillarPlot(plotData = testPlotData,
+                        truePara = tempTruePara,
+                        trueSe = tempTrueSe,
+                        chosenPara = chosenParaName,
+                        chosenNetInd = chosenNetInd,
+                        chosenProp = chunkMissProp,
+                        chosenMiss = chosenMissValue) %>% 
+      print()
+  
+  }
+   
+  # a temporary data frame from the output to be binded to the big data frame
+  tempFailData = prepFailPlot(propMissList = propMissList,
+                              missModelList = missModelList,
+                              chosenNetInd = chosenNetInd,
+                              chosenProp = chunkMissProp,
+                              chosenMiss = chosenMissValue)
+
+  # and bind it
+  failRateData = rbind(failRateData, tempFailData)
+
+}
+
+### A section specifically for the three re-estimations of net3 that made it
+# no MNAR files, so removing them from the code below
+
+# make sure the re-estimation lists are empty in the beginning
+modelResList = list()
+modelSeList = list()
+missModelList = list()
+propMissList = list()
+
+# set a specific index for the network
+chosenNetInd = 3
+
+# file list for the chosen network index
+chosenNetOutFiles = grep(paste("20231011_missNetReest_net", chosenNetInd, sep =""), outputList)
+
+
+# loop to load
+chosenNetOutList = outputList[chosenNetOutFiles]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", chosenMissLabel, chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  
+  })
+  
+   missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+    
+  # propmiss should be the same
+  propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+}
+
+# this can be a loop!
+for( chosenPara in 1:length(modelParaOptions)){
+  
+  # grab the chosen parameter name
+  chosenParaName = modelParaOptions[chosenPara]
+  
+  # still need to take out true parameter values
+  tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+  tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+  
+  # including edges
+  # test run of the plot function
+  testPlotData = prepMissPlot(modelResList = modelResList,
+                              modelSeList = modelSeList,
+                              missModelList = missModelList,
+                              propMissList = propMissList,
+                              chosenProp = chunkMissProp,
+                              chosenPara = chosenParaName)
+  
+  # brief inspection just to make sure nothing's wrong
+  head(testPlotData) %>% 
+    print()
+  
+  
+  # and plot it
+  missCaterpillarPlot(plotData = testPlotData,
+                      truePara = tempTruePara,
+                      trueSe = tempTrueSe,
+                      chosenPara = chosenParaName,
+                      chosenNetInd = chosenNetInd,
+                      chosenProp = chunkMissProp,
+                      chosenMiss = chosenMissValue) %>% 
+    print()
+
+}
+
+# a temporary data frame from the output to be binded to the big data frame
+tempFailData = prepFailPlot(propMissList = propMissList,
+                            missModelList = missModelList,
+                            chosenNetInd = chosenNetInd,
+                            chosenProp = chunkMissProp,
+                            chosenMiss = chosenMissValue)
+
+# and bind it
+failRateData = rbind(failRateData, tempFailData)
+```
+
+### 10% Todd
+
+Literally nothing. No successful re-estimations for any missingness model for net 3.
+
+### 35% Todd
+
+```{r sparse todd 35}
+# 35% missingness - Todd
+# loading in the output results
+outputList = list.files(here("Output", "20230825_simMissReest", "TOdd"))
+
+# applying the code above to different reestimations
+# TODO: specify the missingness saved for current chunk, 1 = "NA"/peter, 2 = "0"/Todd
+chunkMissSave = 2
+
+# TODO: specify the chosen missingness proportion for each chunk (1/3 or 3.5/6)
+chunkMissProp = 3
+chunkMissPropFloat = 3.5
+
+
+# take out the index for the chosen missingness saved value
+chosenMissLabel = missSaveLabel[chunkMissSave]
+chosenMissValue = missSaveValue[chunkMissSave]
+
+
+# now looping with a specific vector of applicable networks
+# TODO: specify the UCINet networks for the chunk, these are networks with enough re-estimations
+chunkNetworks = 3
+
+# handle fail rates separately. these data structures are very unstandardised.
+
+# TODO: vector of file names for regex
+chunkRdataNames = c("20231005_missNetReest_net")
+
+chunkMnarNames = c("20231012_missErgmNetReest_Miss")
+
+# vector of parameter names to loop over
+modelParaOptions = c("edges", "altStar", "gwesp")
+
+# loop for all specified networks 
+for(chunkInd in 1:length(chunkNetworks)){
+  
+  # make sure the re-estimation lists are empty in the beginning
+  modelResList = list()
+  modelSeList = list()
+  missModelList = list()
+  propMissList = list()
+  
+  # set a specific index for the network
+  chosenNetInd = chunkNetworks[chunkInd]
+  
+  # file list for the chosen network index
+  chosenNetOutFiles = grep(paste(chunkRdataNames[chunkInd], chosenNetInd, sep =""), outputList)
+  
+  ## regex the MNAR files 
+  chosenMnarOutFiles = grep(paste(chunkMnarNames[chunkInd], chosenMissLabel, "_net", chosenNetInd, sep = ""), outputList)
+  
+  # combine the two indices
+  combinedNetOutList = c(chosenNetOutFiles, chosenMnarOutFiles)
+  
+  # check to make sure there aren't any duplicates
+  if( length(unique(combinedNetOutList)) != length(combinedNetOutList)){
+    stop("Duplicate re-estimation datafiles! BAD.")
+  }
+  
+  # loop to load
+  chosenNetOutList = outputList[combinedNetOutList]
+  
+  for(fileInd in 1:length(chosenNetOutList)){
+    # load all files
+    load(here("Output", "20230825_simMissReest", chosenMissLabel, chosenNetOutList[fileInd]))
+    
+    # suppress these version difference warnings. 
+    suppressWarnings({
+    modelResList[[fileInd]] = modelres$coefficients
+    modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+    
+    })
+    
+    # slight difference for the chosenMnarOutFiles because missModelList[[fileInd]] = always 4 (let 2 be mar ergm, 4 be mnar ergm)
+    
+    # this branch *should* be setting the miss model to 4 if they were regexed to be a part of the mnar list.
+    if(combinedNetOutList[fileInd] %in% chosenMnarOutFiles){
+     missModelList[[fileInd]] = 4
+    } else {
+     missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+    }
+      
+    # propmiss should be the same
+    propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  }
+  
+  # this can be a loop!
+  for( chosenPara in 1:length(modelParaOptions)){
+    
+    # grab the chosen parameter name
+    chosenParaName = modelParaOptions[chosenPara]
+    
+    # still need to take out true parameter values
+    tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+    tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+    
+    # including edges
+    # test run of the plot function
+    testPlotData = prepMissPlot(modelResList = modelResList,
+                                modelSeList = modelSeList,
+                                missModelList = missModelList,
+                                propMissList = propMissList,
+                                chosenProp = chunkMissProp,
+                                chosenPara = chosenParaName)
+    
+    # brief inspection just to make sure nothing's wrong
+    head(testPlotData) %>% 
+      print()
+    
+    
+    # and plot it
+    missCaterpillarPlot(plotData = testPlotData,
+                        truePara = tempTruePara,
+                        trueSe = tempTrueSe,
+                        chosenPara = chosenParaName,
+                        chosenNetInd = chosenNetInd,
+                        chosenProp = chunkMissPropFloat,
+                        chosenMiss = chosenMissValue) %>% 
+      print()
+  
+  }
+   
+  # a temporary data frame from the output to be binded to the big data frame
+  tempFailData = prepFailPlot(propMissList = propMissList,
+                              missModelList = missModelList,
+                              chosenNetInd = chosenNetInd,
+                              chosenProp = chunkMissProp,
+                              chosenMiss = chosenMissValue)
+
+  # and bind it
+  failRateData = rbind(failRateData, tempFailData)
+
+}
+
+```
+
+
+### 60% Todd
+
+```{r sparse todd 60}
+# 35% missingness - Todd
+# loading in the output results
+outputList = list.files(here("Output", "20230825_simMissReest", "TOdd"))
+
+# applying the code above to different reestimations
+# TODO: specify the missingness saved for current chunk, 1 = "NA"/peter, 2 = "0"/Todd
+chunkMissSave = 2
+
+# TODO: specify the chosen missingness proportion for each chunk (1/3 or 3.5/6)
+chunkMissProp = 6
+
+
+# take out the index for the chosen missingness saved value
+chosenMissLabel = missSaveLabel[chunkMissSave]
+chosenMissValue = missSaveValue[chunkMissSave]
+
+
+# now looping with a specific vector of applicable networks
+# TODO: specify the UCINet networks for the chunk, these are networks with enough re-estimations
+chunkNetworks = 3
+
+# note: 
+# net 3 is so messed up it has ONE converged estimation for this set 
+# 20231010_missNetReest_net3_missModel1_prop1_trial9.RData
+
+# handle fail rates separately. these data structures are very unstandardised.
+
+# TODO: vector of file names for regex
+chunkRdataNames = c("20231006_missNetReest_net")
+
+chunkMnarNames = c("20231012_missErgmNetReest_Miss")
+
+# vector of parameter names to loop over
+modelParaOptions = c("edges", "altStar", "gwesp")
+
+# loop for all specified networks 
+for(chunkInd in 1:length(chunkNetworks)){
+  
+  # make sure the re-estimation lists are empty in the beginning
+  modelResList = list()
+  modelSeList = list()
+  missModelList = list()
+  propMissList = list()
+  
+  # set a specific index for the network
+  chosenNetInd = chunkNetworks[chunkInd]
+  
+  # file list for the chosen network index
+  chosenNetOutFiles = grep(paste(chunkRdataNames[chunkInd], chosenNetInd, sep =""), outputList)
+  
+  ## regex the MNAR files 
+  chosenMnarOutFiles = grep(paste(chunkMnarNames[chunkInd], chosenMissLabel, "_net", chosenNetInd, sep = ""), outputList)
+  
+  # combine the two indices
+  combinedNetOutList = c(chosenNetOutFiles, chosenMnarOutFiles)
+  
+  # check to make sure there aren't any duplicates
+  if( length(unique(combinedNetOutList)) != length(combinedNetOutList)){
+    stop("Duplicate re-estimation datafiles! BAD.")
+  }
+  
+  # loop to load
+  chosenNetOutList = outputList[combinedNetOutList]
+  
+  for(fileInd in 1:length(chosenNetOutList)){
+    # load all files
+    load(here("Output", "20230825_simMissReest", chosenMissLabel, chosenNetOutList[fileInd]))
+    
+    # suppress these version difference warnings. 
+    suppressWarnings({
+    modelResList[[fileInd]] = modelres$coefficients
+    modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+    
+    })
+    
+    # slight difference for the chosenMnarOutFiles because missModelList[[fileInd]] = always 4 (let 2 be mar ergm, 4 be mnar ergm)
+    
+    # this branch *should* be setting the miss model to 4 if they were regexed to be a part of the mnar list.
+    if(combinedNetOutList[fileInd] %in% chosenMnarOutFiles){
+     missModelList[[fileInd]] = 4
+    } else {
+     missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+    }
+      
+    # propmiss should be the same
+    propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  }
+  
+  # this can be a loop!
+  for( chosenPara in 1:length(modelParaOptions)){
+    
+    # grab the chosen parameter name
+    chosenParaName = modelParaOptions[chosenPara]
+    
+    # still need to take out true parameter values
+    tempTruePara = trueCoefList[[chosenNetInd]][chosenPara]
+    tempTrueSe = trueSeList[[chosenNetInd]][chosenPara]
+    
+    # including edges
+    # test run of the plot function
+    testPlotData = prepMissPlot(modelResList = modelResList,
+                                modelSeList = modelSeList,
+                                missModelList = missModelList,
+                                propMissList = propMissList,
+                                chosenProp = chunkMissProp,
+                                chosenPara = chosenParaName)
+    
+    # brief inspection just to make sure nothing's wrong
+    head(testPlotData) %>% 
+      print()
+    
+    
+    # and plot it
+    missCaterpillarPlot(plotData = testPlotData,
+                        truePara = tempTruePara,
+                        trueSe = tempTrueSe,
+                        chosenPara = chosenParaName,
+                        chosenNetInd = chosenNetInd,
+                        chosenProp = chunkMissProp,
+                        chosenMiss = chosenMissValue) %>% 
+      print()
+  
+  }
+
+  # a temporary data frame from the output to be binded to the big data frame
+  tempFailData = prepFailPlot(propMissList = propMissList,
+                              missModelList = missModelList,
+                              chosenNetInd = chosenNetInd,
+                              chosenProp = chunkMissProp,
+                              chosenMiss = chosenMissValue)
+
+  # and bind it
+  failRateData = rbind(failRateData, tempFailData)
+
+}
+
+
+```
+
+
+## Failure rate plot
+
+### Wrangling 
+
+```{r failplot proper}
+# plotting the failure rate
+# data frame for the completely failed missingness combinations
+# just for the formatting
+tempFailData = failRateData[1,]
+
+# todd 10s
+tempFailData[1, ] = c(1, 3, 1, 1, "0")
+tempFailData[2, ] = c(1, 3, 2, 1, "0")
+tempFailData[3, ] = c(1, 3, 3, 1, "0")
+tempFailData[4, ] = c(1, 3, 4, 1, "0")
+
+# peter 10s
+tempFailData[5, ] = c(1, 1, 1, 1, "NA")
+tempFailData[6, ] = c(1, 1, 2, 1, "NA")
+tempFailData[7, ] = c(1, 1, 3, 1, "NA")
+tempFailData[8, ] = c(1, 3, 2, 1, "NA")
+tempFailData[9, ] = c(1, 3, 3, 1, "NA")
+tempFailData[10, ] = c(1, 3, 4, 1, "NA")
+
+# todd 35s
+tempFailData[11, ] = c(1, 3, 2, 3, "0")
+
+# peter 35s
+tempFailData[12, ] = c(1, 1, 1, 3, "NA")
+tempFailData[13, ] = c(1, 1, 2, 3, "NA")
+tempFailData[14, ] = c(1, 1, 3, 3, "NA")
+tempFailData[15, ] = c(1, 3, 1, 3, "NA")
+tempFailData[16, ] = c(1, 3, 4, 3, "NA")
+
+# todd 60
+tempFailData[17, ] = c(1, 3, 1, 6, "0")
+
+# peter 60
+tempFailData[18, ] = c(1, 1, 3, 6, "NA")
+tempFailData[19, ] = c(1, 3, 1, 6, "NA")
+tempFailData[20, ] = c(1, 3, 4, 6, "NA")
+
+# object type stuff
+tempFailData$failRate = as.numeric(tempFailData$failRate) 
+tempFailData$netInd = as.numeric(tempFailData$netInd) 
+tempFailData$missModel = as.numeric(tempFailData$missModel) 
+tempFailData$missProp = as.numeric(tempFailData$missProp) 
+
+# and bind
+failRateData = rbind(failRateData, tempFailData)
+
+# check for duplicates
+if(any(duplicated(failRateData))){
+  
+  # take only distinct elements
+  failRateData = distinct(failRateData)
+}
+
+
+
+# give the fail rate data (keep it untouched) a unique variable for the combination of missingness
+failRatePlotData = failRateData %>% 
+  group_by(missProp, missSave) %>% 
+  mutate(missCondition = cur_group_id()) %>%
+  ungroup()
+
+
+# turn variables into factors for plotting
+failRatePlotData$missModel = factor(failRatePlotData$missModel, levels = c(1,2,3,4), labels = c("Indep", "marErgm", "Latent", "mnarErgm"))
+failRatePlotData$missCondition =  factor(failRatePlotData$missCondition, levels = c(2,4,6,1,3,5), labels = c("Miss10", "Miss35", "Miss60", "Zero10", "Zero35", "Zero60"))
+```
+
+
+### Plotting
+
+```{r failrate plotting}
+# subsetting per network because between-network comparisons aren't too informative
+# within network comparisons where I have a specific group index for every combination of missSave and missProp (6 categories total)
+
+selectedNets = c(1,2,3,4,5,6)
+
+for(chosenNetInd in selectedNets){
+
+# start with a subset of net 2
+failRateSubset = failRatePlotData %>% 
+  filter(netInd == chosenNetInd)
+
+# and now we have plot-ready data
+print(ggplot(failRateSubset, aes(fill = missModel, y = failRate, x = missCondition)) + 
+  geom_bar(position="dodge", stat="identity") + 
+  xlab("Missingness condition") + 
+  ylab("Failure rate") + 
+  ggtitle(paste("Failure rate - Net", chosenNetInd)) + 
+  theme_classic() + 
+  theme(axis.ticks.x = element_blank()) +
+  ylim(0,1) )
+  
+
+}
+
+```
+
+## Relative metrics
+
+Relative bias was defined as:
+
+$$rBias = \frac{\widetilde{\theta} - \theta}{\theta},$$
+
+with $\widetilde{\theta}$ representing the re-estimated parameter value and $\theta$ representing the true parameter value.
+
+The relative standard error is defined as:
+$$rSe = \frac{SE(\widetilde{\theta})}{SE(\theta)}.$$
+
+
+```{r relMetrics}
+# change some variable types
+relBiasData$netInd = as.factor(relBiasData$netInd)
+relSeData$netInd = as.factor(relSeData$netInd)
+
+# rename Peter and Todd to Miss and Zero respectively
+library(stringr)
+relBiasData$missSave = str_replace(string = relBiasData$missSave,
+                                   pattern = "Peter",
+                                   replacement = "Miss")
+
+
+relBiasData$missSave = str_replace(string = relBiasData$missSave,
+                                   pattern = "Todd",
+                                   replacement = "Zero")
+
+# and for standard errors
+relSeData$missSave = str_replace(string = relSeData$missSave,
+                                   pattern = "Peter",
+                                   replacement = "Miss")
+
+
+relSeData$missSave = str_replace(string = relSeData$missSave,
+                                   pattern = "Todd",
+                                   replacement = "Zero")
+
+missPropChoices = c(1, 3, 6)
+paraChoices = c("edges", "altStar", "gwesp")
+
+# loop it
+
+for(chosenProp in missPropChoices){
+  for(chosenPara in paraChoices){
+    
+    # I don't even know what kind of plot this is...
+    # but I need to do some wrangling and subsetting.
+    # need to subset some stuff
+    relBiasSub = relBiasData %>% 
+      filter(propMiss == chosenProp & paraName == chosenPara)
+    
+    # use the 2.5% and 97.5% quantiles for the axis limits because some of them have some VERY extreme values
+    tempBiasBounds = c(quantile(relBiasSub$rBias, probs = c(0.025, 0.975)))
+    
+    
+    # so the plot would be something like
+    relBiasPlot = ggplot(relBiasSub, aes(x = netInd, y = rBias, fill = missModel)) + 
+                    geom_boxplot(position = position_dodge()) + 
+                    facet_wrap(~missSave) + 
+                    theme_classic() + 
+                    geom_hline(yintercept = 0, col = "black", lty = 2) + 
+                    ylim((tempBiasBounds + c(-0.5, 0.5))) +          # and add a bit of wiggle room
+                    xlab("Network no.") + 
+                    ylab("Relative bias") + 
+                    ggtitle(paste("Proportion ", ifelse(chosenProp == 3, yes = 3.5*10, no = chosenProp*10), "% - ", chosenPara, sep = "")) # the ifelse is because of how I've regexed 35% missingness
+    
+    # print plot
+    print(relBiasPlot)
+    
+    # and another one for variance (technically relative standard error... but yeah)
+    relSeSub = relSeData %>% 
+      filter(propMiss == chosenProp & paraName == chosenPara)
+    
+    # just the 97.5% quantile because this is strictly positive
+    tempVarUpper = quantile(relSeSub$rSe, probs = c(0.975), na.rm = TRUE)
+    
+    # so the plot would be something like
+    relSePlot = ggplot(relSeSub, aes(x = netInd, y = rSe, fill = missModel)) + 
+                    geom_boxplot(position = position_dodge()) + 
+                    facet_wrap(~missSave) + 
+                    theme_classic() + 
+                    geom_hline(yintercept = 1, col = "black", lty = 2) + 
+                    ylim(0, tempVarUpper + 0.5) +         # some wiggle room
+                    xlab("Network no.") + 
+                    ylab("Relative standard error") + 
+                    ggtitle(paste("Proportion ", ifelse(chosenProp == 3, yes = 3.5*10, no = chosenProp*10), "% - ", chosenPara, sep = "")) # the ifelse is because of how I've regexed 35% missingness
+    
+    # print plot
+    print(relSePlot)
+  
+  }
+}
+
+
+# a repeat without the imposed axes just for comparison
+for(chosenProp in missPropChoices){
+  for(chosenPara in paraChoices){
+    
+    # I don't even know what kind of plot this is...
+    # but I need to do some wrangling and subsetting.
+    # need to subset some stuff
+    relBiasSub = relBiasData %>% 
+      filter(propMiss == chosenProp & paraName == chosenPara)
+    
+    # so the plot would be something like
+    relBiasPlot = ggplot(relBiasSub, aes(x = netInd, y = rBias, fill = missModel)) + 
+                    geom_boxplot(position = position_dodge()) + 
+                    facet_wrap(~missSave) + 
+                    theme_classic() + 
+                    geom_hline(yintercept = 0, col = "black", lty = 2) + 
+                    xlab("Network no.") + 
+                    ylab("Relative bias") + 
+                    ggtitle(paste("Proportion ", ifelse(chosenProp == 3, yes = 3.5*10, no = chosenProp*10), "% - ", chosenPara, sep = "")) # the ifelse is because of how I've regexed 35% missingness
+    
+    # print plot
+    print(relBiasPlot)
+    
+    # and another one for variance (technically relative standard error... but yeah)
+    relSeSub = relSeData %>% 
+      filter(propMiss == chosenProp & paraName == chosenPara)
+    
+    # so the plot would be something like
+    relSePlot = ggplot(relSeSub, aes(x = netInd, y = rSe, fill = missModel)) + 
+                    geom_boxplot(position = position_dodge()) + 
+                    facet_wrap(~missSave) + 
+                    theme_classic() + 
+                    geom_hline(yintercept = 1, col = "black", lty = 2) + 
+                    xlab("Network no.") + 
+                    ylab("Relative standard error") + 
+                    ggtitle(paste("Proportion ", ifelse(chosenProp == 3, yes = 3.5*10, no = chosenProp*10), "% - ", chosenPara, sep = "")) # the ifelse is because of how I've regexed 35% missingness
+    
+    # print plot
+    print(relSePlot)
+  
+  }
+}
+```
+

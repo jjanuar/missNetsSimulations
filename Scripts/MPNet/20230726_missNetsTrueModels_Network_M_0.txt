@@ -1,0 +1,119 @@
+*vertices 27
+1 "" box ic Blue bc Black
+2 "" box ic Blue bc Black
+3 "" box ic Blue bc Black
+4 "" box ic Blue bc Black
+5 "" box ic Blue bc Black
+6 "" box ic Blue bc Black
+7 "" box ic Blue bc Black
+8 "" box ic Blue bc Black
+9 "" box ic Blue bc Black
+10 "" box ic Blue bc Black
+11 "" box ic Blue bc Black
+12 "" box ic Blue bc Black
+13 "" box ic Blue bc Black
+14 "" box ic Blue bc Black
+15 "" box ic Blue bc Black
+16 "" box ic Blue bc Black
+17 "" box ic Blue bc Black
+18 "" box ic Blue bc Black
+19 "" box ic Blue bc Black
+20 "" box ic Blue bc Black
+21 "" box ic Blue bc Black
+22 "" box ic Blue bc Black
+23 "" box ic Blue bc Black
+24 "" box ic Blue bc Black
+25 "" box ic Blue bc Black
+26 "" box ic Blue bc Black
+27 "" box ic Blue bc Black
+*edges
+1 4 1 c Blue
+1 5 1 c Blue
+1 6 1 c Blue
+1 7 1 c Blue
+1 8 1 c Blue
+1 9 1 c Blue
+1 10 1 c Blue
+1 16 1 c Blue
+1 17 1 c Blue
+1 18 1 c Blue
+1 19 1 c Blue
+1 20 1 c Blue
+1 22 1 c Blue
+1 25 1 c Blue
+1 26 1 c Blue
+1 27 1 c Blue
+2 3 1 c Blue
+2 6 1 c Blue
+3 4 1 c Blue
+3 6 1 c Blue
+4 6 1 c Blue
+4 7 1 c Blue
+5 6 1 c Blue
+5 16 1 c Blue
+5 17 1 c Blue
+5 18 1 c Blue
+5 25 1 c Blue
+5 26 1 c Blue
+6 7 1 c Blue
+6 9 1 c Blue
+6 27 1 c Blue
+7 10 1 c Blue
+7 11 1 c Blue
+7 12 1 c Blue
+7 14 1 c Blue
+7 15 1 c Blue
+7 19 1 c Blue
+7 20 1 c Blue
+7 21 1 c Blue
+7 23 1 c Blue
+7 24 1 c Blue
+7 27 1 c Blue
+8 22 1 c Blue
+8 25 1 c Blue
+8 27 1 c Blue
+9 12 1 c Blue
+9 20 1 c Blue
+9 27 1 c Blue
+10 11 1 c Blue
+10 12 1 c Blue
+10 14 1 c Blue
+10 15 1 c Blue
+10 19 1 c Blue
+10 20 1 c Blue
+10 21 1 c Blue
+10 23 1 c Blue
+10 24 1 c Blue
+11 15 1 c Blue
+11 20 1 c Blue
+11 24 1 c Blue
+12 14 1 c Blue
+12 20 1 c Blue
+12 21 1 c Blue
+12 23 1 c Blue
+12 24 1 c Blue
+13 20 1 c Blue
+14 20 1 c Blue
+14 21 1 c Blue
+14 23 1 c Blue
+14 24 1 c Blue
+15 19 1 c Blue
+15 20 1 c Blue
+16 17 1 c Blue
+16 18 1 c Blue
+17 18 1 c Blue
+17 20 1 c Blue
+18 26 1 c Blue
+19 20 1 c Blue
+20 21 1 c Blue
+20 23 1 c Blue
+20 24 1 c Blue
+20 25 1 c Blue
+20 27 1 c Blue
+21 23 1 c Blue
+21 24 1 c Blue
+22 25 1 c Blue
+22 27 1 c Blue
+23 24 1 c Blue
+25 26 1 c Blue
+25 27 1 c Blue

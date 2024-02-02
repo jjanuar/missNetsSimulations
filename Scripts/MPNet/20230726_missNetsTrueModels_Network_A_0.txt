@@ -1,0 +1,64 @@
+*vertices 27
+1 "" box ic Blue bc Black
+2 "" box ic Blue bc Black
+3 "" box ic Blue bc Black
+4 "" box ic Blue bc Black
+5 "" box ic Blue bc Black
+6 "" box ic Blue bc Black
+7 "" box ic Blue bc Black
+8 "" box ic Blue bc Black
+9 "" box ic Blue bc Black
+10 "" box ic Blue bc Black
+11 "" box ic Blue bc Black
+12 "" box ic Blue bc Black
+13 "" box ic Blue bc Black
+14 "" box ic Blue bc Black
+15 "" box ic Blue bc Black
+16 "" box ic Blue bc Black
+17 "" box ic Blue bc Black
+18 "" box ic Blue bc Black
+19 "" box ic Blue bc Black
+20 "" box ic Blue bc Black
+21 "" box ic Blue bc Black
+22 "" box ic Blue bc Black
+23 "" box ic Blue bc Black
+24 "" box ic Blue bc Black
+25 "" box ic Blue bc Black
+26 "" box ic Blue bc Black
+27 "" box ic Blue bc Black
+*matrix
+0 0 0 1 1 1 1 1 1 1 0 0 0 0 0 1 1 1 1 1 0 1 0 0 1 1 1 
+0 0 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+0 1 0 1 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+1 0 1 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+1 0 0 0 0 1 0 0 0 0 0 0 0 0 0 1 1 1 0 0 0 0 0 0 1 1 0 
+1 1 1 1 1 0 1 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 
+1 0 0 1 0 1 0 0 0 1 1 1 0 1 1 0 0 0 1 1 1 0 1 1 0 0 1 
+1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 1 0 1 
+1 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0 0 1 0 0 0 0 0 0 1 
+1 0 0 0 0 0 1 0 0 0 1 1 0 1 1 0 0 0 1 1 1 0 1 1 0 0 0 
+0 0 0 0 0 0 1 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0 0 0 
+0 0 0 0 0 0 1 0 1 1 0 0 0 1 0 0 0 0 0 1 1 0 1 1 0 0 0 
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 
+0 0 0 0 0 0 1 0 0 1 0 1 0 0 0 0 0 0 0 1 1 0 1 1 0 0 0 
+0 0 0 0 0 0 1 0 0 1 1 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 
+1 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 
+1 0 0 0 1 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1 0 0 0 0 0 0 0 
+1 0 0 0 1 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 0 1 0 
+1 0 0 0 0 0 1 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0 0 0 
+1 0 0 0 0 0 1 0 1 1 1 1 1 1 1 0 1 0 1 0 1 0 1 1 1 0 1 
+0 0 0 0 0 0 1 0 0 1 0 1 0 1 0 0 0 0 0 1 0 0 1 1 0 0 0 
+1 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 1 
+0 0 0 0 0 0 1 0 0 1 0 1 0 1 0 0 0 0 0 1 1 0 0 1 0 0 0 
+0 0 0 0 0 0 1 0 0 1 1 1 0 1 0 0 0 0 0 1 1 0 1 0 0 0 0 
+1 0 0 0 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0 1 0 0 0 1 1 
+1 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 1 0 0 
+1 0 0 0 0 1 1 1 1 0 0 0 0 0 0 0 0 0 0 1 0 1 0 0 1 0 0 
+
+Density	0.2564
+Degree Distribution(s)
+Mean degree	3.3333
+Stddev	5.0915
+Skewness	1.8638
+Clustering coefficent(s)
+Global	0.5466

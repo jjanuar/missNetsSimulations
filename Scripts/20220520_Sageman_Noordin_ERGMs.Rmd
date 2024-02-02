@@ -1,0 +1,778 @@
+---
+title: "20220520_Sageman_Noordin_ERGMs"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading in Sageman data
+
+```{r packages, eval = T, warning = F, error = F, message = F}
+# load packages
+library('igraph')
+library('sna')
+library('ergm')
+library('network')
+library('here')
+```
+
+
+```{r sageman data}
+# Read adjacency matrix
+SagemanAdjacencyMatrix <- read.csv(here("../Data/SagemanNoordin/sagemanAdjacency.csv"), header=FALSE)
+
+# there are a lot of attributes (you may get a list of what they are from me)
+ADJ <- as.matrix(SagemanAdjacencyMatrix)
+SageAttributes <- read.csv(here('../Data/SagemanNoordin/sageAttributes.csv'))
+
+# To just get a list of the names of the vertices:
+SageNames <- read.csv(here('../Data/SagemanNoordin/vertices.csv'),stringsAsFactors=FALSE)
+
+# a quick way of plotting this network using the 'place where they joined the Jihad':
+colnames(ADJ) <- SageNames[,2]
+rownames(ADJ) <- SageNames[,2]
+SageGraph <- graph.adjacency(ADJ,mode="undirected")
+
+#pdf("SageManPlot.pdf", width=15, height=15)
+
+plot(SageGraph,
+     vertex.label.family='sans',
+     vertex.label.cex=.5,
+     vertex.size=2,
+     vertex.frame.color=NA,
+     edge.curved=.2,
+     vertex.color=SageAttributes$Place.joined.the.jihad)
+#dev.off()
+```
+
+### Inspecting Sageman data
+
+```{r inspecting Sageman}
+# Inspection of attributes
+str(SageAttributes)
+summary(SageAttributes)
+
+# viewing the network
+gplot(dat = ADJ,
+      gmode = "graph")
+
+# degree distribution
+plot(table(sna::degree(ADJ)), xlab = "Degree", ylab = "Frequency", main = "Degree distribution of the Sageman network")
+
+```
+
+Missing attribute data huh. Points of action:
+
+* MICE (needs to specify a model for the attributes)
+* Quick ad hoc solutions (single imputation, complete case analysis?)
+
+
+### ERGMs!
+
+Remember: the statnet 'ergm' function assumes MAR.
+
+```{r sageman ergms}
+# very roughly using single imputation for an attribute
+imputedAgeJoined = SageAttributes$Age.joining.the.jihad
+imputedAgeJoined[is.na(imputedAgeJoined)] = mean(imputedAgeJoined, na.rm = T)
+imputedYearJoined = SageAttributes$Year.joined.the.jihad
+imputedYearJoined[is.na(imputedYearJoined)] = mean(imputedYearJoined, na.rm = T)
+imputedPlaceJoined = SageAttributes$Place.joined.the.jihad
+imputedPlaceJoined[is.na(imputedPlaceJoined)] = mean(imputedPlaceJoined, na.rm = T)
+
+# preparing the network
+sagemanNet = as.network(ADJ, directed = FALSE)
+sagemanNet %v% 'ageJoined' = imputedAgeJoined
+sagemanNet %v% 'yearJoined' = imputedYearJoined
+sagemanNet %v% 'placeJoined' = imputedPlaceJoined
+
+
+# just a random configuration
+mod1 = sagemanNet ~ edges + 
+   nodecov('ageJoined') +
+   nodecov('yearJoined') +
+   nodematch('placeJoined')
+#   gwdegree(log(2), fixed = TRUE) +
+#   gwesp(log(2), fixed = TRUE)
+
+# ergm
+summary(ergm(mod1))
+
+
+### loading the ergm with the specification Johan had
+load(here("../Data/SagemanNoordin/sagemanResults.RData"))
+load(here("../Data/SagemanNoordin/sagemanImputedData.RData"))
+
+#specification
+model.1 <- alqnet ~ edges + isolates +gwesp(decay=log(2), fixed=TRUE)+gwdegree(decay=log(2), fixed=TRUE)+# density
+  nodecov( 'place.joined') + # 
+  nodematch( 'place.joined')+ # 
+  nodematch( 'country.joined')+ # 
+  nodecov('educ') + #
+  absdiff('educ', pow = 2) +# 
+  nodecov('age') + #
+  absdiff('age', pow = 2) +#
+  nodecov('year.joined') + #
+  absdiff('year.joined', pow = 2) +# 
+  nodecov('ses') + #
+  absdiff('ses', pow = 2) +# 
+#  nodemix(  'clump',levels=c(1,2,3))+
+#  nodemix( 'school',levels=c(1,2))+
+  dyadcov(clump.1.1.dyadcov) + 
+  dyadcov(clump.1.2.dyadcov) + 
+  dyadcov(clump.1.3.dyadcov) + 
+  dyadcov(clump.2.2.dyadcov) + 
+  dyadcov(clump.2.3.dyadcov) + 
+  dyadcov(clump.3.3.dyadcov) + 
+  dyadcov(school.1.1.dyadcov) + 
+  dyadcov(school.1.2.dyadcov) + 
+  dyadcov(school.2.2.dyadcov) + 
+  nodematch( 'plbirth')
+
+
+# results
+summary(ans.1)
+
+```
+
+### Introducing missingness
+
+Using a model for the missing data indicator $\mathbf{D}$ that weighs the probability of being a missing value with degree.
+
+A justification for this might be that the more central the person is for the actual network, the more likely their ties with the central person is to be unreported (e.g., for security purposes).
+
+$$\Pr(\mathbf{D}_{ij} = 1) = logistic(\alpha + \beta(\mathbf{X}_{i+} + \mathbf{X}_{+j}) )$$
+
+```{r missmodel, fig.width = 8, fig.height = 5}
+#### missing model with arbitrary parameter values
+# grab degrees
+degCentr = sna::degree(ADJ)
+
+## finagle the parameters such that the mean is ~0.3
+
+# the eqn to solve is beta = (-log(2.33333) - alpha)/mean(degCentr)
+alphaVals = seq(from = -10, to = 10)
+
+betaVals = (-log(2.3333333) - alphaVals)/mean(degCentr)
+
+# make up some values for alpha and beta
+alpha = -5        # an intercept value,
+
+beta = 0.32377    # this beta value corresponds to the weight of the variable when assigning the probability of missingness
+
+
+# list out the probabilities
+missTieProb = 1/(1 + exp(-alpha - (beta * degCentr)))
+
+# check mean, if it's off it's due to highly connected nodes.
+mean(missTieProb)
+
+
+# let's first make a matrix of missing data indicators with the probabilities we have
+# the rbinom function's just a convenient way of doing this, also each actor technically has an implicit ~Bi(n, miss tie prob) amount of missing ties
+missDatIndicator = t(replicate(nrow(ADJ), rbinom(length(missTieProb), size = 1, prob = missTieProb)))
+
+# check how many were indicated to be missing
+sum(missDatIndicator)
+
+# make some adjustments because undirected network
+missDatIndicator[upper.tri(missDatIndicator)] = t(missDatIndicator)[upper.tri(missDatIndicator)]
+diag(missDatIndicator) = 0
+isSymmetric(missDatIndicator)
+
+# make a table to compare,
+compareTab = data.frame(missTieProb = round(missTieProb, digits = 2), IndicatorProbabilities = colMeans(missDatIndicator))
+compareTab$difference = compareTab[,1] - compareTab[,2]
+
+# just checking the mean absolute difference 
+mean(abs(compareTab$difference))
+
+
+# check total amount of missing ties after the adjmat adjustments, should be ~80 (20^2 * 0.2), maybe a bit less because of the adjmat adjustments
+sum(missDatIndicator)
+
+# and we deplete
+degradedNetMNAR = ADJ
+degradedNetMNAR[missDatIndicator==1] = NA
+
+# plot side by side
+par(mfrow = c(1,2))
+coord = gplot(ADJ, xlab = "Sageman net", gmode = "graph")
+gplot(degradedNetMNAR, xlab = "MNAR degraded net", gmode = "graph", coord = coord)
+
+# it's quite hard to see, but if we see the average degree centrality and their barplots,
+
+plot(table(sna::degree(ADJ)), xlab = "Degree", ylab = "Frequency",  main = paste("Mean = ",round(mean(sna::degree(ADJ)), 2), " SD = ", round(sd(sna::degree(ADJ)), 2), sep = ""), xlim = c(0,90), ylim = c(0,100))
+plot(table(sna::degree(degradedNetMNAR)), xlab = "Degree", ylab = "Frequency",  main = paste("Mean = ",round(mean(sna::degree(degradedNetMNAR)), 2), " SD = ", round(sd(sna::degree(degradedNetMNAR)), 2), sep = ""), xlim = c(0,90), ylim = c(0,100))
+```
+
+### Some metrics
+
+```{r missnet Metrics}
+# set n
+n = nrow(ADJ)
+
+# density
+sum(ADJ)/((n * (n-1))/2)
+
+# post-degradation density
+sum(degradedNetMNAR, na.rm = T)/((n * (n-1))/2)
+
+# density for the observable ties (e.g., Dij = 0)
+sum(degradedNetMNAR, na.rm = T)/sum(missDatIndicator == 0)
+
+# making the degraded network into a network object with covariates
+sagemanNetDegraded = as.network(degradedNetMNAR, directed = FALSE)
+sagemanNetDegraded %v% 'place.joined' <- alqnet %v% 'place.joined'
+sagemanNetDegraded %v% 'age' <- alqnet %v% 'age'
+sagemanNetDegraded %v% 'country.joined' <- alqnet %v% 'country.joined'
+sagemanNetDegraded %v% 'year.joined' <- alqnet %v% 'year.joined'
+sagemanNetDegraded %v% 'age.join' <- alqnet %v% 'age.joined'
+sagemanNetDegraded %v% 'educ' <- alqnet %v% 'educ'
+sagemanNetDegraded %v% 'clump' <- alqnet %v% 'clump'
+sagemanNetDegraded %v% 'school' <- alqnet %v% 'school'
+sagemanNetDegraded %v% 'plbirth' <- alqnet %v% 'plbirth'
+sagemanNetDegraded %v% 'ses' <- alqnet %v% 'ses'
+
+# triad censes
+sna::triad.census(ADJ)
+sna::triad.census(sagemanNetDegraded)
+
+```
+
+
+
+### ERGM with missing data
+
+```{r missERGM}
+# for ease, set to 0
+degradedNet0 = ADJ
+degradedNet0[missDatIndicator==1] = 0
+
+# making the degraded network into a network object with covariates
+sagemanNetDegraded0 = as.network(degradedNet0, directed = FALSE)
+sagemanNetDegraded0 %v% 'place.joined' <- alqnet %v% 'place.joined'
+sagemanNetDegraded0 %v% 'age' <- alqnet %v% 'age'
+sagemanNetDegraded0 %v% 'country.joined' <- alqnet %v% 'country.joined'
+sagemanNetDegraded0 %v% 'year.joined' <- alqnet %v% 'year.joined'
+sagemanNetDegraded0 %v% 'age.join' <- alqnet %v% 'age.joined'
+sagemanNetDegraded0 %v% 'educ' <- alqnet %v% 'educ'
+sagemanNetDegraded0 %v% 'clump' <- alqnet %v% 'clump'
+sagemanNetDegraded0 %v% 'school' <- alqnet %v% 'school'
+sagemanNetDegraded0 %v% 'plbirth' <- alqnet %v% 'plbirth'
+sagemanNetDegraded0 %v% 'ses' <- alqnet %v% 'ses'
+
+# same configuration from before, now with the degraded network
+model.2 <- sagemanNetDegraded0 ~ edges + isolates +gwesp(decay=log(2), fixed=TRUE)+gwdegree(decay=log(2), fixed=TRUE)+# density
+  nodecov( 'place.joined') + # 
+  nodematch( 'place.joined')+ # 
+  nodematch( 'country.joined')+ # 
+  nodecov('educ') + #
+  absdiff('educ', pow = 2) +# 
+  nodecov('age') + #
+  absdiff('age', pow = 2) +#
+  nodecov('year.joined') + #
+  absdiff('year.joined', pow = 2) +# 
+  nodecov('ses') + #
+  absdiff('ses', pow = 2) +# 
+#  nodemix(  'clump',levels=c(1,2,3))+
+#  nodemix( 'school',levels=c(1,2))+
+  dyadcov(clump.1.1.dyadcov) + 
+  dyadcov(clump.1.2.dyadcov) + 
+  dyadcov(clump.1.3.dyadcov) + 
+  dyadcov(clump.2.2.dyadcov) + 
+  dyadcov(clump.2.3.dyadcov) + 
+  dyadcov(clump.3.3.dyadcov) + 
+  dyadcov(school.1.1.dyadcov) + 
+  dyadcov(school.1.2.dyadcov) + 
+  dyadcov(school.2.2.dyadcov) + 
+  nodematch( 'plbirth')
+
+
+
+load(here("Scripts", "Spartan", "sagemanToddSummary.RData"))
+
+mod2summary
+
+# same configuration from before, now with the degraded network
+model.3 <- sagemanNetDegraded ~ edges + isolates +gwesp(decay=log(2), fixed=TRUE)+gwdegree(decay=log(2), fixed=TRUE)+# density
+  nodecov( 'place.joined') + # 
+  nodematch( 'place.joined')+ # 
+  nodematch( 'country.joined')+ # 
+  nodecov('educ') + #
+  absdiff('educ', pow = 2) +# 
+  nodecov('age') + #
+  absdiff('age', pow = 2) +#
+  nodecov('year.joined') + #
+  absdiff('year.joined', pow = 2) +# 
+  nodecov('ses') + #
+  absdiff('ses', pow = 2) +# 
+#  nodemix(  'clump',levels=c(1,2,3))+
+#  nodemix( 'school',levels=c(1,2))+
+  dyadcov(clump.1.1.dyadcov) + 
+  dyadcov(clump.1.2.dyadcov) + 
+  dyadcov(clump.1.3.dyadcov) + 
+  dyadcov(clump.2.2.dyadcov) + 
+  dyadcov(clump.2.3.dyadcov) + 
+  dyadcov(clump.3.3.dyadcov) + 
+  dyadcov(school.1.1.dyadcov) + 
+  dyadcov(school.1.2.dyadcov) + 
+  dyadcov(school.2.2.dyadcov) + 
+  nodematch( 'plbirth')
+
+
+load(here("Scripts", "Spartan", "sagemanPeterSummary.RData"))
+
+mod3summary
+
+# print table to html tables
+# combine summary tables
+combinedTable = cbind(summary(ans.1)$coefs, mod2summary$coefs, mod3summary$coefs)
+
+write.csv(combinedTable, "sagemanCombinedTable.csv")
+
+knitr::kable(combinedTable)
+
+
+```
+
+
+### Generating dyadcovs
+
+```{r clump dyadcov}
+# need to generate dyadic covariates for clump because simulate and nodemix does weird things
+
+# this should tell us when i,j belong to any of the chosen clumps.
+# and since the sageman net is undirected, clump 1,2 == clump 2,1
+clump.dyadcov = matrix(0, nrow = nrow(ADJ), ncol = ncol(ADJ))
+
+# listing the clump matrices
+clumpMatrices = list()
+
+# one very chunky loop should get us what we want...
+clumpList = list(c(1,1), c(1,2), c(1,3), c(1,4), c(2,2), c(2,3), c(2,4), c(3,3), c(3,4), c(4,4))
+
+for(clump in 1:length(clumpList)){
+  chosenClump = clumpList[[clump]]
+  targetClump = clump.dyadcov
+
+  for(i in 1:nrow(ADJ)){
+     clumpi = (alqnet %v% 'clump')[i]
+   
+    for(j in 1:ncol(ADJ)){
+       clumpj = (alqnet %v% 'clump')[j]
+     
+       if(sum(c(clumpi, clumpj) == chosenClump) == 2 | 
+          sum(c(clumpi, clumpj) == c(chosenClump[2], chosenClump[1])) == 2){
+        targetClump[i,j] = 1
+         } else {targetClump[i,j] = 0}
+     }
+  }
+  
+  # save the target clump
+  clumpMatrices[[clump]] = targetClump
+}
+#save(clumpList, clumpMatrices, file = here("Scripts", "Spartan", "sagemanClumpDyadcovs.RData"))
+
+# do the same for school
+school.dyadcov = matrix(0, nrow = nrow(ADJ), ncol = ncol(ADJ))
+
+# listing the school matrices
+schoolMatrices = list()
+
+# one very chunky loop should get us what we want...
+schoolList = list(c(1,1), c(1,2),c(1,3), c(2,2), c(2,3), c(3,3))
+
+for(school in 1:length(schoolList)){
+  chosenschool = schoolList[[school]]
+  targetschool = school.dyadcov
+
+  for(i in 1:nrow(ADJ)){
+     schooli = (alqnet %v% 'school')[i]
+   
+    for(j in 1:ncol(ADJ)){
+       schoolj = (alqnet %v% 'school')[j]
+     
+       if(sum(c(schooli, schoolj) == chosenschool) == 2 | 
+          sum(c(schooli, schoolj) == c(chosenschool[2], chosenschool[1])) == 2){
+        targetschool[i,j] = 1
+         } else {targetschool[i,j] = 0}
+     }
+  }
+  
+  # save the target school
+  schoolMatrices[[school]] = targetschool
+}
+#save(schoolList, schoolMatrices, file = here("Scripts", "Spartan", "sagemanSchoolDyadcovs.RData"))
+
+# label the dyad covs
+clump.1.1.dyadcov = clumpMatrices[[1]]
+clump.1.2.dyadcov = clumpMatrices[[2]]
+clump.1.3.dyadcov = clumpMatrices[[3]]
+clump.2.2.dyadcov = clumpMatrices[[5]]
+clump.2.3.dyadcov = clumpMatrices[[6]]
+clump.3.3.dyadcov = clumpMatrices[[8]]
+
+school.1.1.dyadcov = schoolMatrices[[1]]
+school.1.2.dyadcov = schoolMatrices[[2]]
+school.2.2.dyadcov = schoolMatrices[[4]]
+
+
+```
+
+
+For every edge, verify if the sender/receiver are part of the clumps I specify.
+
+## Loading in the Noordin Top data
+
+For the Noordin Top data, we have multiple definitions of a tie:
+
+* Friendship  
+* People by event (bipartite)   
+* Event by event (one mode)  
+* Classmate  
+* Communication  
+
+```{r load noordin}
+# loading in friendship ties
+FriendNet <- read.csv(here("../Data/SagemanNoordin/friendship.csv"),
+                      sep=',',
+                      header=TRUE,
+                      row.names=1,
+                      stringsAsFactors=FALSE)
+
+# Turn into a matrix obj
+FriendNetMat <- as.matrix(FriendNet)
+rownames(FriendNetMat) <- rownames(FriendNet)
+colnames(FriendNetMat) <- colnames(FriendNet)
+bnet <- grey(c(0:100)/100)
+net <- graph.adjacency(FriendNetMat,mode="undirected")
+V(net)$size=igraph::degree(net)/max(igraph::degree(net))*7
+gplot(FriendNetMat, gmode = 'graph', xlab = "Friendship")
+
+
+# View the network
+plot(net,
+     vertex.color="#8A8A8A",
+     edge.curved=.05,
+     edge.width=.5,
+     edge.color=bnet[30],
+     vertex.frame.color=NA,
+     vertex.label.family='sans',
+     vertex.label.cex=.5, 
+     vertex.label.color= 'black')
+
+
+# people by event
+peopleevent <- read.csv(here("../Data/SagemanNoordin/peoplebyevent.csv"), sep=',',row.names=1, header=TRUE, stringsAsFactors=FALSE, check.names=FALSE)
+peopleeventMat <- as.matrix(peopleevent)
+rownames(peopleeventMat) <- rownames(peopleevent)
+colnames(peopleeventMat) <- colnames(peopleevent)
+plot(table(rowSums(peopleeventMat)))
+gplot(peopleeventMat, 
+      gmode = 'twomode',
+      xlab = "People by Event",
+      usearrows = FALSE)
+
+# Participation network
+participGraph <- graph.incidence(peopleeventMat, directed=F, weighted=NULL, multiple=F)
+vecColor <- colors()
+V(participGraph)$color <- c(rep(vecColor[414],length=nrow(peopleeventMat)), rep(vecColor[76],length=ncol(peopleeventMat)))
+V(participGraph)$shape <- c(rep("circle",length=nrow(peopleeventMat)), rep("none",length=ncol(peopleeventMat)))
+
+plot(participGraph, 
+     vertex.size=1,
+     edge.width=.5,
+     edge.curved=.2,
+     main="Terrorists by events",
+     vertex.label.family='sans',
+     vertex.label.cex=.75,
+     vertex.label.color= 'black')
+
+
+
+### One mode event-by-event network: 
+## Q- What is a tie here?
+eventonemode <- read.csv(here("../Data/SagemanNoordin/eventbyevent.csv"),
+                         sep=',',
+                         row.names=1, 
+                         header=TRUE, 
+                         stringsAsFactors=FALSE, 
+                         check.names=FALSE)
+
+bigEventMat <- matrix(0,ncol(peopleeventMat),ncol(peopleeventMat))
+rownames(bigEventMat) <- colnames(peopleeventMat)
+colnames(bigEventMat) <- colnames(peopleeventMat)
+k <-1
+for (i in c(1:nrow(eventonemode)))
+{
+	sender <- which(rownames(bigEventMat)==rownames(eventonemode)[i])
+	for (j in c(1:ncol(eventonemode)))
+	{
+		if (eventonemode[i,j]==1)
+		{receiver <- which(rownames(bigEventMat)==colnames(eventonemode)[j])
+		bigEventMat[sender,receiver] <- 1
+		bigEventMat[receiver, sender] <- 1
+		print(paste('tie number ',k,' between ',rownames(eventonemode)[i],' and ',colnames(eventonemode)[j]))
+		k <- k+1
+}	}
+}
+
+net <- graph.adjacency(bigEventMat,mode="undirected")
+V(net)$size=igraph::degree(net)/max(igraph::degree(net))*7
+plot(net,vertex.color="#8A8A8A",
+     edge.curved=.05,
+     edge.width=.5,
+     edge.color=bnet[30],
+     vertex.frame.color=NA ,
+     vertex.label.family='sans',
+     vertex.label.cex=.75, 
+     vertex.label.color= 'black')
+
+########
+BigMat <- cbind(FriendNetMat,peopleeventMat)
+bottomRow <- cbind(t(peopleeventMat),bigEventMat)
+BigMat <-rbind(BigMat,bottomRow)
+net <- graph.adjacency(BigMat,mode="undirected")
+V(net)$color <- c(rep(vecColor[414],length=nrow(peopleeventMat)), rep(vecColor[76],length=ncol(peopleeventMat)))
+V(net)$shape <- c(rep("circle",length=nrow(peopleeventMat)), rep("square",length=ncol(peopleeventMat)))
+V(net)$size=igraph::degree(net)/max(igraph::degree(net))*7
+plot(net,
+     edge.width=.5,
+     edge.curved=.2,
+     main="The multilevel network of Noordin Top",
+     vertex.label.family='sans',
+     vertex.label.cex=.75, 
+     vertex.label.color= 'black',
+     vertex.frame.color=NA)
+
+
+
+#### Both of the files below are another type of tie for the Noordin Top network
+## Classmate tie
+classmates <- read.csv(here("../Data/SagemanNoordin/classmates.csv"), 
+                       sep=',',
+                       row.names=1,
+                       header=TRUE,
+                       stringsAsFactors=FALSE,
+                       check.names=FALSE)
+
+# Turn into a matrix
+classmateMat = as.matrix(classmates)
+rownames(classmateMat) <- rownames(classmates)
+colnames(classmateMat) <- colnames(classmates)
+bnet <- grey(c(0:100)/100)
+net <- graph.adjacency(classmateMat,mode="undirected")
+V(net)$size=igraph::degree(net)/max(igraph::degree(net))*7
+gplot(classmateMat, gmode = 'graph', xlab = "Classmates")
+
+
+## communication tie
+communicate <- read.csv(here("../Data/SagemanNoordin/communication.csv"),
+                        sep=',',
+                        row.names=1, 
+                        header=TRUE, 
+                        stringsAsFactors=FALSE, 
+                        check.names=FALSE)
+
+# Turn into a matrix
+communicateMat = as.matrix(communicate)
+rownames(communicateMat) <- rownames(communicate)
+colnames(communicateMat) <- colnames(communicate)
+bnet <- grey(c(0:100)/100)
+net <- graph.adjacency(communicateMat,mode="undirected")
+V(net)$size=igraph::degree(net)/max(igraph::degree(net))*7
+gplot(communicateMat, gmode = 'graph', xlab = "Communication")
+
+
+
+```
+
+### Noordin ERGMs!
+
+```{r noordin ERGMs, eval = F, echo = F}
+# preparing the networks
+noordFriendNet = as.network(FriendNetMat, directed = FALSE)
+noordCommNet = as.network(communicateMat, directed = FALSE)
+
+# some simple ergms
+mod1Noord = noordFriendNet ~ edges + 
+# isolates +
+  gwdegree(decay = log(2), fixed = TRUE) + 
+  gwesp(decay = log(2), fixed = TRUE)
+  
+
+m1n = ergm(mod1Noord, control = control.ergm(init.method = 'CD', MCMC.burnin = 4000, MCMC.interval = 4000, SAN.maxit = 10))
+
+mod2Noord = noordCommNet ~ edges + 
+# isolates +
+  gwdegree(decay = log(2), fixed = TRUE) + 
+  gwesp(decay = log(2), fixed = TRUE)
+  
+
+m2n = ergm(mod2Noord, control = control.ergm(init.method = 'CD', MCMC.burnin = 4000, MCMC.interval = 4000, SAN.maxit = 10))
+
+```
+
+
+### Missing data
+
+```{r missmodelnoord, fig.width = 8, fig.height = 8, eval = F, echo = F}
+# missing model with arbitrary parameter values
+
+# make up some values for alpha and beta
+alpha = -1.88  # an intercept value,
+
+beta = 1 # this beta value corresponds to the weight of the variable when assigning the probability of missingness
+
+# grab degrees
+degCentr = sna::degree(noordFriendNet)
+
+# scale degree for more stable estimation
+scaledDegCentr = degCentr/mean(degCentr)
+
+# finagle the parameters such that the mean is ~0.3
+
+mean(1/(1 + exp(-alpha - (beta * scaledDegCentr))))
+
+# list out the probabilities
+missTieProb = 1/(1 + exp(-alpha - (beta * scaledDegCentr)))
+
+# let's first make a matrix of missing data indicators with the probabilities we have
+# the rbinom function's just a convenient way of doing this, also each actor technically has an implicit ~Bi(n, miss tie prob) amount of missing ties
+missDatIndicator = t(replicate(nrow(noordFriendNet), rbinom(length(missTieProb), size = 1, prob = missTieProb)))
+
+# check how many were indicated to be missing
+sum(missDatIndicator)
+
+# make some adjustments because undirected network
+missDatIndicator[upper.tri(missDatIndicator)] = t(missDatIndicator)[upper.tri(missDatIndicator)]
+diag(missDatIndicator) = 0
+isSymmetric(missDatIndicator)
+
+# make a table to compare,
+compareTab = data.frame(missTieProb = round(missTieProb, digits = 2), IndicatorProbabilities = colMeans(missDatIndicator))
+compareTab$difference = compareTab[,1] - compareTab[,2]
+
+# just checking the mean absolute difference 
+mean(abs(compareTab$difference))
+
+
+# check total amount of missing ties after the adjmat adjustments, should be ~80 (20^2 * 0.2), maybe a bit less because of the adjmat adjustments
+sum(missDatIndicator)
+
+# and we deplete
+degradedNetMNAR = noordFriendNet
+degradedNetMNAR[missDatIndicator==1] = NA
+
+# plot side by side
+par(mfrow = c(1,2))
+coord = gplot(noordFriendNet, xlab = "Noordin Top net", gmode = "graph")
+gplot(degradedNetMNAR, xlab = "MNAR degraded net", gmode = "graph", coord = coord)
+
+# it's quite hard to see, but if we see the average degree centrality and their histograms,
+hist(sna::degree(noordFriendNet), main = paste("Mean = ",round(mean(sna::degree(noordFriendNet)), 2), " SD = ", round(sd(sna::degree(noordFriendNet)), 2), sep = ""))
+hist(sna::degree(degradedNetMNAR), main = paste("Mean = ",round(mean(sna::degree(degradedNetMNAR)), 2), " SD = ", round(sd(sna::degree(degradedNetMNAR)), 2), sep = ""))
+```
+
+### Noordin ERGMs with missing data
+
+
+
+
+## GOFs?
+
+
+
+```{r gofs}
+# loading model objects
+load(here("Scripts", "Spartan", "20220531_sagemanPeterSummary.RData"))
+load(here("Scripts", "Spartan", "20220531_sagemanToddSummary.RData"))
+load(here("Scripts", "Spartan", "20220531_sagemanFullSummary.RData"))
+
+
+## simulate networks from a given model.
+# needs the ergm object or the formula.
+
+
+
+# ## peter simulations, minus nodemix
+# peterModel =  sagemanNetDegraded ~ edges + isolates +
+#   gwesp(decay=log(2), fixed=TRUE)+
+#   gwdegree(decay=log(2), fixed=TRUE)+# density
+#   nodecov( 'place.joined') + #
+#   nodematch( 'place.joined')+ #
+#   nodematch( 'country.joined')+ #
+#   nodecov('educ') + #
+#   absdiff('educ', pow = 2) +#
+#   nodecov('age') + #
+#   absdiff('age', pow = 2) +#
+#   nodecov('year.joined') + #
+#   absdiff('year.joined', pow = 2) +#
+#   nodecov('ses') + #
+#   absdiff('ses', pow = 2) +#
+#   nodematch( 'plbirth')
+
+peterSim = simulate(object = mod3ergm, nsim = 50,
+                    control=control.simulate.ergm(MCMC.burnin=1024,MCMC.interval=1024),
+                    output='stats')
+
+
+# ## todd simulations, minus nodemix
+# toddModel = sagemanNetDegraded0 ~ edges + isolates +
+#   gwesp(decay=log(2), fixed=TRUE)+
+#   gwdegree(decay=log(2), fixed=TRUE)+# density
+#   nodecov( 'place.joined') + #
+#   nodematch( 'place.joined')+ #
+#   nodematch( 'country.joined')+ #
+#   nodecov('educ') + #
+#   absdiff('educ', pow = 2) +#
+#   nodecov('age') + #
+#   absdiff('age', pow = 2) +#
+#   nodecov('year.joined') + #
+#   absdiff('year.joined', pow = 2) +#
+#   nodecov('ses') + #
+#   absdiff('ses', pow = 2) +#
+#   nodematch( 'plbirth')
+
+toddSim = simulate(object = mod2ergm, nsim = 50,
+                    control=control.simulate.ergm(MCMC.burnin=1024,MCMC.interval=1024),
+                    output='stats')
+
+# compare degrees somehow?
+gwdegPeter = peterSim[,"gwdeg.fixed.0.693147180559945"]
+gwdegTodd = toddSim[,"gwdeg.fixed.0.693147180559945"]
+
+# edges?
+edgeCountTodd = toddSim[,"edges"]
+edgeCountPeter = peterSim[,"edges"]
+
+# ggplot
+library(ggplot2)
+
+# data to plot
+gwdegPlotDat = data.frame(gwdeg = c(gwdegPeter, gwdegTodd), model = c(rep("Peter", 50), rep("Todd", 50)))
+
+ggplot(data = gwdegPlotDat, aes(x = gwdeg, fill = model)) +
+    geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity', binwidth = 1) +
+    labs(fill="")
+
+# can use a cdf instead to visualise
+cdfTodd = ecdf(gwdegTodd)
+cdfPeter = ecdf(gwdegPeter)
+
+curve(cdfPeter, xlim = c(450, 650), ylab = "CDF", xlab = "gwDeg count")
+curve(cdfTodd, add = TRUE, col = "brown")
+legend(x = 450, y = 1, legend = c("Todd", "Peter"), col = c("brown", "black"), lty = c(1,1))
+
+cdfToddEdges = ecdf(edgeCountTodd)
+cdfPeterEdges = ecdf(edgeCountPeter)
+
+curve(cdfPeterEdges, xlim = c(280, 900), ylab = "CDF", xlab = "Edge count")
+curve(cdfToddEdges, add = TRUE, col = "brown")
+legend(x = 280, y = 1, legend = c("Todd", "Peter"), col = c("brown", "black"), lty = c(1,1))
+
+```
+

@@ -1,0 +1,310 @@
+---
+title: "20220615_Sageman_missing_ERGMs"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading in stuff
+
+```{r load pcakages, eval = T, warning = F, error = F, message = F}
+# load packages
+library('igraph')
+library('sna')
+library('ergm')
+library('network')
+library('here')
+```
+
+
+```{r loading data}
+# Read adjacency matrix
+SagemanAdjacencyMatrix <- read.csv(here("../Data/SagemanNoordin/sagemanAdjacency.csv"), header=FALSE)
+
+# there are a lot of attributes (you may get a list of what they are from me)
+ADJ <- as.matrix(SagemanAdjacencyMatrix)
+SageAttributes <- read.csv(here('../Data/SagemanNoordin/sageAttributes.csv'))
+
+# To just get a list of the names of the vertices:
+SageNames <- read.csv(here('../Data/SagemanNoordin/vertices.csv'),stringsAsFactors=FALSE)
+
+# degree dist
+plot(table(rowSums(ADJ) + colSums(ADJ)), ylab = "Frequency", xlab = "Degree", main = "Degree distribution")
+
+```
+
+
+## Generating missing data
+
+```{r imputing attributes}
+## Before building the ERGM, we need to impute some attribute data.
+
+###### FUNCTION FOR QUICK AND DIRTY IMPUTATION of attributes
+impute.miss <- function(dat.vec, use.range, use.prob=NA){
+  
+  ## impute.miss(dat.vec, use.range, use.prob = NA) takes a data vector and imputes the 
+  ## missing values with the specified range of values. Imputation can be probabilistically
+  ## weighted if required else impued values are uniformly distributed.
+  ##
+  ## Input:
+  ##  - dat.vec: data vector containing missing (NA) values.
+  ##
+  ##  - use.range: range of values to be used for imputation
+  ##   
+  ##  - use.prob: a specified probability distribution for imputed values. Default is set
+  ##              to NA, which is equivalent to a uniform distribution.
+  ##
+  ## Output:
+  ##  - The data vector that has been imputed with the pre-specified values.
+  
+  ### branch for no specified probability distribution for the imputed values
+  if (any(is.na(use.prob))){
+    dat.vec[is.na( dat.vec ) ] <- sample(use.range,size=sum(is.na(dat.vec)),replace=TRUE)
+  }
+  
+  ### branch for a specified probability distribution for the imputed values
+  if (any(!is.na(use.prob))){
+    dat.vec[is.na( dat.vec ) ] <- sample(use.range,size=sum(is.na(dat.vec)),replace=TRUE,prob=use.prob)
+  }
+
+ return(dat.vec)
+}
+
+# as a proxy for 'seniority'
+SageAttributes$Year.joined.the.jihad <- impute.miss(SageAttributes$Year.joined.the.jihad,c(1992:2000))
+
+# now we have the attribute data ready
+
+```
+
+```{r missing dat indicator}
+# starting point for missMatrix D
+missMatrix = matrix(0, nrow = nrow(ADJ), ncol = ncol(ADJ))
+
+## edge covariate for the sum of degrees
+# a cute piece of vectorised code to give each tie variable a weight based on the sender and receiver
+sentTies = matrix(rep(rowSums(ADJ), nrow(ADJ)), nrow = nrow(ADJ), ncol = ncol(ADJ))
+receivedTies = matrix(rep(colSums(ADJ), ncol(ADJ)), nrow = nrow(ADJ), ncol = ncol(ADJ), byrow = T)
+
+# sum them up for an edge covariate weighed by degree
+degreeCov = sentTies + receivedTies
+
+# diag is 0 because adjmat
+diag(degreeCov) = 0
+
+# 
+# # another way to do it (for a check)
+# 
+# # an empty matrix
+# degreeCov2 = missMatrix
+# 
+# # nested loooops
+# for(rowInd in 1:nrow(ADJ)){
+#   for(colInd in 1:ncol(ADJ)){
+#     
+#     degreeCov2[rowInd, colInd] = rowSums(ADJ)[rowInd] + colSums(ADJ)[colInd]
+#     
+#   }
+# }
+# 
+# # a check
+# sum(degreeCov != degreeCov2)
+
+## build-a-ergm time
+# put covariates in a network object
+missNet = as.network(missMatrix, directed = FALSE)
+
+missNet %v% 'year.joined' = (SageAttributes$Year.joined.the.jihad-1996)/6  # centring because scale
+
+
+mod1 = missNet ~ edges +
+  edgecov(degreeCov) + 
+  nodecov('year.joined') + 
+  nodematch('year.joined')
+
+### simulating networks with arbitrary parameters
+# choosing arbitrary parameters
+chosenCoef = c(-5,      # edges
+               0.45,    # edgecov(degreeCov)
+               2,       # nodecov('year.joined')  
+               0.3)     # nodematch{'year.joined'}
+
+# generate simulated networks
+simMissNetStats <- simulate(mod1 ,
+                       coef = chosenCoef,# I think these parameters should yield non-degenerate models
+                       nsim = 500 ,# how many samples to pick up
+                       control=control.simulate.formula(MCMC.burnin=1024,MCMC.interval=1024),#for estimate it is 'control'
+                       output='stats')
+
+# trace plots to see how the prameter values are doing
+par(mfrow = c(2,2))
+plot(ts(simMissNetStats[,"edges"]), ylab = "Edges", xlab = paste("Par value =", chosenCoef[1]))
+plot(ts(simMissNetStats[,"edgecov.degreeCov"]), ylab = "Degree edgecov", xlab = paste("Par value =", chosenCoef[2]))
+plot(ts(simMissNetStats[,"nodecov.year.joined"]), ylab = "Year joined nodecov", xlab = paste("Par value =", chosenCoef[3]))
+plot(ts(simMissNetStats[,"nodematch.year.joined"]), ylab = "Year joined nodematch", xlab = paste("Par value =", chosenCoef[4]))
+
+
+# # give it a shot
+# simMissNet <- simulate(mod1 ,
+#                        coef = chosenCoef,# I think these parameters should yield non-degenerate models
+#                        nsim = 200 ,# how many samples to pick up
+#                        control=control.simulate.formula(MCMC.burnin=1024,MCMC.interval=1024))
+# 
+# # arbitrarily pick some of the networks with ~33% density (which is ~22k edges)
+# 
+# testMissNets = list()
+# 
+# # grab 10 simulated nets
+# for(i in 1:10){
+#   testMissNets[[i]] = simMissNet[[i + 141]]
+# }
+# 
+# # temporarily make a save so I don't have to re-simulate
+# save(testMissNets, file = here("Output", "20220616_SagemanERGMs_testMissNets.RData"))
+
+# just for kicks, try estimating the same ergm to see if the parameter values match
+# eeeeehh... estimates are off, but around the same ballpark.
+
+```
+
+**What exactly is the code in this section doing?**
+
+The idea here is to conveniently use the fact that the missing data indicator matrix $\mathbf{D}$ takes the same form as the adjacency matrix $\mathbf{X}$. So what we can try to do is to use an ERGM with an 'arbitrary' set of parameters following some pre-specified model to simulate a manifestation of some missing data model (of which the ERGM is mimicking).
+
+Generally speaking,
+
+$$ \mathbf{D} \sim ERGM(\theta).$$
+
+And in this particular case, 
+
+$$\Pr(\mathbf{D}_{ij} = d_{ij} | \mathbf{W} = w) = \frac{1}{\kappa(\theta)} \exp{\theta^{T}z(d) + \theta_{a}^{T}z_{a}(d,w)},$$
+
+where $\mathbf{W}$ represents a matrix of actor attributes, $\theta$ represent the model parameters for dyadically-independent model terms $z(d)$. $\theta_a$ and $z_a(d,w)$ represent the model parameters and model terms respectively for network structures involving actor attributes (e.g., node covariates account for values in $\mathbf{W}$).
+
+For the current case, the covariates used in the ERGM are 
+
+(a) edgecov(degreeCov), which is an edge covariate that weighs each tie variable for the sender and receiver's degree,
+
+$$\mathbf{M}_{ij} = \mathbf{X}_{i+} + \mathbf{X}_{+j},$$
+
+where $\mathbf{M}$ refers to the edge covariate matrix.
+
+(b) A node covariate for the year the node joined the network (i.e., as a proxy for 'seniority'),
+
+$$\sum_j d_{ij} {year}_i,$$
+
+(c) A nodematch covariate to weigh the probability of a tie depending nodes matching on the year they joined the network.
+
+$$\sum_{i<j} d_{ij}{year}_i{year}_j.$$
+
+I (arbitrarily) set the parameter values to be positive to indicate how the three covariates have a positive relationship with a tie being formed. The absolute values are somewhat inconsequential for the moment other than for network density reasons.
+
+
+
+## Re-estimation?
+
+```{r reest}
+# loading the previously saved models for D
+load(file = here("Output", "20220616_SagemanERGMs_testMissNets.RData"))
+
+# do for all 10
+missModRes = list()
+
+for(netInd in 1:10){
+  
+  # grab the network
+  simMissNet = testMissNets[[netInd]]
+
+  # put attributes on it
+  simMissNet %v% 'year.joined' = (SageAttributes$Year.joined.the.jihad-1996)/6  # centring because scale
+
+  # model
+  missMod = simMissNet ~ edges +
+    edgecov(degreeCov) + 
+    nodecov('year.joined') + 
+    nodematch('year.joined')
+
+  # ergm
+  missModRes[[netInd]] = ergm(missMod)
+
+
+}
+
+```
+
+
+
+## Degrading networks
+
+```{r degrade nets}
+# ### loading the list of missing networks
+# load(file = here("Output", "20220616_SagemanERGMs_testMissNets.RData"))
+
+
+## Todd
+toddNets = list()
+
+for( i in 1:10 ){
+  toddNets[[i]] = ADJ
+  toddNets[[i]][as.matrix(testMissNets[[i]]) == 1] = 0
+}
+
+
+## Peter
+peterNets = list()
+
+for( i in 1:10 ){
+  peterNets[[i]] = ADJ
+  peterNets[[i]][as.matrix(testMissNets[[i]]) == 1] = NA
+}
+
+# compare a todd and full
+par(mfrow = c(1,2))
+coord = gplot(ADJ, gmode = "graph", xlab = "Sageman full network", )
+gplot(toddNets[[1]], gmode = "graph", xlab = "Sageman degraded network", coord = coord)
+
+## turn them into network objects and add sageman attributes
+# keep these attributes constant so I'll just use the one from Johan's script
+load(here("Data", "SagemanImputedData.RData"))
+
+toddNets = lapply(toddNets, FUN = as.network, directed = FALSE)
+
+peterNets = lapply(peterNets, FUN = as.network, directed = FALSE)
+
+## too lazy to think of a smarter way of doing this so,
+
+for( i in 1:10 ){
+  # put attributes in todd networks
+  toddNets[[i]] %v% 'age' = alqnet %v% 'age'
+  toddNets[[i]] %v% 'age.join' = alqnet %v% 'age.join'
+  toddNets[[i]] %v% 'clump' = alqnet %v% 'clump'
+  toddNets[[i]] %v% 'country.joined' = alqnet %v% 'country.joined'
+  toddNets[[i]] %v% 'educ' = alqnet %v% 'educ'
+  toddNets[[i]] %v% 'place.joined' = alqnet %v% 'place.joined'
+  toddNets[[i]] %v% 'plbirth' = alqnet %v% 'plbirth'
+  toddNets[[i]] %v% 'school' = alqnet %v% 'school'
+  toddNets[[i]] %v% 'ses' = alqnet %v% 'ses'
+  toddNets[[i]] %v% 'vertex.names' = alqnet %v% 'vertex.names'
+  toddNets[[i]] %v% 'year.joined' = alqnet %v% 'year.joined' 
+  peterNets[[i]] %v% 'age' = alqnet %v% 'age'
+  peterNets[[i]] %v% 'age.join' = alqnet %v% 'age.join'
+  peterNets[[i]] %v% 'clump' = alqnet %v% 'clump'
+  peterNets[[i]] %v% 'country.joined' = alqnet %v% 'country.joined'
+  peterNets[[i]] %v% 'educ' = alqnet %v% 'educ'
+  peterNets[[i]] %v% 'place.joined' = alqnet %v% 'place.joined'
+  peterNets[[i]] %v% 'plbirth' = alqnet %v% 'plbirth'
+  peterNets[[i]] %v% 'school' = alqnet %v% 'school'
+  peterNets[[i]] %v% 'ses' = alqnet %v% 'ses'
+  peterNets[[i]] %v% 'vertex.names' = alqnet %v% 'vertex.names'
+  peterNets[[i]] %v% 'year.joined' = alqnet %v% 'year.joined'
+}
+
+# save these networks to be used for an estimation later
+save(toddNets, peterNets, file = here("Output", "20220616_sagemanERGMs_todd_peter_nets.RData"))
+
+
+```
+

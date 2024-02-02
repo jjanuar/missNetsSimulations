@@ -1,0 +1,1974 @@
+---
+title: "20231023_metricSims"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 4
+    toc_float:
+      collapsed: false
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Needs a fair bit of re-working.
+
+## Metric evaluation
+
+These plots are meant to be follow-up plots to anything interesting from the caterpillars above. For example, if we see that a specific model of missingness leads to an odd-looking effect on the caterpillar plots (i.e., affect the re-estimations in a systematic way), then we can look into its specific metric changes when we change the missingness model.
+
+This missingness model will be changed in terms of both which parameters are in it and what the parameter values are (e.g., higher or lower gwesp/altstar values). These don't need to be re-estimations of anything really, these would just be different ways of degrading the 'full' network given a specific missingness proportion. From then on, we can then suggest that specific parameter values and specific parameters lead to some effects.
+
+Some of the metrics we can look at include clustering and centralisation and some of the mean value parameterisations obtained from not estimating each parameter (obtainable through summary(model)).
+
+These metrics will not require re-estimations, but should be guided BY the re-estimations because there are a lot of metrics and possible parameter values and specifications.
+
+What will actually be done here is given a depleted network, as guided by the caterpillar plots above, we can first calculate the various metrics the depleted networks have, a 'benchmark' from the 'true' network, and simulations given the depleted network... right?
+
+```{r metric and mvp functions}
+
+# function to calculate metrics
+netMetrics = function(net, directed = FALSE){
+  
+  ## netMetrics(net, directed) calculates some metrics for a given network. Needs the 'sna' package
+  ## and the 'network' package to work.
+  ##
+  ## Input:
+  ## - net: Ideally a network object for the network whose metrics will be calculated. Technically
+  ##        can be an adjacency matrix since it will be converted to a network object.
+  ##
+  ## - directed: A logical value to indicate whether the network is directed or not.
+  ##                  
+  ## Output: 
+  ## - The output is a list of different network metrics. These include the clustering coefficient,
+  ##   the global centralisation (degree variance) value, the median geodesic distance, and median
+  ##   betweenness centrality. More metrics can be added on as necessary.
+  
+  # needs two packages
+  require(network)
+  require(sna)
+  
+  # specify if undirected or not
+  mode = 'graph'
+
+  # if instead directed network are the input, turn it directed
+  if(directed == TRUE){
+    mode = 'digraph'
+  } 
+  
+  # if input is an adjacency matrix, turn it into a network object
+  if(inherits(net, "matrix")){
+    net = as.network(net, directed = directed) 
+    print("Matrix coerced to network object")
+    
+  }
+  
+  # make sure there's no missingness in it
+  if(network.naedgecount(net) != 0){
+    
+    tempMat = as.matrix(net)
+    tempMat[is.na(tempMat)] = 0
+    net = as.network(tempMat, directed = directed)
+    print("Missing values in the network converted to 0s")
+    
+  }
+  
+
+  
+  # getting a distribution of clustering coefficients for the 80 simulated graphs
+  tempClust <- gtrans(net, mode = mode)
+  tempCent <- centralization(net, degree, mode = mode)
+  tempGeodistMedian <- median(geodist(net, inf.replace = NA)$gdist, na.rm = T)
+  tempBetwMedian <- median(betweenness(net, gmode = mode))
+  
+  ## specify the chosen metric
+  metricList = list("clustering" = tempClust,
+                    "centralisation" = tempCent,
+                    "MedianGeodesic" = tempGeodistMedian,
+                    "MedianBetween" = tempBetwMedian)
+  
+  # return the list of metrics
+  return(metricList)
+  
+}
+
+
+## get mean value parameterisations
+# function to check mean value parameterisations
+meanValPar = function(net, model){
+  
+  ## net is the outcome network, usually the degraded adjacency matrix
+  ## model is a STRING for the specified model
+  
+  # paste together the input network object and the specified model
+  eval(parse(text = paste("chosenModel = net", "~", model )))
+  
+  # check mean value par
+  summary(chosenModel)
+}
+
+# this list can then be used to plot stuff
+geneSimNets = function(net, modelSpec, initParas, chosenPara, paraRange, trueAdj){
+  
+  # takes a network, like a depleted network without missingness (i.e., saved as 0)
+  # use different models to simulate networks with the same amount of edges
+    # i.e., simulating the effects of various parameter values (and model specification)
+    # on a depleted network with constrained edges/density
+  # ideally accommodates a range of different model specifications and parameter values
+  # the parameters are varied one at a time to view its effect holding constant on other parameters....
+  # so the function will look like
+  # simNet(toddNet, modelSpec, initParas, chosenPara, paraRange, trueAdj)
+  # output = list of simulated networks, 
+  # mean value parameterisations can be applied in a separate chunk of code for the list
+  # of simulated networks since it'd be conditional to the model specified for the simulated networks.
+
+  ### NO:
+  # take a simulated missingness matrix with a fixed proportion
+  # specify some model, with varying specification or parameter values,
+  # then simulate some other possible missingness matrices
+  # while constraining the edges (fixed prportion of missingness)
+  # use the simulated missingness matrices to deplete true adjmat X
+  # then calculate metrics and mean value parameterisations on the depleted network
+
+  ## checks
+  # make sure it's a network object
+  if(inherits(net, "matrix")){
+    net = as.network(net)
+  }
+
+  # make sure there's no missingness in it
+  if(network.naedgecount(testNet) != 0){
+    stop("Network has missing values in it.")
+  }
+
+  # degree covariate calculation, should I retroactively update the reestimation code to attach the degree covariate...
+  # might be better to specify the true network here...
+  net %v% 'degree' = rowSums(trueAdj)
+
+  # initialising the simulation
+  netStart = net
+  simNetList = list()
+  
+  # loop to simulate different gwdeg values
+  for (paraIndex in c(1:length(paraRange)) ){
+    
+   # a conditional after the first loop for making the starting network iterate between gwdeg parameters
+    if ( paraIndex > 1 ){
+    netStart <- tempSimNets[[1]]
+       netStart %v% 'degree' = rowSums(trueAdj)
+    }
+    
+    # choose coefs
+    chosenCoefs = initParas
+    chosenCoefs[chosenPara] = paraRange[paraIndex]
+      
+    # simulating 80 networks given the specified model and their parameter values
+    tempSimNets <- simulate(object = modelSpec,
+                            constraints =~edges,
+                            coef= chosenCoefs,
+                            control=control.simulate(
+                              MCMC.burnin=20000,
+                              MCMC.interval=100), nsim=80 )
+    
+    # save the simulated networks
+    simNetList[[paraIndex]] = tempSimNets
+    
+  }
+  # return the simulated 'networks' (these are simulated missingness matrices saved as networks)
+  return(simNetList)
+  
+}
+  
+# mean value parameterisation extraction... does this need to be a function?
+# could just be a line of code... probably...
+
+```
+
+
+### Todd MVPs and metrics
+
+```{r todd mvp bash}
+# reading some packages
+library(sna)
+library(ergm)
+library(network)
+library(here)
+library(dplyr)
+library(ggplot2)
+
+# load the adjacency matrices for the respective datasets used
+load(here("Data", "20231006_missNetsEnMasse.RData"))
+
+# loading in the functions for missingness stuff
+source(here("Scripts", "20230811_missNetFunctions.R"))
+
+# TODO: choose a missingness proportion (1, 3.5 or 6)
+chunkMissProp = 1
+
+# now looping with a specific vector of applicable networks
+# TODO: specify the UCINet networks for the chunk, these are networks with enough re-estimations
+chunkNetworks = c(1, 2, 4, 5, 6)
+
+# read files 
+# these are indep/mar/latent
+load(here("Output", "20230814_simMissNets", paste("20231024_chosenMissNets_prop", chunkMissProp,".RData", sep = "")))
+
+# with the list of missingness matrices, apply them to the true adjmat to deplete
+# usingt he degrade adj function as a small shortcut
+# a doozy of code line, but mostly due to the nested-list structure
+# saving as Todd because we're calculating metrics
+
+# for the whole compiled list of missingness matrices,
+# go though all of the missingness models
+# choose only the specified network,
+# and for all the missingness matrices in them, degrade the specified true network (which is saved as a matrix)
+
+
+# the master todd plot data
+toddMvpPlotData = data.frame(paraVal = c(), paraName = c(), missMod = c(), net = c())
+  
+# loop start
+for(chunkInd in 1:length(chunkNetworks)){
+  
+  # choose some network
+  chosenNetInd = chunkNetworks[chunkInd]
+  trueAdj = adjMatList[[chosenNetInd]]
+  
+  # degrade the adjlist with the simulated missingness matrices
+  degradedAdjList = lapply(compiledMissNets, function(chosenMissMod){
+    lapply(chosenMissMod[[chosenNetInd]], function(chosenMissAdj){
+      degradeAdj(trueNet = trueAdj, missAdj = chosenMissAdj, missSave = 0)})})
+  
+  # turn all of them into networks
+  degradedNetList = lapply(degradedAdjList, FUN = function(chosenMissMod){
+    lapply(chosenMissMod, FUN = as.network, directed = FALSE)})
+  
+  # # then calculate metrics
+  # degradedNetMetrics = lapply(degradedNetList, FUN = function(chosenMissMod){
+  #   lapply(chosenMissMod, netMetrics)})
+  
+  
+  # specify model
+  chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE)"
+  
+  # specific branch for network 6
+  if( chosenNetInd == 6 ){
+    
+    # specify the model
+    chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) +  nodecov('Age') + 
+      absdiff('Age') + nodecov('Arrests') + absdiff('Arrests') + nodecov('Convictions') + absdiff('Convictions') + nodematch('Prison') + 
+      nodematch('Birthplace')"
+      
+    # add in the covariates to all the network objects
+    
+    for(chosenMissMod in 1:length(degradedNetList)){
+  degradedNetList[[chosenMissMod]] =  lapply(degradedNetList[[chosenMissMod]], FUN = function(chosenNet){
+      set.vertex.attribute(x = chosenNet, attrname = "Age", value = londonGangsAtt$Age)
+      set.vertex.attribute(x = chosenNet, attrname = "Arrests", value = londonGangsAtt$Arrests)
+      set.vertex.attribute(x = chosenNet, attrname = "Birthplace", value = londonGangsAtt$Birthplace)
+      set.vertex.attribute(x = chosenNet, attrname = "Convictions", value = londonGangsAtt$Convictions)
+      set.vertex.attribute(x = chosenNet, attrname = "Prison", value = londonGangsAtt$Prison)
+      
+      })
+    }
+
+  }
+  
+  # and MVPs
+  degradedMvpList = lapply(degradedNetList, FUN = function(chosenMissMod){
+    lapply(chosenMissMod, FUN = meanValPar, model = chosenModel)})
+  
+  
+  
+  # miss models
+  missMods = c("Indep", "marErgm", "Latent", "mnarErgm")
+  
+  for(chosenMissMod in 1:4){
+    
+    # chosen miss mod string
+    chosenModString = missMods[chosenMissMod]
+    
+    # unlist
+    toddUnlisted = unlist(degradedMvpList[[chosenMissMod]])
+    
+    uniqueParaNames = unique(names(toddUnlisted))
+    
+    # grab all the edges
+    toddEdges = toddUnlisted[names(toddUnlisted) == uniqueParaNames[1]]
+    
+    # altstars
+    toddAltstar = toddUnlisted[names(toddUnlisted) == uniqueParaNames[2]]
+    
+    # gwesps
+    toddGwesp = toddUnlisted[names(toddUnlisted) == uniqueParaNames[3]]
+    
+    
+    # using Todd (multiple miss mods)
+    tempPlot = data.frame(paraVal = c(toddEdges, toddAltstar, toddGwesp), 
+                          paraName = c(rep("edges", length(toddEdges)), rep("Altstar", length(toddAltstar)), rep("gwesp", length(toddGwesp))),
+                          missMod = rep(chosenModString, sum(length(toddEdges), length(toddAltstar), length(toddGwesp))),
+                          net = rep(chosenNetInd, 150))
+  
+    # bind
+    toddMvpPlotData = rbind(toddMvpPlotData, tempPlot)
+  
+  }
+
+}
+
+### Plotting section
+# true Mvp list
+trueMvpList = list()
+
+for(chunkInd in 1:length(chunkNetworks)){
+
+  # choose some network
+  chosenNetInd = chunkNetworks[chunkInd]
+  
+  # find the true MVP for the given network
+    # change the 'true' network depending on the chosen network index
+  trueAdj = adjMatList[[chosenNetInd]]
+  
+  # turn into a network obj
+  trueNet = as.network(trueAdj, directed = FALSE)
+    
+  if(chosenNetInd == 6){
+    # add in the attributes for this network/model spec
+      trueNet %v% 'Age' = londonGangsAtt$Age
+      trueNet %v% 'Arrests' = londonGangsAtt$Arrests
+      trueNet %v% 'Birthplace' = londonGangsAtt$Birthplace
+      trueNet %v% 'Convictions' = londonGangsAtt$Convictions
+      trueNet %v% 'Prison' = londonGangsAtt$Prison
+  }
+  
+  
+  # plot for the 'true' MVP, put in a list for later use
+  chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE)"
+  
+  # since net 6 is different,
+  if(chosenNetInd == 6){
+    chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) +  nodecov('Age') + 
+    absdiff('Age') + nodecov('Arrests') + absdiff('Arrests') + nodecov('Convictions') + absdiff('Convictions') + nodematch('Prison') + 
+    nodematch('Birthplace')"
+  }
+  
+  chunkTrueMvp = meanValPar(net = trueNet, 
+                            model = chosenModel)
+  
+  trueMvpList[[chunkInd]] = chunkTrueMvp
+  
+  # wrangle specific parts of the data
+  toddMvpPlotSubset = toddMvpPlotData %>%
+    filter(paraName == "edges" & net == chosenNetInd)
+
+  print(ggplot(toddMvpPlotSubset, aes(x = paraVal, colour = missMod, fill = missMod)) +
+   # geom_histogram(alpha = 0.4, position = "identity", binwidth = 1) +
+    geom_density(alpha = 0.4) +
+    geom_vline(xintercept = trueMvpList[[chunkInd]][1]) +
+    ylab(paste("Edges")) + 
+    ggtitle(label = paste("Todd MVEs - Net", chosenNetInd, "- Prop", chunkMissProp, sep = "")))
+
+  toddMvpPlotSubset = toddMvpPlotData %>%
+    filter(paraName == "Altstar" & net == chosenNetInd)
+
+  print(ggplot(toddMvpPlotSubset, aes(x = paraVal, colour = missMod, fill = missMod)) +
+   # geom_histogram(alpha = 0.4, position = "identity", binwidth = 1) +
+    geom_density(alpha = 0.4) +
+    geom_vline(xintercept = trueMvpList[[chunkInd]][2]) +
+    ylab(paste("Altstar")) + 
+    ggtitle(label = paste("Todd MVEs - Net", chosenNetInd, "- Prop", chunkMissProp, sep = "")))
+
+  toddMvpPlotSubset = toddMvpPlotData %>%
+    filter(paraName == "gwesp" & net == chosenNetInd)
+
+  print(ggplot(toddMvpPlotSubset, aes(x = paraVal, colour = missMod, fill = missMod)) +
+   # geom_histogram(alpha = 0.4, position = "identity", binwidth = 1) +
+    geom_density(alpha = 0.4) +
+    geom_vline(xintercept = trueMvpList[[chunkInd]][3]) +
+    ylab(paste("Gwesp")) + 
+    ggtitle(label = paste("Todd MVEs - Net", chosenNetInd, "- Prop", chunkMissProp, sep = "")))
+  
+  
+}
+
+```
+
+#### 35%
+
+```{r todd 35}
+# TODO: choose a missingness proportion (1, 3.5 or 6)
+chunkMissProp = 3
+chunkMissPropFloat = 3.5
+
+# now looping with a specific vector of applicable networks
+# TODO: specify the UCINet networks for the chunk, these are networks with enough re-estimations
+chunkNetworks = c(1, 2, 4, 5, 6)
+
+# read files 
+# these are indep/mar/latent
+load(here("Output", "20230814_simMissNets", paste("20231024_chosenMissNets_prop", chunkMissPropFloat,".RData", sep = "")))
+
+# with the list of missingness matrices, apply them to the true adjmat to deplete
+# usingt he degrade adj function as a small shortcut
+# a doozy of code line, but mostly due to the nested-list structure
+# saving as Todd because we're calculating metrics
+
+# for the whole compiled list of missingness matrices,
+# go though all of the missingness models
+# choose only the specified network,
+# and for all the missingness matrices in them, degrade the specified true network (which is saved as a matrix)
+
+
+# the master todd plot data
+toddMvpPlotData = data.frame(paraVal = c(), paraName = c(), missMod = c(), net = c())
+  
+# loop start
+for(chunkInd in 1:length(chunkNetworks)){
+  
+  # choose some network
+  chosenNetInd = chunkNetworks[chunkInd]
+  trueAdj = adjMatList[[chosenNetInd]]
+  
+  # degrade the adjlist with the simulated missingness matrices
+  degradedAdjList = lapply(compiledMissNets, function(chosenMissMod){
+    lapply(chosenMissMod[[chosenNetInd]], function(chosenMissAdj){
+      degradeAdj(trueNet = trueAdj, missAdj = chosenMissAdj, missSave = 0)})})
+  
+  # turn all of them into networks
+  degradedNetList = lapply(degradedAdjList, FUN = function(chosenMissMod){
+    lapply(chosenMissMod, FUN = as.network, directed = FALSE)})
+  
+  # # then calculate metrics
+  # degradedNetMetrics = lapply(degradedNetList, FUN = function(chosenMissMod){
+  #   lapply(chosenMissMod, netMetrics)})
+  
+  
+  # specify model
+  chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE)"
+  
+  # specific branch for network 6
+  if( chosenNetInd == 6 ){
+    
+    # specify the model
+    chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) +  nodecov('Age') + 
+      absdiff('Age') + nodecov('Arrests') + absdiff('Arrests') + nodecov('Convictions') + absdiff('Convictions') + nodematch('Prison') + 
+      nodematch('Birthplace')"
+      
+    # add in the covariates to all the network objects
+    
+    for(chosenMissMod in 1:length(degradedNetList)){
+  degradedNetList[[chosenMissMod]] =  lapply(degradedNetList[[chosenMissMod]], FUN = function(chosenNet){
+      set.vertex.attribute(x = chosenNet, attrname = "Age", value = londonGangsAtt$Age)
+      set.vertex.attribute(x = chosenNet, attrname = "Arrests", value = londonGangsAtt$Arrests)
+      set.vertex.attribute(x = chosenNet, attrname = "Birthplace", value = londonGangsAtt$Birthplace)
+      set.vertex.attribute(x = chosenNet, attrname = "Convictions", value = londonGangsAtt$Convictions)
+      set.vertex.attribute(x = chosenNet, attrname = "Prison", value = londonGangsAtt$Prison)
+      
+      })
+    }
+
+  }
+  
+  # and MVPs
+  degradedMvpList = lapply(degradedNetList, FUN = function(chosenMissMod){
+    lapply(chosenMissMod, FUN = meanValPar, model = chosenModel)})
+  
+  
+  
+  # miss models
+  missMods = c("Indep", "marErgm", "Latent", "mnarErgm")
+  
+  for(chosenMissMod in 1:4){
+    
+    # chosen miss mod string
+    chosenModString = missMods[chosenMissMod]
+    
+    # unlist
+    toddUnlisted = unlist(degradedMvpList[[chosenMissMod]])
+    
+    uniqueParaNames = unique(names(toddUnlisted))
+    
+    # grab all the edges
+    toddEdges = toddUnlisted[names(toddUnlisted) == uniqueParaNames[1]]
+    
+    # altstars
+    toddAltstar = toddUnlisted[names(toddUnlisted) == uniqueParaNames[2]]
+    
+    # gwesps
+    toddGwesp = toddUnlisted[names(toddUnlisted) == uniqueParaNames[3]]
+    
+    
+    # using Todd (multiple miss mods)
+    tempPlot = data.frame(paraVal = c(toddEdges, toddAltstar, toddGwesp), 
+                          paraName = c(rep("edges", length(toddEdges)), rep("Altstar", length(toddAltstar)), rep("gwesp", length(toddGwesp))),
+                          missMod = rep(chosenModString, sum(length(toddEdges), length(toddAltstar), length(toddGwesp))),
+                          net = rep(chosenNetInd, 150))
+  
+    # bind
+    toddMvpPlotData = rbind(toddMvpPlotData, tempPlot)
+  
+  }
+
+}
+
+### Plotting section
+# true Mvp list
+trueMvpList = list()
+
+for(chunkInd in 1:length(chunkNetworks)){
+
+  # choose some network
+  chosenNetInd = chunkNetworks[chunkInd]
+  
+  # find the true MVP for the given network
+    # change the 'true' network depending on the chosen network index
+  trueAdj = adjMatList[[chosenNetInd]]
+  
+  # turn into a network obj
+  trueNet = as.network(trueAdj, directed = FALSE)
+    
+  if(chosenNetInd == 6){
+    # add in the attributes for this network/model spec
+      trueNet %v% 'Age' = londonGangsAtt$Age
+      trueNet %v% 'Arrests' = londonGangsAtt$Arrests
+      trueNet %v% 'Birthplace' = londonGangsAtt$Birthplace
+      trueNet %v% 'Convictions' = londonGangsAtt$Convictions
+      trueNet %v% 'Prison' = londonGangsAtt$Prison
+  }
+  
+  
+  # plot for the 'true' MVP, put in a list for later use
+  chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE)"
+  
+  # since net 6 is different,
+  if(chosenNetInd == 6){
+    chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) +  nodecov('Age') + 
+    absdiff('Age') + nodecov('Arrests') + absdiff('Arrests') + nodecov('Convictions') + absdiff('Convictions') + nodematch('Prison') + 
+    nodematch('Birthplace')"
+  }
+  
+  chunkTrueMvp = meanValPar(net = trueNet, 
+                            model = chosenModel)
+  
+  trueMvpList[[chunkInd]] = chunkTrueMvp
+  
+  # wrangle specific parts of the data
+  toddMvpPlotSubset = toddMvpPlotData %>%
+    filter(paraName == "edges" & net == chosenNetInd)
+
+  print(ggplot(toddMvpPlotSubset, aes(x = paraVal, colour = missMod, fill = missMod)) +
+   # geom_histogram(alpha = 0.4, position = "identity", binwidth = 1) +
+    geom_density(alpha = 0.4) +
+    geom_vline(xintercept = trueMvpList[[chunkInd]][1]) +
+    ylab(paste("Edges")) + 
+    ggtitle(label = paste("Todd MVEs - Net", chosenNetInd, "- Prop", chunkMissPropFloat, sep = "")))
+
+  toddMvpPlotSubset = toddMvpPlotData %>%
+    filter(paraName == "Altstar" & net == chosenNetInd)
+
+  print(ggplot(toddMvpPlotSubset, aes(x = paraVal, colour = missMod, fill = missMod)) +
+   # geom_histogram(alpha = 0.4, position = "identity", binwidth = 1) +
+    geom_density(alpha = 0.4) +
+    geom_vline(xintercept = trueMvpList[[chunkInd]][2]) +
+    ylab(paste("Altstar")) + 
+    ggtitle(label = paste("Todd MVEs - Net", chosenNetInd, "- Prop", chunkMissPropFloat, sep = "")))
+
+  toddMvpPlotSubset = toddMvpPlotData %>%
+    filter(paraName == "gwesp" & net == chosenNetInd)
+
+  print(ggplot(toddMvpPlotSubset, aes(x = paraVal, colour = missMod, fill = missMod)) +
+   # geom_histogram(alpha = 0.4, position = "identity", binwidth = 1) +
+    geom_density(alpha = 0.4) +
+    geom_vline(xintercept = trueMvpList[[chunkInd]][3]) +
+    ylab(paste("Gwesp")) + 
+    ggtitle(label = paste("Todd MVEs - Net", chosenNetInd, "- Prop", chunkMissPropFloat, sep = "")))
+  
+  
+}
+```
+
+
+#### 60%
+
+```{r todd 60}
+# TODO: choose a missingness proportion (1, 3.5 or 6)
+chunkMissProp = 6
+
+# now looping with a specific vector of applicable networks
+# TODO: specify the UCINet networks for the chunk, these are networks with enough re-estimations
+chunkNetworks = c(1, 2, 4, 5, 6)
+
+# read files 
+# these are indep/mar/latent
+load(here("Output", "20230814_simMissNets", paste("20231024_chosenMissNets_prop", chunkMissProp,".RData", sep = "")))
+
+# with the list of missingness matrices, apply them to the true adjmat to deplete
+# usingt he degrade adj function as a small shortcut
+# a doozy of code line, but mostly due to the nested-list structure
+# saving as Todd because we're calculating metrics
+
+# for the whole compiled list of missingness matrices,
+# go though all of the missingness models
+# choose only the specified network,
+# and for all the missingness matrices in them, degrade the specified true network (which is saved as a matrix)
+
+
+# the master todd plot data
+toddMvpPlotData = data.frame(paraVal = c(), paraName = c(), missMod = c(), net = c())
+  
+# loop start
+for(chunkInd in 1:length(chunkNetworks)){
+  
+  # choose some network
+  chosenNetInd = chunkNetworks[chunkInd]
+  trueAdj = adjMatList[[chosenNetInd]]
+  
+  # degrade the adjlist with the simulated missingness matrices
+  degradedAdjList = lapply(compiledMissNets, function(chosenMissMod){
+    lapply(chosenMissMod[[chosenNetInd]], function(chosenMissAdj){
+      degradeAdj(trueNet = trueAdj, missAdj = chosenMissAdj, missSave = 0)})})
+  
+  # turn all of them into networks
+  degradedNetList = lapply(degradedAdjList, FUN = function(chosenMissMod){
+    lapply(chosenMissMod, FUN = as.network, directed = FALSE)})
+  
+  # # then calculate metrics
+  # degradedNetMetrics = lapply(degradedNetList, FUN = function(chosenMissMod){
+  #   lapply(chosenMissMod, netMetrics)})
+  
+  
+  # specify model
+  chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE)"
+  
+  # specific branch for network 6
+  if( chosenNetInd == 6 ){
+    
+    # specify the model
+    chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) +  nodecov('Age') + 
+      absdiff('Age') + nodecov('Arrests') + absdiff('Arrests') + nodecov('Convictions') + absdiff('Convictions') + nodematch('Prison') + 
+      nodematch('Birthplace')"
+      
+    # add in the covariates to all the network objects
+    
+    for(chosenMissMod in 1:length(degradedNetList)){
+  degradedNetList[[chosenMissMod]] =  lapply(degradedNetList[[chosenMissMod]], FUN = function(chosenNet){
+      set.vertex.attribute(x = chosenNet, attrname = "Age", value = londonGangsAtt$Age)
+      set.vertex.attribute(x = chosenNet, attrname = "Arrests", value = londonGangsAtt$Arrests)
+      set.vertex.attribute(x = chosenNet, attrname = "Birthplace", value = londonGangsAtt$Birthplace)
+      set.vertex.attribute(x = chosenNet, attrname = "Convictions", value = londonGangsAtt$Convictions)
+      set.vertex.attribute(x = chosenNet, attrname = "Prison", value = londonGangsAtt$Prison)
+      
+      })
+    }
+
+  }
+  
+  # and MVPs
+  degradedMvpList = lapply(degradedNetList, FUN = function(chosenMissMod){
+    lapply(chosenMissMod, FUN = meanValPar, model = chosenModel)})
+  
+  
+  
+  # miss models
+  missMods = c("Indep", "marErgm", "Latent", "mnarErgm")
+  
+  for(chosenMissMod in 1:4){
+    
+    # chosen miss mod string
+    chosenModString = missMods[chosenMissMod]
+    
+    # unlist
+    toddUnlisted = unlist(degradedMvpList[[chosenMissMod]])
+    
+    uniqueParaNames = unique(names(toddUnlisted))
+    
+    # grab all the edges
+    toddEdges = toddUnlisted[names(toddUnlisted) == uniqueParaNames[1]]
+    
+    # altstars
+    toddAltstar = toddUnlisted[names(toddUnlisted) == uniqueParaNames[2]]
+    
+    # gwesps
+    toddGwesp = toddUnlisted[names(toddUnlisted) == uniqueParaNames[3]]
+    
+    
+    # using Todd (multiple miss mods)
+    tempPlot = data.frame(paraVal = c(toddEdges, toddAltstar, toddGwesp), 
+                          paraName = c(rep("edges", length(toddEdges)), rep("Altstar", length(toddAltstar)), rep("gwesp", length(toddGwesp))),
+                          missMod = rep(chosenModString, sum(length(toddEdges), length(toddAltstar), length(toddGwesp))),
+                          net = rep(chosenNetInd, 150))
+  
+    # bind
+    toddMvpPlotData = rbind(toddMvpPlotData, tempPlot)
+  
+  }
+
+}
+
+### Plotting section
+# true Mvp list
+trueMvpList = list()
+
+for(chunkInd in 1:length(chunkNetworks)){
+
+  # choose some network
+  chosenNetInd = chunkNetworks[chunkInd]
+  
+  # find the true MVP for the given network
+    # change the 'true' network depending on the chosen network index
+  trueAdj = adjMatList[[chosenNetInd]]
+  
+  # turn into a network obj
+  trueNet = as.network(trueAdj, directed = FALSE)
+    
+  if(chosenNetInd == 6){
+    # add in the attributes for this network/model spec
+      trueNet %v% 'Age' = londonGangsAtt$Age
+      trueNet %v% 'Arrests' = londonGangsAtt$Arrests
+      trueNet %v% 'Birthplace' = londonGangsAtt$Birthplace
+      trueNet %v% 'Convictions' = londonGangsAtt$Convictions
+      trueNet %v% 'Prison' = londonGangsAtt$Prison
+  }
+  
+  
+  # plot for the 'true' MVP, put in a list for later use
+  chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE)"
+  
+  # since net 6 is different,
+  if(chosenNetInd == 6){
+    chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) +  nodecov('Age') + 
+    absdiff('Age') + nodecov('Arrests') + absdiff('Arrests') + nodecov('Convictions') + absdiff('Convictions') + nodematch('Prison') + 
+    nodematch('Birthplace')"
+  }
+  
+  chunkTrueMvp = meanValPar(net = trueNet, 
+                            model = chosenModel)
+  
+  trueMvpList[[chunkInd]] = chunkTrueMvp
+  
+  # wrangle specific parts of the data
+  toddMvpPlotSubset = toddMvpPlotData %>%
+    filter(paraName == "edges" & net == chosenNetInd)
+
+  print(ggplot(toddMvpPlotSubset, aes(x = paraVal, colour = missMod, fill = missMod)) +
+   # geom_histogram(alpha = 0.4, position = "identity", binwidth = 1) +
+    geom_density(alpha = 0.4) +
+    geom_vline(xintercept = trueMvpList[[chunkInd]][1]) +
+    ylab(paste("Edges")) + 
+    ggtitle(label = paste("Todd MVEs - Net", chosenNetInd, "- Prop", chunkMissProp, sep = "")))
+
+  toddMvpPlotSubset = toddMvpPlotData %>%
+    filter(paraName == "Altstar" & net == chosenNetInd)
+
+  print(ggplot(toddMvpPlotSubset, aes(x = paraVal, colour = missMod, fill = missMod)) +
+   # geom_histogram(alpha = 0.4, position = "identity", binwidth = 1) +
+    geom_density(alpha = 0.4) +
+    geom_vline(xintercept = trueMvpList[[chunkInd]][2]) +
+    ylab(paste("Altstar")) + 
+    ggtitle(label = paste("Todd MVEs - Net", chosenNetInd, "- Prop", chunkMissProp, sep = "")))
+
+  toddMvpPlotSubset = toddMvpPlotData %>%
+    filter(paraName == "gwesp" & net == chosenNetInd)
+
+  print(ggplot(toddMvpPlotSubset, aes(x = paraVal, colour = missMod, fill = missMod)) +
+   # geom_histogram(alpha = 0.4, position = "identity", binwidth = 1) +
+    geom_density(alpha = 0.4) +
+    geom_vline(xintercept = trueMvpList[[chunkInd]][3]) +
+    ylab(paste("Gwesp")) + 
+    ggtitle(label = paste("Todd MVEs - Net", chosenNetInd, "- Prop", chunkMissProp, sep = "")))
+  
+  
+}
+```
+
+
+### Peter MVPs
+
+#### 10%
+
+```{r peter mvp bash}
+
+# the peter output list
+outputList = list.files(here("Output", "20230825_simMissReest", "Peter"))
+
+# TODO: choose a missingness proportion (1, 3.5 or 6)
+chunkMissProp = 1
+
+# load the right set of missingness matrices
+load(here("Output", "20230814_simMissNets", paste("20231024_chosenMissNets_prop", chunkMissProp,".RData", sep = "")))
+
+# now looping with a specific vector of applicable networks
+# TODO: specify the UCINet networks for the chunk, these are networks with enough re-estimations
+chunkNetworks = c(2, 4, 5, 6)
+
+# TODO: vector of file names for regex
+chunkRdataNames = c("20230814_missNetReest_net",
+                    "20230814_missNetReest_net",
+                    "20230814_missNetReest_net",
+                    "20231010_missNetReest_net")
+
+chunkMnarNames = c("20231011_missErgmNetReest_Miss",
+                   "20231011_missErgmNetReest_Miss",
+                   "20231011_missErgmNetReest_Miss",
+                   "20231011_missErgmNetReest_Miss")
+
+# peter mvp list and the list for missingness model identifiers
+peterMvpList = list()
+peterMvpMissModList = list()
+
+# loop for all chosen networks
+for(chunkInd in 1:length(chunkNetworks)){
+  
+  # make sure the re-estimation lists are empty in the beginning
+  modelResList = list()
+  missModelList = list()
+  propMissList = list()
+  trialIndList = list()
+  
+  # set a specific index for the network
+  chosenNetInd = chunkNetworks[chunkInd]
+  
+  # change the 'true' network depending on the chosen network index
+  trueAdj = adjMatList[[chosenNetInd]]
+  
+  # file list for the chosen network index
+  chosenNetOutFiles = grep(paste(chunkRdataNames[chunkInd], chosenNetInd, sep =""), outputList)
+  
+  ## regex the MNAR files 
+  chosenMnarOutFiles = grep(paste(chunkMnarNames[chunkInd], "Peter", "_net", chosenNetInd, sep = ""), outputList)
+  
+  # combine the two indices
+  combinedNetOutList = c(chosenNetOutFiles, chosenMnarOutFiles)
+  
+  # check to make sure there aren't any duplicates
+  if( length(unique(combinedNetOutList)) != length(combinedNetOutList)){
+    stop("Duplicate re-estimation datafiles! BAD.")
+  }
+  
+  # loop to load
+  chosenNetOutList = outputList[combinedNetOutList]
+  
+  for(fileInd in 1:length(chosenNetOutList)){
+    
+    # load all files
+    load(here("Output", "20230825_simMissReest", "Peter", chosenNetOutList[fileInd]))
+    
+    # suppress these version difference warnings. 
+    suppressWarnings({
+    modelResList[[fileInd]] = modelres$coefficients
+    })
+    
+    # slight difference for the chosenMnarOutFiles because missModelList[[fileInd]] = always 4 (let 2 be mar ergm, 4 be mnar ergm)
+    
+    # this branch *should* be setting the miss model to 4 if they were regexed to be a part of the mnar list.
+    if(combinedNetOutList[fileInd] %in% chosenMnarOutFiles){
+     missModelList[[fileInd]] = 4
+    } else {
+     missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+    }
+      
+    # propmiss should be the same
+    propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  
+    
+    # trial ind
+    trialIndList[[fileInd]] = as.integer(sub(".*?_trial.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+
+  }
+
+#####
+
+  # miss model labels
+  missModelLabels = c("Indep", "marErgm", "Latent", "mnarErgm")
+  
+  # peterSims needs to be a list
+  peterSimList = list()
+  
+  # a diagnostic check for the miss models chosen
+  peterSimMissModList = list()
+  
+  # an absolute trial index because these lists are not going to have similar lengths.
+  trial = 1
+  
+  # describe the chosen missingness matrix as a series of specific indices, net is specified above
+  for(chosenMissModel in 1:length(missModelLabels)){
+  
+  # the lists contain files for all the missingness proportions, so they need to be indexed
+  chosenReest = (propMissList == chunkMissProp) & (missModelList == chosenMissModel)
+  
+  modelResChosenReestList = modelResList[chosenReest]
+  trialIndChosenReestList = trialIndList[chosenReest]
+  missModelChosenReestList = missModelList[chosenReest]
+  
+  
+  # OKAY, for a given missingness model, which will still iterate through all four,
+  chunkTrialInds = unlist(trialIndChosenReestList)
+
+    for(chosenTrialInd in 1:length(chunkTrialInds)){
+      
+      # and choose, needs the ACTUAL trial index, not the index for the object in the list
+      chosenMissAdj = compiledMissNets[[chosenMissModel]][[chosenNetInd]][[chunkTrialInds[[chosenTrialInd]]]]
+      
+      # now for Peters, we need to manually simulate the mean value estimates.
+      degradedAdj = degradeAdj(trueNet = trueAdj, missAdj = chosenMissAdj)
+      
+      # now as a network
+      degradedNet = as.network(degradedAdj, directed = FALSE)
+      
+      # miss edge list
+      missEdgeList = as.edgelist(as.network(chosenMissAdj, directed = FALSE))
+      
+      # model spec depends on the network
+      chosenModel = degradedNet ~ edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE)
+      
+      # if network 6, change to:
+      if(chosenNetInd == 6){
+        
+      # make sure to add in attributes
+      # add in attributes
+        degradedNet %v% 'Age' = londonGangsAtt$Age
+        degradedNet %v% 'Arrests' = londonGangsAtt$Arrests
+        degradedNet %v% 'Birthplace' = londonGangsAtt$Birthplace
+        degradedNet %v% 'Convictions' = londonGangsAtt$Convictions
+        degradedNet %v% 'Prison' = londonGangsAtt$Prison
+        
+        chosenModel = degradedNet ~ edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) + 
+                                    nodecov('Age') + 
+                                    absdiff('Age') +
+                                    nodecov('Arrests') + 
+                                    absdiff('Arrests') +
+                                    nodecov('Convictions') + 
+                                    absdiff('Convictions') +
+                                    nodematch('Prison') + 
+                                    nodematch('Birthplace')
+  
+        
+      }
+      
+      peterSim = simulate(object = chosenModel,
+                          constraints = ~fixallbut(missEdgeList),
+                          coef = modelResChosenReestList[[chosenTrialInd]],
+                          control=control.simulate(
+                                    MCMC.burnin=20000,
+                                    MCMC.interval=100), nsim=50)
+      
+      # shove in a list
+      peterSimList[[trial]] = peterSim
+      
+      # something to keep track of which missingness model it is
+      peterSimMissModList[[trial]] = chosenMissModel
+      
+      # iterate the trial index
+      trial = trial + 1
+    
+    }
+  
+  }
+  
+  
+  # and calculate MVPs
+  
+  chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE)"
+  
+  if(chunkInd == 6){
+    chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) +  nodecov('Age') + 
+  absdiff('Age') + nodecov('Arrests') + absdiff('Arrests') + nodecov('Convictions') + absdiff('Convictions') + nodematch('Prison') + 
+  nodematch('Birthplace')"
+  } 
+  
+  
+  tempPeterMvpList = lapply(peterSimList, FUN = function(chosenMissMod){
+      lapply(chosenMissMod, FUN = meanValPar, model = chosenModel)})
+  
+  peterMvpList[[chunkInd]] = tempPeterMvpList
+  peterMvpMissModList[[chunkInd]] = peterSimMissModList
+
+}
+
+#### Plotting section
+
+# the big master plot dataframe
+peterMvpPlotData = data.frame(paraVal = c(), paraName = c(), missMod = c(), net = c())
+
+# true Mvp list
+trueMvpList = list()
+
+for(chunkInd in 1:length(chunkNetworks)){
+
+  # set a specific index for the network
+  chosenNetInd = chunkNetworks[chunkInd]
+  
+  # change the 'true' network depending on the chosen network index
+  trueAdj = adjMatList[[chosenNetInd]]
+  
+  # turn into a network obj
+  trueNet = as.network(trueAdj, directed = FALSE)
+    
+  if(chosenNetInd == 6){
+    # add in the attributes for this network/model spec
+      trueNet %v% 'Age' = londonGangsAtt$Age
+      trueNet %v% 'Arrests' = londonGangsAtt$Arrests
+      trueNet %v% 'Birthplace' = londonGangsAtt$Birthplace
+      trueNet %v% 'Convictions' = londonGangsAtt$Convictions
+      trueNet %v% 'Prison' = londonGangsAtt$Prison
+  }
+  
+  
+  # plot for the 'true' MVP, put in a list for later use
+  
+  chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE)"
+  
+  # since net 6 is different,
+  if(chosenNetInd == 6){
+    chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) +  nodecov('Age') + 
+    absdiff('Age') + nodecov('Arrests') + absdiff('Arrests') + nodecov('Convictions') + absdiff('Convictions') + nodematch('Prison') + 
+    nodematch('Birthplace')"
+  }
+  
+  chunkTrueMvp = meanValPar(net = trueNet, 
+                            model = chosenModel)
+  
+  trueMvpList[[chunkInd]] = chunkTrueMvp
+  
+  
+  # subset the right network's mvps
+  chunkPeterMvp = peterMvpList[[chunkInd]]
+  chunkPeterMvpMissMod = unlist(peterMvpMissModList[[chunkInd]])
+  
+  # miss models
+  missMods = c("Indep", "marErgm", "Latent", "mnarErgm")
+  
+  for(chosenMissMod in 1:4){
+    
+    # chosen miss mod string
+    chosenModString = missMods[chosenMissMod]
+    
+    # unlist
+    tempPeterUnlisted = unlist(chunkPeterMvp[chunkPeterMvpMissMod == chosenMissMod])
+    
+    uniqueParaNames = unique(names(tempPeterUnlisted))
+    
+    # grab all the edges
+    peterEdges = tempPeterUnlisted[names(tempPeterUnlisted) == uniqueParaNames[1]]
+    
+    # altstars
+    peterAltstar = tempPeterUnlisted[names(tempPeterUnlisted) == uniqueParaNames[2]]
+    
+    # gwesps
+    peterGwesp = tempPeterUnlisted[names(tempPeterUnlisted) == uniqueParaNames[3]]
+    
+    
+    # using Todd (multiple miss mods)
+    tempPlot = data.frame(paraVal = c(peterEdges, peterAltstar, peterGwesp), 
+                          paraName = c(rep("edges", length(peterEdges)), rep("Altstar", length(peterAltstar)), rep("gwesp", length(peterGwesp))), 
+                          missMod = rep(chosenModString, sum(length(peterEdges), length(peterAltstar), length(peterGwesp))),
+                          net = rep(chosenNetInd, sum(length(peterEdges), length(peterAltstar), length(peterGwesp))))
+  
+    # bind
+    peterMvpPlotData = rbind(peterMvpPlotData, tempPlot)
+  
+  }
+  
+  
+  peterMvpPlotSubset = peterMvpPlotData %>%
+    filter(paraName == "edges" & net == chosenNetInd)
+
+  print(ggplot(peterMvpPlotSubset, aes(x = paraVal, colour = missMod, fill = missMod)) +
+   # geom_histogram(alpha = 0.4, position = "identity", binwidth = 1) +
+    geom_density(alpha = 0.4) +
+    geom_vline(xintercept = trueMvpList[[chunkInd]][1]) +
+    ylab(paste("Edges")) + 
+    ggtitle(label = paste("Simulated MVEs - Net", chosenNetInd, "- Prop", chunkMissProp, sep = "")))
+
+  peterMvpPlotSubset = peterMvpPlotData %>%
+    filter(paraName == "Altstar" & net == chosenNetInd)
+
+  print(ggplot(peterMvpPlotSubset, aes(x = paraVal, colour = missMod, fill = missMod)) +
+   # geom_histogram(alpha = 0.4, position = "identity", binwidth = 1) +
+    geom_density(alpha = 0.4) +
+    geom_vline(xintercept = trueMvpList[[chunkInd]][2]) +
+    ylab(paste("Altstar")) + 
+    ggtitle(label = paste("Simulated MVEs - Net", chosenNetInd, "- Prop", chunkMissProp, sep = "")))
+
+  peterMvpPlotSubset = peterMvpPlotData %>%
+    filter(paraName == "gwesp" & net == chosenNetInd)
+
+  print(ggplot(peterMvpPlotSubset, aes(x = paraVal, colour = missMod, fill = missMod)) +
+   # geom_histogram(alpha = 0.4, position = "identity", binwidth = 1) +
+    geom_density(alpha = 0.4) +
+    geom_vline(xintercept = trueMvpList[[chunkInd]][3]) +
+    ylab(paste("Gwesp")) + 
+    ggtitle(label = paste("Simulated MVEs - Net", chosenNetInd, "- Prop", chunkMissProp, sep = "")))
+  
+}
+```
+
+Note that for Peter MVP simulations (i.e., the Bayesian data augmentation equivalent), I need the natural parameter estimates for the coefficient values of the simulations (i.e., so that the missing tie variables are simulated with a model that is equivalent to the model for the obsrved tie variables).
+
+What I need to do here is to go through the same regexes for the relevant re-estimated model results and match the trial indices to the relevant missingness model (for all the types of missingness models). The histogram at the end can be compiled with all the different networks (that should all be representative of a specfic missingness condition).
+
+
+#### 35%
+
+```{r peter 35}
+# the peter output list
+outputList = list.files(here("Output", "20230825_simMissReest", "Peter"))
+
+
+# TODO: choose a missingness proportion (1, 3.5 or 6)
+chunkMissProp = 3
+chunkMissPropFloat = 3.5
+
+
+# load the right set of missingness matrices
+load(here("Output", "20230814_simMissNets", paste("20231024_chosenMissNets_prop", chunkMissPropFloat,".RData", sep = "")))
+
+
+# now looping with a specific vector of applicable networks
+# TODO: specify the UCINet networks for the chunk, these are networks with enough re-estimations
+chunkNetworks = c(2, 4, 5, 6)
+
+# TODO: vector of file names for regex
+chunkRdataNames = c("20231004_missNetReest_net",
+                    "20231004_missNetReest_net",
+                    "20231004_missNetReest_net",
+                    "20231010_missNetReest_net")
+
+
+chunkMnarNames = c("20231011_missErgmNetReest_Miss",
+                   "20231011_missErgmNetReest_Miss",
+                   "20231011_missErgmNetReest_Miss",
+                   "20231011_missErgmNetReest_Miss")
+
+# peter mvp list and the list for missingness model identifiers
+peterMvpList = list()
+peterMvpMissModList = list()
+
+# loop for all chosen networks
+for(chunkInd in 1:length(chunkNetworks)){
+  
+  # make sure the re-estimation lists are empty in the beginning
+  modelResList = list()
+  missModelList = list()
+  propMissList = list()
+  trialIndList = list()
+  
+  # set a specific index for the network
+  chosenNetInd = chunkNetworks[chunkInd]
+  
+  # change the 'true' network depending on the chosen network index
+  trueAdj = adjMatList[[chosenNetInd]]
+  
+  # file list for the chosen network index
+  chosenNetOutFiles = grep(paste(chunkRdataNames[chunkInd], chosenNetInd, sep =""), outputList)
+  
+  ## regex the MNAR files 
+  chosenMnarOutFiles = grep(paste(chunkMnarNames[chunkInd], "Peter", "_net", chosenNetInd, sep = ""), outputList)
+  
+  # combine the two indices
+  combinedNetOutList = c(chosenNetOutFiles, chosenMnarOutFiles)
+  
+  # check to make sure there aren't any duplicates
+  if( length(unique(combinedNetOutList)) != length(combinedNetOutList)){
+    stop("Duplicate re-estimation datafiles! BAD.")
+  }
+  
+  # loop to load
+  chosenNetOutList = outputList[combinedNetOutList]
+  
+  for(fileInd in 1:length(chosenNetOutList)){
+    # load all files
+    load(here("Output", "20230825_simMissReest", "Peter", chosenNetOutList[fileInd]))
+    
+    # suppress these version difference warnings. 
+    suppressWarnings({
+    modelResList[[fileInd]] = modelres$coefficients
+    })
+    
+    # slight difference for the chosenMnarOutFiles because missModelList[[fileInd]] = always 4 (let 2 be mar ergm, 4 be mnar ergm)
+    
+    # this branch *should* be setting the miss model to 4 if they were regexed to be a part of the mnar list.
+    if(combinedNetOutList[fileInd] %in% chosenMnarOutFiles){
+     missModelList[[fileInd]] = 4
+    } else {
+     missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+    }
+      
+    # propmiss should be the same
+    propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  
+    
+    # trial ind
+    trialIndList[[fileInd]] = as.integer(sub(".*?_trial.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+
+  }
+
+#####
+
+  # miss model labels
+  missModelLabels = c("Indep", "marErgm", "Latent", "mnarErgm")
+  
+  # peterSims needs to be a list
+  peterSimList = list()
+  
+  # a diagnostic check for the miss models chosen
+  peterSimMissModList = list()
+  
+  # an absolute trial index because these lists are not going to have similar lengths.
+  trial = 1
+  
+  # describe the chosen missingness matrix as a series of specific indices, net is specified above
+  for(chosenMissModel in 1:length(missModelLabels)){
+  
+  # the lists contain files for all the missingness proportions, so they need to be indexed
+  chosenReest = (propMissList == chunkMissProp) & (missModelList == chosenMissModel)
+  
+  modelResChosenReestList = modelResList[chosenReest]
+  trialIndChosenReestList = trialIndList[chosenReest]
+  missModelChosenReestList = missModelList[chosenReest]
+  
+  
+  # OKAY, for a given missingness model, which will still iterate through all four,
+  chunkTrialInds = unlist(trialIndChosenReestList)
+
+    for(chosenTrialInd in 1:length(chunkTrialInds)){
+      
+      # and choose, needs the ACTUAL trial index, not the index for the object in the list
+      chosenMissAdj = compiledMissNets[[chosenMissModel]][[chosenNetInd]][[chunkTrialInds[[chosenTrialInd]]]]
+      
+      # now for Peters, we need to manually simulate the mean value estimates.
+      degradedAdj = degradeAdj(trueNet = trueAdj, missAdj = chosenMissAdj)
+      
+      # now as a network
+      degradedNet = as.network(degradedAdj, directed = FALSE)
+      
+      # miss edge list
+      missEdgeList = as.edgelist(as.network(chosenMissAdj, directed = FALSE))
+      
+      # model spec depends on the network
+      chosenModel = degradedNet ~ edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE)
+      
+      # if network 6, change to:
+      if(chosenNetInd == 6){
+        
+      # make sure to add in attributes
+      # add in attributes
+        degradedNet %v% 'Age' = londonGangsAtt$Age
+        degradedNet %v% 'Arrests' = londonGangsAtt$Arrests
+        degradedNet %v% 'Birthplace' = londonGangsAtt$Birthplace
+        degradedNet %v% 'Convictions' = londonGangsAtt$Convictions
+        degradedNet %v% 'Prison' = londonGangsAtt$Prison
+        
+        chosenModel = degradedNet ~ edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) + 
+                                    nodecov('Age') + 
+                                    absdiff('Age') +
+                                    nodecov('Arrests') + 
+                                    absdiff('Arrests') +
+                                    nodecov('Convictions') + 
+                                    absdiff('Convictions') +
+                                    nodematch('Prison') + 
+                                    nodematch('Birthplace')
+  
+        
+      }
+      
+      peterSim = simulate(object = chosenModel,
+                          constraints = ~fixallbut(missEdgeList),
+                          coef = modelResChosenReestList[[chosenTrialInd]],
+                          control=control.simulate(
+                                    MCMC.burnin=20000,
+                                    MCMC.interval=100), nsim=50)
+      
+      # shove in a list
+      peterSimList[[trial]] = peterSim
+      
+      # something to keep track of which missingness model it is
+      peterSimMissModList[[trial]] = chosenMissModel
+      
+      # iterate the trial index
+      trial = trial + 1
+    
+    }
+  
+  }
+  
+  
+  # and calculate MVPs
+  
+  chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE)"
+  
+  if(chunkInd == 6){
+    chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) +  nodecov('Age') + 
+  absdiff('Age') + nodecov('Arrests') + absdiff('Arrests') + nodecov('Convictions') + absdiff('Convictions') + nodematch('Prison') + 
+  nodematch('Birthplace')"
+  } 
+  
+  
+  tempPeterMvpList = lapply(peterSimList, FUN = function(chosenMissMod){
+      lapply(chosenMissMod, FUN = meanValPar, model = chosenModel)})
+  
+  peterMvpList[[chunkInd]] = tempPeterMvpList
+  peterMvpMissModList[[chunkInd]] = peterSimMissModList
+
+}
+
+#### Plotting section
+
+# the big master plot dataframe
+peterMvpPlotData = data.frame(paraVal = c(), paraName = c(), missMod = c(), net = c())
+
+# true Mvp list
+trueMvpList = list()
+
+for(chunkInd in 1:length(chunkNetworks)){
+
+  # set a specific index for the network
+  chosenNetInd = chunkNetworks[chunkInd]
+  
+  # change the 'true' network depending on the chosen network index
+  trueAdj = adjMatList[[chosenNetInd]]
+  
+  # turn into a network obj
+  trueNet = as.network(trueAdj, directed = FALSE)
+    
+  if(chosenNetInd == 6){
+    # add in the attributes for this network/model spec
+      trueNet %v% 'Age' = londonGangsAtt$Age
+      trueNet %v% 'Arrests' = londonGangsAtt$Arrests
+      trueNet %v% 'Birthplace' = londonGangsAtt$Birthplace
+      trueNet %v% 'Convictions' = londonGangsAtt$Convictions
+      trueNet %v% 'Prison' = londonGangsAtt$Prison
+  }
+  
+  
+  # plot for the 'true' MVP, put in a list for later use
+  
+  chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE)"
+  
+  # since net 6 is different,
+  if(chosenNetInd == 6){
+    chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) +  nodecov('Age') + 
+    absdiff('Age') + nodecov('Arrests') + absdiff('Arrests') + nodecov('Convictions') + absdiff('Convictions') + nodematch('Prison') + 
+    nodematch('Birthplace')"
+  }
+  
+  chunkTrueMvp = meanValPar(net = trueNet, 
+                            model = chosenModel)
+  
+  trueMvpList[[chunkInd]] = chunkTrueMvp
+  
+  
+  # subset the right network's mvps
+  chunkPeterMvp = peterMvpList[[chunkInd]]
+  chunkPeterMvpMissMod = unlist(peterMvpMissModList[[chunkInd]])
+  
+  # miss models
+  missMods = c("Indep", "marErgm", "Latent", "mnarErgm")
+  
+  for(chosenMissMod in 1:4){
+    
+    # chosen miss mod string
+    chosenModString = missMods[chosenMissMod]
+    
+    # unlist
+    tempPeterUnlisted = unlist(chunkPeterMvp[chunkPeterMvpMissMod == chosenMissMod])
+    
+    uniqueParaNames = unique(names(tempPeterUnlisted))
+    
+    # grab all the edges
+    peterEdges = tempPeterUnlisted[names(tempPeterUnlisted) == uniqueParaNames[1]]
+    
+    # altstars
+    peterAltstar = tempPeterUnlisted[names(tempPeterUnlisted) == uniqueParaNames[2]]
+    
+    # gwesps
+    peterGwesp = tempPeterUnlisted[names(tempPeterUnlisted) == uniqueParaNames[3]]
+    
+    
+    # using Todd (multiple miss mods)
+    tempPlot = data.frame(paraVal = c(peterEdges, peterAltstar, peterGwesp), 
+                          paraName = c(rep("edges", length(peterEdges)), rep("Altstar", length(peterAltstar)), rep("gwesp", length(peterGwesp))), 
+                          missMod = rep(chosenModString, sum(length(peterEdges), length(peterAltstar), length(peterGwesp))),
+                          net = rep(chosenNetInd, sum(length(peterEdges), length(peterAltstar), length(peterGwesp))))
+  
+    # bind
+    peterMvpPlotData = rbind(peterMvpPlotData, tempPlot)
+  
+  }
+  
+  
+  peterMvpPlotSubset = peterMvpPlotData %>%
+    filter(paraName == "edges" & net == chosenNetInd)
+
+  print(ggplot(peterMvpPlotSubset, aes(x = paraVal, colour = missMod, fill = missMod)) +
+   # geom_histogram(alpha = 0.4, position = "identity", binwidth = 1) +
+    geom_density(alpha = 0.4) +
+    geom_vline(xintercept = trueMvpList[[chunkInd]][1]) +
+    ylab(paste("Edges")) + 
+    ggtitle(label = paste("Simulated MVEs - Net", chosenNetInd, "- Prop", chunkMissPropFloat, sep = "")))
+
+  peterMvpPlotSubset = peterMvpPlotData %>%
+    filter(paraName == "Altstar" & net == chosenNetInd)
+
+  print(ggplot(peterMvpPlotSubset, aes(x = paraVal, colour = missMod, fill = missMod)) +
+   # geom_histogram(alpha = 0.4, position = "identity", binwidth = 1) +
+    geom_density(alpha = 0.4) +
+    geom_vline(xintercept = trueMvpList[[chunkInd]][2]) +
+    ylab(paste("Altstar")) + 
+    ggtitle(label = paste("Simulated MVEs - Net", chosenNetInd, "- Prop", chunkMissPropFloat, sep = "")))
+
+  peterMvpPlotSubset = peterMvpPlotData %>%
+    filter(paraName == "gwesp" & net == chosenNetInd)
+
+  print(ggplot(peterMvpPlotSubset, aes(x = paraVal, colour = missMod, fill = missMod)) +
+   # geom_histogram(alpha = 0.4, position = "identity", binwidth = 1) +
+    geom_density(alpha = 0.4) +
+    geom_vline(xintercept = trueMvpList[[chunkInd]][3]) +
+    ylab(paste("Gwesp")) + 
+    ggtitle(label = paste("Simulated MVEs - Net", chosenNetInd, "- Prop", chunkMissPropFloat, sep = "")))
+  
+}
+```
+
+
+
+#### 60%
+
+```{r peter 60}
+# the peter output list
+outputList = list.files(here("Output", "20230825_simMissReest", "Peter"))
+
+
+# TODO: choose a missingness proportion (1, 3.5 or 6)
+chunkMissProp = 6
+
+
+# load the right set of missingness matrices
+load(here("Output", "20230814_simMissNets", paste("20231024_chosenMissNets_prop", chunkMissProp,".RData", sep = "")))
+
+# now looping with a specific vector of applicable networks
+# TODO: specify the UCINet networks for the chunk, these are networks with enough re-estimations
+chunkNetworks = c(2, 4, 5, 6)
+
+# TODO: vector of file names for regex
+chunkRdataNames = c("20231005_missNetReest_net",
+                    "20231005_missNetReest_net",
+                    "20231011_missNetReest_net",
+                    "20231011_missNetReest_net")
+
+chunkMnarNames = c("20231012_missErgmNetReest_Miss",
+                   "20231012_missErgmNetReest_Miss",
+                   "20231012_missErgmNetReest_Miss",
+                   "20231012_missErgmNetReest_Miss")
+
+
+# peter mvp list and the list for missingness model identifiers
+peterMvpList = list()
+peterMvpMissModList = list()
+
+# loop for all chosen networks
+for(chunkInd in 1:length(chunkNetworks)){
+  
+  # make sure the re-estimation lists are empty in the beginning
+  modelResList = list()
+  missModelList = list()
+  propMissList = list()
+  trialIndList = list()
+  
+  # set a specific index for the network
+  chosenNetInd = chunkNetworks[chunkInd]
+  
+  # change the 'true' network depending on the chosen network index
+  trueAdj = adjMatList[[chosenNetInd]]
+  
+  # file list for the chosen network index
+  chosenNetOutFiles = grep(paste(chunkRdataNames[chunkInd], chosenNetInd, sep =""), outputList)
+  
+  ## regex the MNAR files 
+  chosenMnarOutFiles = grep(paste(chunkMnarNames[chunkInd], "Peter", "_net", chosenNetInd, sep = ""), outputList)
+  
+  # combine the two indices
+  combinedNetOutList = c(chosenNetOutFiles, chosenMnarOutFiles)
+  
+  # check to make sure there aren't any duplicates
+  if( length(unique(combinedNetOutList)) != length(combinedNetOutList)){
+    stop("Duplicate re-estimation datafiles! BAD.")
+  }
+  
+  # loop to load
+  chosenNetOutList = outputList[combinedNetOutList]
+  
+  for(fileInd in 1:length(chosenNetOutList)){
+    # load all files
+    load(here("Output", "20230825_simMissReest", "Peter", chosenNetOutList[fileInd]))
+    
+    # suppress these version difference warnings. 
+    suppressWarnings({
+    modelResList[[fileInd]] = modelres$coefficients
+    })
+    
+    # slight difference for the chosenMnarOutFiles because missModelList[[fileInd]] = always 4 (let 2 be mar ergm, 4 be mnar ergm)
+    
+    # this branch *should* be setting the miss model to 4 if they were regexed to be a part of the mnar list.
+    if(combinedNetOutList[fileInd] %in% chosenMnarOutFiles){
+     missModelList[[fileInd]] = 4
+    } else {
+     missModelList[[fileInd]] = as.integer(sub(".*?_missModel.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+    }
+      
+    # propmiss should be the same
+    propMissList[[fileInd]] = as.integer(sub(".*?_prop.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  
+    
+    # trial ind
+    trialIndList[[fileInd]] = as.integer(sub(".*?_trial.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+
+  }
+
+#####
+
+  # miss model labels
+  missModelLabels = c("Indep", "marErgm", "Latent", "mnarErgm")
+  
+  # peterSims needs to be a list
+  peterSimList = list()
+  
+  # a diagnostic check for the miss models chosen
+  peterSimMissModList = list()
+  
+  # an absolute trial index because these lists are not going to have similar lengths.
+  trial = 1
+  
+  # describe the chosen missingness matrix as a series of specific indices, net is specified above
+  for(chosenMissModel in 1:length(missModelLabels)){
+  
+  # the lists contain files for all the missingness proportions, so they need to be indexed
+  chosenReest = (propMissList == chunkMissProp) & (missModelList == chosenMissModel)
+  
+  modelResChosenReestList = modelResList[chosenReest]
+  trialIndChosenReestList = trialIndList[chosenReest]
+  missModelChosenReestList = missModelList[chosenReest]
+  
+  
+  # OKAY, for a given missingness model, which will still iterate through all four,
+  chunkTrialInds = unlist(trialIndChosenReestList)
+
+    for(chosenTrialInd in 1:length(chunkTrialInds)){
+      
+      # and choose, needs the ACTUAL trial index, not the index for the object in the list
+      chosenMissAdj = compiledMissNets[[chosenMissModel]][[chosenNetInd]][[chunkTrialInds[[chosenTrialInd]]]]
+      
+      # now for Peters, we need to manually simulate the mean value estimates.
+      degradedAdj = degradeAdj(trueNet = trueAdj, missAdj = chosenMissAdj)
+      
+      # now as a network
+      degradedNet = as.network(degradedAdj, directed = FALSE)
+      
+      # miss edge list
+      missEdgeList = as.edgelist(as.network(chosenMissAdj, directed = FALSE))
+      
+      # model spec depends on the network
+      chosenModel = degradedNet ~ edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE)
+      
+      # if network 6, change to:
+      if(chosenNetInd == 6){
+        
+      # make sure to add in attributes
+      # add in attributes
+        degradedNet %v% 'Age' = londonGangsAtt$Age
+        degradedNet %v% 'Arrests' = londonGangsAtt$Arrests
+        degradedNet %v% 'Birthplace' = londonGangsAtt$Birthplace
+        degradedNet %v% 'Convictions' = londonGangsAtt$Convictions
+        degradedNet %v% 'Prison' = londonGangsAtt$Prison
+        
+        chosenModel = degradedNet ~ edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) + 
+                                    nodecov('Age') + 
+                                    absdiff('Age') +
+                                    nodecov('Arrests') + 
+                                    absdiff('Arrests') +
+                                    nodecov('Convictions') + 
+                                    absdiff('Convictions') +
+                                    nodematch('Prison') + 
+                                    nodematch('Birthplace')
+  
+        
+      }
+      
+      peterSim = simulate(object = chosenModel,
+                          constraints = ~fixallbut(missEdgeList),
+                          coef = modelResChosenReestList[[chosenTrialInd]],
+                          control=control.simulate(
+                                    MCMC.burnin=20000,
+                                    MCMC.interval=100), nsim=50)
+      
+      # shove in a list
+      peterSimList[[trial]] = peterSim
+      
+      # something to keep track of which missingness model it is
+      peterSimMissModList[[trial]] = chosenMissModel
+      
+      # iterate the trial index
+      trial = trial + 1
+    
+    }
+  
+  }
+  
+  
+  # and calculate MVPs
+  
+  chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE)"
+  
+  if(chunkInd == 6){
+    chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) +  nodecov('Age') + 
+  absdiff('Age') + nodecov('Arrests') + absdiff('Arrests') + nodecov('Convictions') + absdiff('Convictions') + nodematch('Prison') + 
+  nodematch('Birthplace')"
+  } 
+  
+  
+  tempPeterMvpList = lapply(peterSimList, FUN = function(chosenMissMod){
+      lapply(chosenMissMod, FUN = meanValPar, model = chosenModel)})
+  
+  peterMvpList[[chunkInd]] = tempPeterMvpList
+  peterMvpMissModList[[chunkInd]] = peterSimMissModList
+
+}
+
+#### Plotting section
+
+# the big master plot dataframe
+peterMvpPlotData = data.frame(paraVal = c(), paraName = c(), missMod = c(), net = c())
+
+# true Mvp list
+trueMvpList = list()
+
+for(chunkInd in 1:length(chunkNetworks)){
+
+  # set a specific index for the network
+  chosenNetInd = chunkNetworks[chunkInd]
+  
+  # change the 'true' network depending on the chosen network index
+  trueAdj = adjMatList[[chosenNetInd]]
+  
+  # turn into a network obj
+  trueNet = as.network(trueAdj, directed = FALSE)
+    
+  if(chosenNetInd == 6){
+    # add in the attributes for this network/model spec
+      trueNet %v% 'Age' = londonGangsAtt$Age
+      trueNet %v% 'Arrests' = londonGangsAtt$Arrests
+      trueNet %v% 'Birthplace' = londonGangsAtt$Birthplace
+      trueNet %v% 'Convictions' = londonGangsAtt$Convictions
+      trueNet %v% 'Prison' = londonGangsAtt$Prison
+  }
+  
+  
+  # plot for the 'true' MVP, put in a list for later use
+  
+  chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE)"
+  
+  # since net 6 is different,
+  if(chosenNetInd == 6){
+    chosenModel = "edges + altkstar(2, fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) +  nodecov('Age') + 
+    absdiff('Age') + nodecov('Arrests') + absdiff('Arrests') + nodecov('Convictions') + absdiff('Convictions') + nodematch('Prison') + 
+    nodematch('Birthplace')"
+  }
+  
+  chunkTrueMvp = meanValPar(net = trueNet, 
+                            model = chosenModel)
+  
+  trueMvpList[[chunkInd]] = chunkTrueMvp
+  
+  
+  # subset the right network's mvps
+  chunkPeterMvp = peterMvpList[[chunkInd]]
+  chunkPeterMvpMissMod = unlist(peterMvpMissModList[[chunkInd]])
+  
+  # miss models
+  missMods = c("Indep", "marErgm", "Latent", "mnarErgm")
+  
+  for(chosenMissMod in 1:4){
+    
+    # chosen miss mod string
+    chosenModString = missMods[chosenMissMod]
+    
+    # unlist
+    tempPeterUnlisted = unlist(chunkPeterMvp[chunkPeterMvpMissMod == chosenMissMod])
+    
+    uniqueParaNames = unique(names(tempPeterUnlisted))
+    
+    # grab all the edges
+    peterEdges = tempPeterUnlisted[names(tempPeterUnlisted) == uniqueParaNames[1]]
+    
+    # altstars
+    peterAltstar = tempPeterUnlisted[names(tempPeterUnlisted) == uniqueParaNames[2]]
+    
+    # gwesps
+    peterGwesp = tempPeterUnlisted[names(tempPeterUnlisted) == uniqueParaNames[3]]
+    
+    
+    # using Todd (multiple miss mods)
+    tempPlot = data.frame(paraVal = c(peterEdges, peterAltstar, peterGwesp), 
+                          paraName = c(rep("edges", length(peterEdges)), rep("Altstar", length(peterAltstar)), rep("gwesp", length(peterGwesp))), 
+                          missMod = rep(chosenModString, sum(length(peterEdges), length(peterAltstar), length(peterGwesp))),
+                          net = rep(chosenNetInd, sum(length(peterEdges), length(peterAltstar), length(peterGwesp))))
+  
+    # bind
+    peterMvpPlotData = rbind(peterMvpPlotData, tempPlot)
+  
+  }
+  
+  
+  peterMvpPlotSubset = peterMvpPlotData %>%
+    filter(paraName == "edges" & net == chosenNetInd)
+
+  print(ggplot(peterMvpPlotSubset, aes(x = paraVal, colour = missMod, fill = missMod)) +
+   # geom_histogram(alpha = 0.4, position = "identity", binwidth = 1) +
+    geom_density(alpha = 0.4) +
+    geom_vline(xintercept = trueMvpList[[chunkInd]][1]) +
+    ylab(paste("Edges")) + 
+    ggtitle(label = paste("Simulated MVEs - Net", chosenNetInd, "- Prop", chunkMissProp, sep = "")))
+
+  peterMvpPlotSubset = peterMvpPlotData %>%
+    filter(paraName == "Altstar" & net == chosenNetInd)
+
+  print(ggplot(peterMvpPlotSubset, aes(x = paraVal, colour = missMod, fill = missMod)) +
+   # geom_histogram(alpha = 0.4, position = "identity", binwidth = 1) +
+    geom_density(alpha = 0.4) +
+    geom_vline(xintercept = trueMvpList[[chunkInd]][2]) +
+    ylab(paste("Altstar")) + 
+    ggtitle(label = paste("Simulated MVEs - Net", chosenNetInd, "- Prop", chunkMissProp, sep = "")))
+
+  peterMvpPlotSubset = peterMvpPlotData %>%
+    filter(paraName == "gwesp" & net == chosenNetInd)
+
+  print(ggplot(peterMvpPlotSubset, aes(x = paraVal, colour = missMod, fill = missMod)) +
+   # geom_histogram(alpha = 0.4, position = "identity", binwidth = 1) +
+    geom_density(alpha = 0.4) +
+    geom_vline(xintercept = trueMvpList[[chunkInd]][3]) +
+    ylab(paste("Gwesp")) + 
+    ggtitle(label = paste("Simulated MVEs - Net", chosenNetInd, "- Prop", chunkMissProp, sep = "")))
+  
+}
+```
+
+
+
+
+```{r metric plot fn, eval = F}
+# plotting the degraded metrics with the 'true' value
+# and indexing which coefficients are used
+# ... and what type of missingness it is...
+# ... with indices for what network dataset and the proportion of missingness....
+
+# initial code for making the plot data, turned into a function
+# # extracting specific metrics
+# uniqueMetrics = unique(names(unlist(degradedNetMetrics[[1]])))
+# 
+# # initialise plot data
+# metricPlotData = data.frame(metricName = NA, varyingParameter = NA, parameterValue = NA, quant0.05 = NA, median = NA, quant0.95 = NA)
+# 
+# # additional list for metric ranges
+# rawMetricList = list()
+# 
+# # loop to choose different metrics in calculating the different quantiles
+# for(chosenMetric in 1:length(uniqueMetrics)){
+#   
+#   # a value for the row index based on the iteration of the loop
+#   tempRowInd = seq(from = 1 + (length(degradedNetMetrics) * (chosenMetric - 1)), to = chosenMetric * length(degradedNetMetrics))
+#   
+#   # fix this value for now, but this would depend on the model spec and which chosen para it is
+#   chosenParaLabel = "gwdeg"
+#   metricPlotData[tempRowInd,"varyingParameter"] = chosenParaLabel
+#   
+#   # put in the metric name
+#   metricPlotData[tempRowInd, "metricName"] = uniqueMetrics[chosenMetric]
+#   
+#   # extract the chosen metrics from the nested list
+#   rawMetricList[[chosenMetric]] = lapply(degradedNetMetrics, function(chosenParaVal){unlist(chosenParaVal)[names(unlist(chosenParaVal)) == uniqueMetrics[[chosenMetric]]]})
+#   
+#   # fill in the quantiles
+#   metricPlotData[tempRowInd, c("quant0.05", "median", "quant0.95")] = do.call(rbind, lapply(rawMetricList[[chosenMetric]], function(chosenParaVal){quantile(chosenParaVal, c(0.05, 0.5, 0.95))}))
+#   
+#   # lastly, give the parameter values
+#   metricPlotData[tempRowInd, "parameterValue"] = paraRange
+# }
+
+## Function to prep metric plot data
+prepMetricPlot = function(degradedNetMetricList, chosenPara){
+  
+  ## prepMetricPlot(degradedNetMetricList, chosenPara) takes a list of metric calculated from degraded networks
+  ## and a specified parameter name that controlled the degradation to subset them into a data frame to be used
+  ## for plotting purposes.
+  ##
+  ## Input:
+  ## - degradedNetMetricList: A list of (nested) network metrics calculated using the netMetrics function on
+  ##                          a list of degraded networks. Missingness needs to be saved as 0 for values to calculable.
+  ##
+  ## - chosenPara: A string to describe which parameter is being varied in the degradation of the networks.
+  ##                  
+  ## Output: 
+  ## - A dataframe containing the metric names, which parameter is being varied and what its value is for the degradation,
+  ##   and three quantiles (5, 50, and 95) to describe the range and median of the degraded metric.
+  
+  
+  # extracting specific metrics
+  uniqueMetrics = unique(names(unlist(degradedNetMetricList[[1]])))
+  
+  # initialise plot data
+  metricPlotData = data.frame(metricName = NA, varyingParameter = NA, parameterValue = NA, quant0.05 = NA, median = NA, quant0.95 = NA)
+  
+  # additional list for metric ranges
+  rawMetricList = list()
+  
+  # loop to choose different metrics in calculating the different quantiles
+  for(chosenMetric in 1:length(uniqueMetrics)){
+    
+    # a value for the row index based on the iteration of the loop
+    tempRowInd = seq(from = 1 + (length(degradedNetMetricList) * (chosenMetric - 1)), to = chosenMetric * length(degradedNetMetricList))
+    
+    # fix this value for now, but this would depend on the model spec and which chosen para it is
+    chosenParaLabel = chosenPara
+    metricPlotData[tempRowInd,"varyingParameter"] = chosenParaLabel
+    
+    # put in the metric name
+    metricPlotData[tempRowInd, "metricName"] = uniqueMetrics[chosenMetric]
+    
+    # extract the chosen metrics from the nested list
+    rawMetricList[[chosenMetric]] = lapply(degradedNetMetricList, function(chosenParaVal){unlist(chosenParaVal)[names(unlist(chosenParaVal)) == uniqueMetrics[[chosenMetric]]]})
+    
+    # fill in the quantiles
+    metricPlotData[tempRowInd, c("quant0.05", "median", "quant0.95")] = do.call(rbind, lapply(rawMetricList[[chosenMetric]], function(chosenParaVal){quantile(chosenParaVal, c(0.05, 0.5, 0.95))}))
+    
+    # lastly, give the parameter values
+    metricPlotData[tempRowInd, "parameterValue"] = paraRange
+  }
+  
+  # return the plot data
+  return(metricPlotData)  
+}
+
+metricPlotData = prepMetricPlot(degradedNetMetricList = degradedNetMetrics, chosenPara = "gwdeg")
+
+# unqiue metric names
+uniqueMetrics = unique(names(unlist(degradedNetMetrics[[1]])))
+
+## now that the data's right, it's just a matter of plotting-
+metricPlotData %>%
+  filter(metricName == "clustering") %>% 
+  ggplot(aes(x = parameterValue, y = median)) + 
+  geom_line() + 
+  geom_ribbon(aes(ymin = quant0.05, ymax = quant0.95), alpha = 0.2) + 
+  labs(title = "Metric diagnostics - varyingGwdeg - Prop1 - Miss0") + 
+  xlab("gwdeg value") + 
+  ylab("Clustering")
+
+# note: the chosen missingness will always be 0 because calculating metrics needs missingness to be 0, so take it off the plot title
+
+## Turn this base plot code into a function-
+missMetricPlot = function(data, chosenMetric, chosenPara, chosenProp){
+  
+  ## missMetricPlot(data, chosenMetric, chosenPara, chosenProp) is a very specialised plotting function that
+  ## produces a caterpillar plot to compare parameter estimates for very specific data.
+  ##
+  ## Input:
+  ## - data: A data frame containing the metric name, varying parameter, the varying parameter's value, and 
+  ##         5th, 50th, and 95th quantiles of the metric. Obtained from prepMetricPlot().
+  ##
+  ## - chosenPara: A string to describe which parameter is being varied in the degradation of the networks.
+  ##                
+  ## - chosenProp: A single integer or float with three options representing the proportion of missingness.
+  ##               Options are 1 = 10%, 3.5 = 35%, 6 = 60%.
+  ##
+  ## Output: 
+  ## - The output should be a line plot with a shaded area representing the 90% confidence interval of the metric.
+  ##   Its labels should be adaptive to the chosen metric, (varying) parameter, and proportion of missingness.
+
+  
+  # requires ggplot2 and dplyr
+  require(ggplot2)
+  require(dplyr)
+  
+  # and plot
+  data %>%
+  filter(metricName == chosenMetric) %>% 
+  ggplot(aes(x = parameterValue, y = median)) + 
+  geom_line() + 
+  geom_ribbon(aes(ymin = quant0.05, ymax = quant0.95), alpha = 0.2) + 
+  labs(title = paste("Depleted network diagnostics - varying", chosenPara," - Prop", chosenProp, sep = "")) + 
+  xlab(paste("Varying", chosenPara, "value")) + 
+  ylab(paste(toupper(substr(chosenMetric, 1, 1)), substr(chosenMetric, 2, nchar(chosenMetric)), sep = ""))
+  
+}
+
+
+# do this for all the unique metrics
+missMetricPlot(data = metricPlotData, chosenMetric = uniqueMetrics[2], chosenPara = "Gwdeg", chosenProp = 1)
+missMetricPlot(data = metricPlotData, chosenMetric = uniqueMetrics[3], chosenPara = "Gwdeg", chosenProp = 1)
+missMetricPlot(data = metricPlotData, chosenMetric = uniqueMetrics[4], chosenPara = "Gwdeg", chosenProp = 1)
+
+
+### and now the mean value parameterisations
+# a check to make sure it works
+meanValPar(net = degradedNetList[[4]][[10]],
+           model = "edges + gwdegree(decay = log(2), fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE)")
+
+# mass apply to lists
+meanValParLists = lapply(degradedNetList, function(chosenParaVal){
+  lapply(chosenParaVal, meanValPar, model = "edges + gwdegree(decay = log(2), fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE)")
+})
+
+# unlist them to plot
+meanValParUnlisted = lapply(meanValParLists, unlist)
+
+### commented out section is for code that is largely identical to the function to prep plot data above
+# # initialise plot data
+# meanValPlotData = data.frame(parameterName = NA, varyingParameter = NA, parameterValue = NA, quant0.05 = NA, median = NA, quant0.95 = NA)
+# 
+# # additional list for metric ranges
+# rawMeanValList = list()
+# 
+# # grab unique parameter names
+# uniqueParaNames = unique(names(meanValParUnlisted[[1]]))
+# 
+# # loop to grab the quantiles of each of these mean value parameterisation values for each parameter
+# for(chosenParaName in 1:length(uniqueParaNames)){
+#   
+#   # a value for the row index based on the iteration of the loop
+#   tempRowInd = seq(from = 1 + (length(meanValParUnlisted) * (chosenParaName - 1)), to = chosenParaName * length(meanValParUnlisted))
+#   
+#   # fix this value for now, but this would depend on the model spec and which chosen para it is
+#   chosenParaLabel = "gwdeg"
+#   meanValPlotData[tempRowInd,"varyingParameter"] = chosenParaLabel
+#   
+#   # put in the metric name
+#   meanValPlotData[tempRowInd, "parameterName"] = uniqueParaNames[chosenParaName]
+#   
+#   # extract the chosen metrics from the nested list
+#   rawMeanValList[[chosenParaName]] = lapply(meanValParLists, function(chosenParaVal){unlist(chosenParaVal)[names(unlist(chosenParaVal)) == uniqueParaNames[[chosenParaName]]]})
+#   
+#   # fill in the quantiles
+#   meanValPlotData[tempRowInd, c("quant0.05", "median", "quant0.95")] = do.call(rbind, lapply(rawMeanValList[[chosenParaName]], function(chosenParaVal){quantile(chosenParaVal, c(0.05, 0.5, 0.95))}))
+#   
+#   # lastly, give the parameter values
+#   meanValPlotData[tempRowInd, "parameterValue"] = paraRange
+# }
+
+## if I consider the mean value parametrisations as another metric, I don't need another chunk of code specifically for these
+meanValPlotData = prepMetricPlot(degradedNetMetricList = meanValParUnlisted, chosenPara = "gwdeg")
+
+# check all unique parameter names
+uniqueParaNames = unique(names(meanValParUnlisted[[1]]))
+
+# and check to make sure the plots work
+missMetricPlot(data = meanValPlotData, chosenMetric = uniqueParaNames[1], chosenPara = "Gwdeg", chosenProp = 1)
+missMetricPlot(data = meanValPlotData, chosenMetric = uniqueParaNames[2], chosenPara = "Gwdeg", chosenProp = 1)
+missMetricPlot(data = meanValPlotData, chosenMetric = uniqueParaNames[3], chosenPara = "Gwdeg", chosenProp = 1)
+
+
+
+
+```
+

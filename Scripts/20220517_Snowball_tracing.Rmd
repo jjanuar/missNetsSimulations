@@ -1,0 +1,216 @@
+---
+title: "20220517_Snowball_tracing"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This document's purpose is to be a rough sounding board for the idea of describing an investigation process of a covert network in the form of a snowball-like model (e.g., seed set's links are traced to wave 1, so on so forth.).
+
+***
+
+## Algebra
+
+**What do I need to define?**
+
+* Snowball elements,    
+* A model to describe how tie probabilities are weighed to generate a link between waves,  
+* What about the decision of how many nodes to connect given a noisy link tracing process?  
+* Do I need to bother with tie type (e.g., multiple tie types)? Perhaps later...  
+    + For now, a general association tie's fine.  
+
+For a snowball process,
+
+Let $V$ be the set of all vertices in the graph, $S$ be the seed set of nodes, and $\mathbf{X}$ be the adjacency matrix, 
+
+$$S \subseteq V,$$
+$$W_1 = \{j  \in  V: \mathbf{X}_{ij} = 1, \exists  i \in S \},$$
+
+or more generally,
+
+$$W_k = \{ j \in V: \mathbf{X}_{ij} = 1, \exists i \in W_{k-1}\}.$$
+
+The expressions above simply state that the seed set $S$ is a subset of the set of all vertices $V$ and that subsequent waves of the snowball are defined by a tie existing, $\mathbf{X}_{ij} = 1$, between a node in the previous wave, $i \in W_{k-1}$, and a node from the full set of all vertices identified in the current wave, $j \in V$.
+
+
+For a sequential model that depends on the previous wave's nodal characteristics, let's first bring up a toy network example,
+
+Let's first make some assumptions,
+
+a) The hit rate of the investigation getting the correct tie will be less than 1,
+b) The hit rate of the investigation takes into account the information of the previous wave's nodal characteristics,
+c) The false alarm (false positive) rate of identifying a tie is 0 as ties are defined by investigative evidence.
+
+Let the observed adjacency matrix be described as $\mathbf{X}$ and the true adjacency matrix be described as $\mathbf{Z}$.
+
+$H_{ij}$ would then be the hit rate, defined by the probability of the observed adjacency matrix $\mathbf{X}$ in correctly identifying a tie from the true adjacency matrix $\mathbf{Z}$,
+
+$$H_{ij} = \Pr(\mathbf{X}_{ij} = 1 | \mathbf{Z}_{ij} = 1).$$ 
+
+$F_{ij}$ then reflects the false alarm rate, which would be defined as the probability of falsely observing a tie in the observed adjacency matrix, despite the true adjacency matrix not having a tie,
+
+$$F_{ij} = \Pr(\mathbf{X}_{ij} = 1|\mathbf{Z}_{ij} = 0).$$
+
+Following from assumption (a) and (c), $H_{ij} < 1$ and $F_{ij} = 0$.
+
+Following assumption (b), we are effectively saying that the node's structures have some purpose (i.e., ties do not exist truly randomly). This could reflect some covert network hierarchy (e.g., a chain of command) or some other purpose.
+
+So, given that the true network has a tie, we are saying that the hit rate of the investigation correctly identifying the true tie depends on some nodal characteristics (e.g., centralities, path length from seed or 'key node'),
+
+$$Z_{ij} = 1 \implies H_{ij} \sim f(\forall i \in W_{k-h}, j \in W_k) \text{ for current wave } W_k \text { and all previous waves } W_{k-h}, h < k $$
+The statement above states that if the true network has a tie, then the hit rate between the nodes may depend on some function of the path of the seed nodes and the current node. **line graph? Check Johan's doc about the random subset distribution of D**.
+
+**Q: Would there be redundancies in describing the path lengths if we acknowledged all the nodes in the k-path between seed and current node?**
+
+The model for the hit rates, $f(\forall i \in W_{k-n}, j \in W_k),$ could be described by a variety of network models. I'd imagine a Bernoulli or p1/p2 model may be used to a perhaps poor result. Perhaps the ALAAM of a line graph would be preferred here? If we, an omniscient being who knows whether an edge is a hit or a miss, give binary covariates for the edges (represented as nodes in a line graph) for a hit or miss, could we then use an ALAAM to model hit and miss rates? (e.g., a positive contagion would be if an edge was a hit, it would mean that its incident edges are also hits). Alternatively, contagion interacted with some property (monadic covariates, structures?) might tell us situations when the hit rates may systematically differ (e.g., say the actors are actually 'more hidden', then their hit rates may be lower based on the 'hidden' attribute).
+
+In terms of a snowball, we would just keep adding edges (nodes in the line graph) based on some rate, maybe with a pre-specified (or estimated?) expected network size? Some kind of conditional estimation based on the previous wave? 
+
+For the decision of how many nodes are identified in the 'next' snowball wave, this is probably probabilistically done if we have a model for the hit rates for the ties to represent the noise in an investigation process.
+
+That being said, REMs just had me thinking that this could be vaguely described as a Poisson process that acknowledges dyadic relationships. The idea here's that the number of actors identified in the subsequent waves (or time-steps) depend on a (potentially variable) rate function that depends on dyadic properties of the nodes in adjacent waves/time-steps.
+
+This does however vaguely sound like a graph snowball sampling algorithm to explore the size of a graph. Not sure how this works if we don't have a specific boundary though... In a perfect world, this would be like a Poisson process that incorporates network properties to eventually end up exploring the 'full' network given the tie definition we have. It sounds useful in a predictive sense or as a way to generate predictions for next waves if there were missing elements between waves. Though I suppose any probabilistic model could do this, not sure if there's something about a Poisson process that can help here, not sure why I have Poisson processes in my head.
+
+## Adjmat to line graph
+
+```{r linegraph, fig.width=9, fig.height=5}
+# line graph function
+lineGraph <- function(adjMat, directed = FALSE){
+  
+  ## lineGraph(adjMat, directed) takes an adjacency matrix and generates its 
+  ## corresponding line graph for its edges. 
+  ##
+  ## Input:
+  ## - adjMat:   An adjacency matrix describing a graph. Not sure if missing data 
+  ##             will mess with the conversion. 
+  ##
+  ## - directed: A logical value to indicate whether the graph is directed or not.
+  ##
+  ## Output:
+  ## - The line graph for the input adjacency matrix, stored as another adjacency
+  ##   matrix.
+  
+  ### count the number of edges
+  edgeCount = sum(adjMat)
+  
+  # if undirected, divide in half.
+  if (directed == FALSE){
+    edgeCount = edgeCount/2
+    adjMat[lower.tri(adjMat)] = 0
+  }
+  
+  # make a matrix of indices for edges (basically an edgelist)
+  inds = which(adjMat == 1, arr.ind = TRUE)
+  
+  # order it for readability
+  inds = inds[order(inds),]
+  
+  # make an empty matrix for the edges (represented as nodes)
+  lineMat = matrix(data = 0, 
+                   nrow = edgeCount,
+                   ncol = edgeCount)
+  
+  # use the edge list to make the line graph matrix
+  for(edgeInd in 1:edgeCount){                              # for every edge in the edge list
+    tempMat = matrix(data = c(inds %in% inds[edgeInd,]),    # match the edge with the same nodes
+                     ncol = 2)    
+    tempMat[edgeInd,] = FALSE                               # remove the selected edge in the matches
+    lineMat[edgeInd,] = tempMat[,1] + tempMat[,2]           # and put all the edges with the same nodes in the matrix
+  }
+  
+  
+  # make a vector of labels for the nodes
+  nodeLabel = apply(inds,
+                    MARGIN = 1,
+                    FUN = toString)
+  
+  # remove whitespace
+  nodeLabel = gsub(" ", "", nodeLabel, fixed = TRUE)
+  
+  # name the matrix
+  rownames(lineMat) = nodeLabel
+  
+  # return the line graph matrix
+  return(lineMat)
+}
+
+# load sna
+library(sna)
+
+## test it out
+adj = matrix(data = c(0,1,0,1,0,
+                      1,0,1,1,0,
+                      0,1,0,0,1,
+                      1,1,0,0,0,
+                      0,0,1,0,0),
+             byrow = T,
+             nrow = 5,
+             ncol = 5)
+
+# transform to a line graph matrix
+lineAdj = lineGraph(adj)
+
+# plot the initial adjacency matrix
+par(mfrow = c(1,2))
+gplot(adj, label = 1:5, gmode = "graph", xlab = "Toy net")
+
+# plot the line graph
+gplot(lineAdj, label = rownames(lineAdj), gmode = "graph", xlab = "Line graph")
+
+# sageman net?
+SagemanAdjacencyMatrix <- read.csv(here::here("../Data/SagemanNoordin/sagemanAdjacency.csv"), header=FALSE)
+
+gplot(SagemanAdjacencyMatrix, gmode = "graph", xlab = "Sageman graph")
+
+# this is probably a bad idea
+sagemanLineGraph = lineGraph(SagemanAdjacencyMatrix)
+
+gplot(sagemanLineGraph, gmode = "graph", xlab = "Sageman line graph")
+
+```
+
+
+## Messing around with a toy network
+
+```{r toynet}
+# load some packages
+library(network)
+library(sna)
+
+# make a toy adjmat
+adj = matrix(data = c(0, 1, 0, 0, 0,
+                      1, 0, 1, 1, 0,
+                      0, 1, 0, 0, 0,
+                      0, 1, 0, 0, 1,
+                      0, 0, 0, 1, 0),
+             nrow = 5,
+             ncol = 5)
+
+# turn into an undirected network object
+net = as.network(adj, directed = FALSE)
+
+# use a predefined set of node coordinates
+coord = matrix(data = c(-0.05401422, 1.062047, 
+                          0.82973354, 2.412344,
+                          0.64597762, 3.943841,
+                          2.46368284, 2.190421,
+                          3.61261724, 1.316615),
+               nrow = 5,
+               ncol = 2,
+               byrow = T)
+
+# plot
+gplot(net,
+      vertex.cex = 3,
+      displaylabels = TRUE,
+      gmode = "graph",
+      coord = coord)
+```
+
+
+
+
+

@@ -1,0 +1,1028 @@
+---
+title: "20230726_missNetFunctions"
+date: '`r Sys.Date()`'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setting up preamble
+
+```{r packages and filepath}
+# packages
+library(here)
+library(ergm)
+library(sna)
+library(network)
+library(testthat)
+
+#### sorting out the datasets I want to be using
+### They are all undirected.
+## Jemaah Islamiyah 
+# has 11 time slices for a lot of these datasets, so I'm taking out specific years (~randomly chosen)
+# this set is the Bali bombing dataset 2002 during 2002 (i.e., looks dense.)
+baliBombing2002 = as.matrix(read.csv(file = here("Data", "BaliBombing2002", "BALIBOMBING2002_2002.csv"), header = T, row.names = "X"))
+
+# this one is the Bali bombing dataset 2005 during 2005 (not sure what the 2 index is)
+baliBombing2005 = as.matrix(read.csv(file = here("Data", "BaliBombing2005", "BALIBOMBING2005_2005_2.csv"), header = T, row.names = "X"))
+
+# Christmas eve bombing 2000 during 2000
+xmasBombing2000 = as.matrix(read.csv(file = here("Data", "ChristmasEveBombing2000", "CHRISTMASEVEINDONESIA_2000.csv"), header = T, row.names = "X"))
+
+# Aus embassy bombing 2004 during 2004
+ausBombing2004 = as.matrix(read.csv(file = here("Data", "AustralianEmbassyBombing", "AE_INDO_2004.csv"), header = T, row.names = "X"))
+
+## Hamburg cell
+# not sure what the 2 index is either
+hamburgCell2001 = as.matrix(read.csv(file = here("Data", "HamburgCell", "HAMBURG_2001_2.csv"), header = T, row.names = "X"))
+
+## London Gangs 2005-2009
+# also comes with attributes
+londonGangs = as.matrix(read.csv(file = here("Data", "LondonGangs", "LONDON_GANG.csv"), header = T, row.names = "X"))
+londonGangsAtt = read.csv(file = here("Data", "LondonGangs", "LONDON_GANG_ATTR.csv"), row.names = "X")
+
+#### Tie definitions
+## All the Jemaah Islamiyah networks have the same tie definitions
+# 0 = no relation
+# 1 = Acquaintance/distant family (limited to radical organisational activity)
+# 2 = Friends/moderately close family
+# 3 = Close family/friends
+
+# so let's binarise
+# Bali bombing 2002
+bali2002AdjMat = baliBombing2002
+bali2002AdjMat[bali2002AdjMat > 0] = 1
+
+# Bali bombing 2005
+bali2005AdjMat = baliBombing2005
+bali2005AdjMat[bali2005AdjMat > 0] = 1
+
+# Aus bombing 2004
+aus2004AdjMat = ausBombing2004
+aus2004AdjMat[aus2004AdjMat > 0] = 1
+
+# xmas eve bombing 2000
+xmas2000AdjMat = xmasBombing2000
+xmas2000AdjMat[xmas2000AdjMat > 0] = 1
+
+#### Note: due to the four datasets effectively being from the same organisation, there can be some overlap in members
+# e.g.,
+colnames(baliBombing2002) %in% colnames(baliBombing2005)
+
+## Hamburg cell
+# sleeper Al Qaeda cell
+# Defined the same as Jemaah Islamiyah
+hamburg2001AdjMat = hamburgCell2001
+hamburg2001AdjMat[hamburg2001AdjMat > 0] = 1
+
+## London gangs
+# All members come from arrest and convinction data from 'all confirmed' members of the gang
+# 1 = hang out together
+# 2 = co-offend together
+# 3 = co-offend together on serious crimes
+# 4 = co-offend together on serious crimes and kin ties
+londonGangsAdjMat = londonGangs
+londonGangsAdjMat[londonGangsAdjMat == 1] = 0
+londonGangsAdjMat[londonGangsAdjMat > 0] = 1
+
+## list of all the adjmats, can be an array if needed.
+adjMatList = list(xmas2000AdjMat,
+                  aus2004AdjMat,
+                  bali2002AdjMat,
+                  bali2005AdjMat,
+                  hamburg2001AdjMat,
+                  londonGangsAdjMat)
+
+networkLabels = list("Xmas Eve 2000",
+                     "Aus Embassy 2004",
+                     "Bali 2002",
+                     "Bali 2005",
+                     "Hamburg Cell 2001",
+                     "London Gangs")
+
+
+```
+
+## 'True' models
+
+```{r true models}
+## will just be using structural effects
+## but for the london gangs, will include some attributes for some variety
+
+# Specifying the chosen network
+# a network index (would be a command argument)
+networkIndex = 1
+
+# choose a network
+chosenNetwork = adjMatList[[networkIndex]]
+
+# get the number of nodes (order of the graph)
+n = nrow(chosenNetwork)
+
+# turn into a network and estimate
+chosenNetObj = as.network(chosenNetwork, directed = FALSE)
+
+# a specific branch for the london gangs to add attributes
+if(networkIndex == 6){
+  
+  # add in attributes
+  chosenNetObj %v% 'Age' = londonGangsAtt$Age
+  chosenNetObj %v% 'Arrests' = londonGangsAtt$Arrests
+  chosenNetObj %v% 'Birthplace' = londonGangsAtt$Birthplace
+  chosenNetObj %v% 'Convictions' = londonGangsAtt$Convictions
+  chosenNetObj %v% 'Prison' = londonGangsAtt$Prison
+  
+}
+
+## model specifications
+# a generic model for most models
+trueModel = chosenNetObj ~ edges + 
+  altkstar(2, fixed=TRUE) + 
+  gwesp(decay = log(2), fixed = TRUE)
+
+# a different model for attributes, specifically for the london gangs
+trueModelAtt = chosenNetObj ~ edges + 
+  altkstar(2, fixed = TRUE) + 
+  gwesp(decay = log(2), fixed = TRUE) + 
+  nodecov('Age') + 
+  absdiff('Age') +
+  nodecov('Arrests') + 
+  absdiff('Arrests') +
+  nodecov('Convictions') + 
+  absdiff('Convictions') +
+  nodematch('Prison') + 
+  nodematch('Birthplace')
+
+# plug them into a model list
+modelList = list(trueModel,
+                 trueModelAtt)
+
+# honestly, export this for spartan usage
+save(adjMatList, networkLabels, londonGangsAtt, modelList, file = "20231006_missNetsEnMasse.RData")
+
+```
+
+### 'True' model results and plots
+
+```{r true model results, warning = FALSE}
+## list of results files to be read in
+resultsFiles = list.files(path = here("Output", "20230726_missNetsTrueModels"))
+
+
+
+
+## checking density, degree dist, and what the network looks like
+# looping across all the networks
+for(netInd in 1:length(adjMatList)){
+  
+  ## specify the chosen network
+  loopNetwork = adjMatList[[netInd]]
+  
+  # grab sample size
+  n = nrow(loopNetwork)
+  
+  ## check if symmetric
+  
+  # symmetrising column and row names because isSymmetric checks this
+  colnames(loopNetwork) = rownames(loopNetwork)
+  
+  # making sure it's an undirected network
+  print(paste("Check if", networkLabels[[netInd]], "is undirected:", isSymmetric(loopNetwork)))
+
+  ## Check density
+  # calculating density
+  netDensity = (sum(loopNetwork)/2)/((n*(n-1))/2)
+  
+  # and a check
+  print(paste("Density for ", networkLabels[[netInd]] , " : ", netDensity, sep = ""))
+  
+  ## Plotting
+  par(mfrow = c(1,2))
+  
+  # plot network
+  gplot(loopNetwork,
+        gmode = "graph",
+        edge.col = "grey",
+       # vertex.cex = sna::degree(greeceBombs)*0.2,
+        main = paste(networkLabels[[netInd]], ",", " density = ", round(netDensity, 3), sep = ""))
+  
+  # check degree distribution
+  plot(table(colSums(loopNetwork)), type = "h",
+       main = paste("Degree distribution, n =", n), 
+       xlab = "Degree",
+       ylab = "Frequency")
+
+  
+  
+  # load in and print model results
+  load(here("Output", "20230726_missNetsTrueModels", resultsFiles[[netInd]]))
+  
+  # and summarise model
+  print(summary(modelres))
+  
+}
+
+par(mfrow = c(2, 3))
+
+for(netInd in 1:length(adjMatList)){
+
+  ## Additional plot for ASNAC presentation
+  gplot(loopNetwork,
+        gmode = "graph",
+        edge.col = "grey",
+        main = paste("Net ", netInd , sep = ""))
+  
+}
+
+```
+
+## Missingness simulations
+
+### Independent missingness
+
+```{r independent D}
+## taking some old code 
+
+# degrade net function from previous script
+## as of August 2023, ignore this for the conditional uniform density model that lets me get a specific proportion of missingness
+indepMiss <- function(adjMat, propMiss, directed = FALSE){
+  
+  ## indepMiss(adjMat, propMiss, directed) takes a graph and replaces the observed graph ties with missing 
+  ## values(NA). This function does not handle actor non-response as it only works off the observed
+  ## network ties. Works with undirected networks.
+  ##
+  ## Input:
+  ## - adjMat:    An adjacency matrix describing a graph. There shouldn't
+  ##             be any missing values in this adjacency matrix yet.
+  ##             Should still work if there were though. I think.
+  ## - propMiss: A numeric value to indicate the proportion of missingness
+  ##             that will be imposed on the observed network.
+  ##             Is bounded between 0 and 1.
+  ## - directed: A logical value to indicate if it's a directed or
+  ##             undirected network. Default is set to undirected.
+  ##
+  ## Output: 
+  ## - A degraded network with missing ties where observed ties once were.
+  ##   Note that it only handles item non-response for now. Given the inputs,
+  ##   the missing values would be ~'propMiss'% of the observed tie variables in 'graph'.
+  
+  ## spit out an error if the directed argument is misspecified
+  if(directed != TRUE & !isSymmetric(adjMat)){
+    stop("The undirected network doesn't have a symmetric matrix")
+  }
+  
+  ## spit out an error if the proportion of missingness exceeds bounds
+  if(propMiss > 1 | propMiss < 0){
+    stop("The proportion of missingness exceeds bounds")
+  }
+  
+  # grab the number of nodes
+  n = nrow(adjMat)
+  
+  # make an n x n matrix containing randomly generated values between 0 and 1
+  missThresh = matrix(data = runif(n^2, min = 0, max = 1),
+                      nrow = n,
+                      ncol = n)
+  
+  # set diagonal to 0 for the dircted network
+  diag(missThresh) = 0
+  
+  # branch for undirected network
+  if( directed == FALSE ){
+    
+    # make a matrix
+    missThresh = matrix(data = 0, nrow = n, ncol = n)
+    
+    # take only one triangle
+    missThresh[upper.tri(missThresh)] = runif((n*(n-1))/2)
+
+    # and symmetrise
+    missThresh[lower.tri(missThresh)] = t(missThresh)[lower.tri(missThresh)]
+  }
+     
+  # index which of the ties are going to be missing
+  missTies = missThresh <= propMiss
+  
+  # copy the graph to punch holes in it
+  degradedGraph = adjMat
+    
+  # punch holes
+  degradedGraph[missTies] = NA
+  
+  # diagonal is always fixed to 0, this is an artefact of the way missingness is generated
+  diag(degradedGraph) = 0
+  
+  # return the degraded graph
+  return(degradedGraph)
+}
+
+
+# ## Test run of the function above
+# indepMissTrial = indepMiss(adjMat = greeceBombs, propMiss = 0.3, directed = FALSE)
+# 
+# # grabbing the D matrix
+# indepMissMat = 1 * is.na(indepMissTrial) 
+
+## Seems good enough
+
+```
+
+
+
+### Dependencies assumed through an ERGM
+
+```{r ergm-based missingness}
+# probably needs to be split into a few sections
+# one to prep some chosen parameters...
+# fix density through the ergm then specify a model
+
+## stuff in the input
+# the true network
+# a proportion of missingness
+# the model for the missingness
+
+## the 'true' network
+trueNet = adjMatList[[1]]
+
+
+## Specify a proportion of missingness
+propMiss = 0.3
+
+## this specification was chosen for a couple of reasons:
+# a) social circuit assumptions are difficult to justify substantively for missingness
+#    but if the point I want to make is that 'dependency maters for missingness', they will suffice
+#    because markov model parameters are known to be difficult to work with
+# b) dyadCov for the true network (an entrainment effect) to weigh the probability of missingness
+#    on the presence of a tie in the true network (either positive or negative weights can be justiied)
+# c) a node covariate for degree to weigh more or less popular ties with an additional weight
+
+# For a specific proportion of missing data in the *undirected* network, initialise a random network
+# might make this its own helper function.
+# this needs to be pretty close to the specified propMiss, so a range of acceptance
+# the example below is +/- 1%, set this as a default (for no reason) but allow changes.
+acceptRange = 0.01
+
+n = nrow(trueNet)
+initMissAdj = matrix(data = 0, nrow = n, ncol = n)
+
+# use only one triangle
+initMissAdj[upper.tri(initMissAdj)] = runif(n = (n*(n-1))/2, min = 0, max = 1)
+
+# symmetrise
+initMissAdj[lower.tri(initMissAdj)] = t(initMissAdj)[lower.tri(initMissAdj)]
+
+# binarise
+initMissAdj = 1*(initMissAdj <= propMiss)
+
+# set diagonal to 0 since it's an artefact of how I've binarised the indicators
+diag(initMissAdj) = 0
+
+# check if the density is within the specified acceptable range
+initMissDensity = sum(initMissAdj[upper.tri(initMissAdj)]/((n*(n-1))/2))
+withinTolerance = with(initMissDensity, initMissDensity < (propMiss + acceptRange) & initMissDensity > (propMiss - acceptRange))
+
+# if values are not within tolerance,
+while(!withinTolerance){
+  
+  # remake and resample the matrix
+  initMissAdj = matrix(data = 0, nrow = n, ncol = n)
+  initMissAdj[upper.tri(initMissAdj)] = runif(n = (n*(n-1))/2, min = 0, max = 1)
+
+  # symmetrise
+  initMissAdj[lower.tri(initMissAdj)] = t(initMissAdj)[lower.tri(initMissAdj)]
+
+  # binarise
+  initMissAdj = 1*(initMissAdj <= propMiss)
+
+  # set diagonal to 0 since it's an artefact of how I've binarised the indicators
+  diag(initMissAdj) = 0
+  
+  # get the density
+  initMissDensity = sum(initMissAdj[upper.tri(initMissAdj)]/((n*(n-1))/2))
+  
+  # check if the density is within the specified acceptable range
+  withinTolerance = with(initMissDensity, initMissDensity < (propMiss + acceptRange) & initMissDensity > (propMiss - acceptRange))
+}
+
+# turn into a network object
+initMissNet = network::as.network(initMissAdj, directed = FALSE)
+initMissNet %v% 'degree' = rowSums(trueNet)
+
+## specify a model for the missingness
+chosenModel = 
+  initMissNet ~ edges + 
+  gwdegree(log(2), fixed = TRUE) +
+  gwesp(log(2), fixed = TRUE) +
+  dyadcov(trueNet) +
+  nodecov('degree')
+
+# generate simulated networks
+simMissNetStats <- simulate(object = chosenModel, #put in the model object ,
+                        # coef = hmm,  # do I need these....
+                        nsim = 1000 ,
+                        control=control.simulate.formula(MCMC.burnin=1024,MCMC.interval=1024), # a burnin to prepare the importance sampler
+                        output='stats',
+                        constraints = ~edges)   # this constraint fixes the 'density' (i.e., number of missing tie vars)
+
+# ideally, the constraint serves to specify the proportion of missingness and make it easier for the model
+
+### What if I wanted a certain specific parameter value... (e.g., positive entrainment or negative GWDegree...?)
+
+# trace plots to see how the parameter values are doing
+par(mfrow = c(2,3))
+plot(ts(simMissNetStats[,"edges"]), ylab = "Edges")
+plot(ts(simMissNetStats[,2]), ylab = "GWDegree")
+plot(ts(simMissNetStats[,3]), ylab = "GWESP")
+plot(ts(simMissNetStats[,"dyadcov.trueNet"]), ylab = "Entrainment")
+plot(ts(simMissNetStats[,"nodecov.degree"]), ylab = "Degree nodecov")
+
+mtext("Full ERGM",
+      side = 3,
+      line = -2,
+      outer = TRUE)
+
+```
+
+### Latent space models
+
+#### Defining the latent space
+
+```{r defining latent space}
+# making an n x k matrix for coordinates
+noDim = 2
+latentCoords = matrix(0, nrow = n, ncol = noDim)
+colnames(latentCoords) = c("x", "y")
+
+# randomly generating positions with a normal dist
+for(dim in 1:noDim){
+  latentCoords[,dim] = rnorm(n, mean = 0, sd = 1)
+}
+
+# viewing the latent space
+plot(latentCoords[,1], latentCoords[,2], xlab = "x", ylab = "y")
+
+# computing matrix of (Euclidean) distances
+distanceMat = matrix(0, nrow = n, ncol = n)
+
+# since there's a subtraction, I don't know how to make this a matrix operation...
+for(i in 1:n){
+    for(j in 1:n){
+      
+    # compute its (Euclidean) distance with every other row
+    distanceMat[i,j] = sqrt(sum((latentCoords[i,] - latentCoords[j,])^2))
+    
+    }
+}
+
+# the distance matrix can be used in a model as a weight for edge formation
+
+```
+
+While (Euclidean) distance between the nodes in the latent space was used for this case, it could be any function of the node coordinates in the latent space.
+
+#### Using the latent space
+
+Taken from Hoff et al. (2002),
+
+$$\eta_{ij} = logodds(x_{ij} = 1 | z_i, z_j, c_{ij}, \alpha, \beta) = \alpha + \beta'c_{ij} - |z_i - z_j|,$$
+
+where \$\eta = \$ probability of a tie for tie variable indexed with ij \$X = \$ Adjmat, not y as in the original Hoff paper because screw consistency \$z_i = \$ coordinates of node $i$ in the latent space \$\alpha \text{ and } \beta = \$ Model parameters of the latent space model \$c = \$ some covariates (e.g., nodal attributes)
+
+For my particular case, I won't be using covariates even though they can certainly help. More importantly, I will also be using missingness matrix $\mathbf{D}$,
+
+where $$D = \begin{cases} 1 \ \text{if edge } \{i,j\} \notin E \\ 0 \ \text{if edge } \{i,j\} \in E \end{cases},$$
+
+for edge set $E$. It basically says that $\mathbf{D} = 0$ when the edge is observed and $1$ if it isn't sampled (i.e., not observed/is missing).
+
+Instead, I am going to be weighing the distance matrix with some model parameter $\beta$,
+
+$$\eta_{ij} = logodds(d_{ij} = 1| z_i, z_j, \alpha, \beta)) =   \alpha + \beta'|z_i - z_j|$$
+
+```{r using latent spcae}
+# using the latent space
+# in a similar fashion to logistic regression
+
+# specify a proportion of missingness
+propMiss = 0.3
+
+# upper bound of log odds basically to make sure density is within range..
+logUpperBound = log(propMiss/(1-propMiss))
+
+# the example below is +/- 1%, set this as a default (for no reason) but allow changes.
+acceptRange = 0.01
+
+### setting beta value
+## weight to describe how much the (Euclidean) distance between nodes affect the observability of the data
+# a positive weight indicates that higher (Euclidean) distance makes it more likely for the tie variable to be missing
+# a negative weight indicates that higher (Euclidean) distance makes it less likely for the tie variable to be missing
+
+# arbitrarily choosing some random beta value
+beta = 0.4
+
+## note: this would be prespecified in the function as a measure of how much the distance matrix affects the eventual missing tie variable probability in the simulation, but can basically be adjusted to fit a proportion of missingness (e.g., sample beta from a prespecified range to fit the propMiss better)
+# but it might just be better to fix this and make the intercept do most of the heavylifting for specifying the 'density' of D.
+
+weightedDistMat = beta * distanceMat
+
+### setting base alpha value
+## ideally as a function of the propMiss and beta
+# my first soln for this is to take the upper bound of the log odds (i.e., corresponding to the specified proportion of missingness)
+# and then subtracting it with the average weighted distance (i.e., beta-scaled distance matrix)
+# therefore on average the eventual log odds should be equal to the specified proportion of missingness
+
+alpha = logUpperBound - mean(weightedDistMat[upper.tri(weightedDistMat)])
+
+# getting the matrix of etas (probabillity of certain tie variables being missing)
+logOddsEta = alpha + weightedDistMat
+
+# transform the log odds to probability values
+probEta = apply(logOddsEta, MARGIN = c(1,2), FUN = function(x){exp(x)/(exp(x) + 1)})
+
+# diagonal will always be 0 because adjmat
+diag(probEta) = 0
+
+## simulate from these probability values
+latentMissMat = apply(probEta, MARGIN = c(1,2), FUN = function(prob){sample(x = c(0,1), size = 1, prob = c(1-prob, prob))})
+
+# since I'm only working with undirected edges,
+# symmetrise
+latentMissMat[lower.tri(latentMissMat)] = t(latentMissMat)[lower.tri(latentMissMat)]
+
+## a while loop with a unit test so that the density of the network is within acceptable range
+# using the 'density' of D to make sure it's close to the propMiss specified
+# number of nodes
+n = nrow(latentMissMat)
+
+# get the density
+missLatentDensity = sum(latentMissMat[upper.tri(latentMissMat)]/((n*(n-1))/2))
+
+# check if the density is within the specified acceptable range
+withinTolerance = with(missLatentDensity, missLatentDensity < (propMiss + acceptRange) & missLatentDensity > (propMiss - acceptRange))
+
+# if values are not within tolerance,
+while(!withinTolerance){
+  
+  # resample the realised matrix
+  latentMissMat = apply(probEta, MARGIN = c(1,2), FUN = function(prob){sample(x = c(0,1), size = 1, prob = c(1-prob, prob))})
+  
+  # only undirected so far
+  # symmetrise
+  latentMissMat[lower.tri(latentMissMat)] = t(latentMissMat)[lower.tri(latentMissMat)]
+  
+  # get the density
+  missLatentDensity = sum(latentMissMat[upper.tri(latentMissMat)]/((n*(n-1))/2))
+  
+  # check if the density is within the specified acceptable range
+  withinTolerance = with(missLatentDensity, missLatentDensity < (propMiss + acceptRange) & missLatentDensity > (propMiss - acceptRange))
+}
+
+# this loop should go (or even not start) until the density is within tolerated values
+
+# I'll use unit testing some day... This stops the code, which doesn't make it ideal for probabilistic elements
+# ha = test_that(desc = 'simulated missingness equals expected missingness', code = 
+#             expect_equal(object = missLatentDensity, expected = propMiss, tolerance = acceptRange))
+
+### is there a diagnostic I can use...?
+### or some plot...?
+gplot(latentMissMat, gmode = "undirected", main = "D generated by a latent model", usearrows = FALSE)
+
+
+#### to be specified for the functional form
+## input
+# distance matrix
+# propMiss
+# acceptable tolerance for density (of the simulated missingness)
+# beta value
+
+## output
+# a realised matrix for D via the spceified latent coordinates (from a separate function before this)
+
+
+```
+
+
+
+## Other ways to do things (v2 basically)
+
+This section is basically Johan's advice to remove the while loops I have to make sure simulated missingness matrix 'density' is equal to 
+
+### Conditionally uniform density
+
+Available through the sna package.
+
+```{r CUD}
+# assume the sna package is read in
+initMissAdj = sna::rgnm(n = 1,
+                        nv = n,
+                        m = round(propMiss*((n*(n-1))/2)),
+                        mode = 'graph')
+
+# this gives me a good way to initialise random graphs with a fixed density
+
+```
+
+### Simulating the latent model through statnet
+
+Since the latent model is basically a form of logistic regression with the Euclidean distance matrix (or any other tie-formation function of the latent space coordinates) as an independent covariate. This is also equivalent to an ERGM with a density parameter and a dyadic covariate for the distance (or whatever) matrix. Simulating this with a constraint through the ERGM simulate function will let me generate missingness matrices (D) with a fixed 'density'.
+
+Because of the constraint in the ERGM, the edges parameter for the simulated ergm can be kept at 0 and I can freely specify the beta value for the weight of the distance (or whatever) matrix.
+
+```{r another latent sim}
+# Another latent model simulation
+# now conditionally with a fixed 'density'
+latentMissModel = initMissNet ~ dyadcov(distanceMat)
+
+# turn into a network object
+initMissNet = network::as.network(initMissAdj, directed = FALSE)
+
+# generate simulated networks
+simMissLatentStats <- simulate(object = latentMissModel, #put in the model object ,
+                        coef = beta,  # do I need these....
+                        nsim = 1000 ,
+                        control=control.simulate.formula(MCMC.burnin=1024,MCMC.interval=1024), # a burnin to prepare the importance sampler
+                        output='stats',
+                        constraints = ~edges)   # this constraint fixes the 'density' (i.e., number of missing tie vars)
+
+# check trace plots
+par(mfrow = c(1, 2))
+plot(ts(simMissNetStats[,"edges"]), ylab = "Edges")
+plot(ts(simMissNetStats[,2]), ylab = "Distance dyadcov")
+
+```
+
+
+## Functional forms
+
+Everything above is figuring out what code is necessary to be put into a function. The parts below turn them into functions that are hopefully easy to figure out and documented well.
+
+My own tips for readable code:
+
+a) comments. I find myself in the opposite end of the spectrum and have a tendency for over-commenting. KEEP IT SHORT
+b) object names. I tend to stick to camelCase.. With abbreviations, I tend to keep them capitalised, but I just looked up how camelCase handles abbreviations and they're agnostic to any additional considerations (e.g., missErgmBayes > missERGMBayes for readability)
+c) Functions. These are going to be made... so yep. Keep them small. Make it modular and split them up when necessary. Fewer arguments and more focused functions the better.
+d) Indentation and readbility. yes. Indents. PLEASE.
+e) Unit test when necessary or appropriate.
+f) Follow Jenny Bryan's code smells for bad habits.
+
+### Dependency through specified ERGMs
+
+```{r miss ergm fn}
+## function to initialise missingness matrix
+initMissAdj = function(n, propMiss, numSims = 1, mode = "graph", ...){
+  
+    
+  ## initMissAdj(n, propMiss, numSims, ...) takes a number of nodes, a proportion of missingness, 
+  ## a number of simulated networks, and any additional arguments supported by sna::rgnm() to 
+  ## generate a uniform network conditioned on the density of the graph.
+  ##
+  ## Input:
+  ## - n:        An integer for the number of nodes for the missingness indicator matrix.
+  ##
+  ## - propMiss: A numeric value to indicate the proportion of missingness to calculate
+  ##             the 'density' of the missingness matrix
+  ##             Is bounded between 0 and 1.
+  ##
+  ## - numSims:  An integer for the number of simulated networks to be generated.
+  ##             The default is set to 1 for the function to return a matrix,
+  ##             If set to be above one, it will return a numSims x n x n array.
+  ##
+  ## - mode:     A string to be used for the sna::rgnm() for the type of graph to be generated.
+  ##             Default is set to 'graph' for an undirected graph. Can be changed to 'digraph'.
+  ##             For directed graphs.
+  ##
+  ## Output: 
+  ## - An n x n matrix (or numSims x n x n array) containing a completely uniform (Bernoulli) graph
+  ##   with an exact density (propMiss). Can also be used for independent missingness.
+  
+  # needs the sna package
+  require(sna)
+  
+  # assume the sna package is read in
+  initAdj = sna::rgnm(n = numSims,                       # number of simulated networks
+                      nv = n,                            # number of nodes
+                      m = round(propMiss*((n*(n-1))/2)), # number of dyads (for density) 
+                      mode = mode)                       # type of graph
+                      
+  # return the simulated object
+  return(initAdj)
+}
+
+
+
+### simulation function
+
+simMissNet = function(model, coef){
+
+  ## simMissNet(model, coef) takes a model and a set of coefficients for the model
+  ## and plugs it in the simulate.ergm() function to return 1000 (can be modified..) networks
+  ## with fixed density (constrained number of edges).
+  ##
+  ## Input:
+  ## - model: A statnet model object. The outcome has to be a network object, the 
+  ##          predictors need to be ergm.terms.
+  ##
+  ## - coef:  A vector of coefficients needed to simulate the networks on. These
+  ##          should be chosen corresponding to the local endogenous assumptions made
+  ##          about the missingness
+  ##
+  ## Output: 
+  ## - A list of 1000 (modifiable...) networks simulated with the specified model.
+
+  # needs ergm or wouldn't work
+  require(ergm)
+  
+  # generate the simulated networks 
+  simMissNets <- simulate(object = model, # put in the model object ,
+                          coef = coef,  # I *do* need these. edges can be set to 0 when the constraint is in
+                          nsim = 1000,
+                          control = control.simulate.formula(MCMC.burnin=20000,MCMC.interval=100), # a burnin to prepare the importance sampler
+                          constraints = ~edges)   # this constraint fixes the 'density' (i.e., number of missing tie vars)
+  
+  # return the simulated networks
+  return(simMissNets)
+}
+
+
+
+
+
+### Diagnostic function basically
+missSimDiag = function(simObj, modelName = "Full ERGM"){
+  
+  ## missSimDiag(simObj, modelName) takes a simulated matrix of network statistics from 
+  ## the simulate.ergm() function and plots the trace plots of the parameters.
+  ##
+  ## Input:
+  ## - simObj: A matrix object containing the simulated networks from
+  ##           the output of a simulate.ergm() function.
+  ##
+  ## - modelName:   A string to indicate the name of the model that is simulated.
+  ##                Its default is a 'Full ERGM' simulation.
+  ##
+  ## Output: 
+  ## - For number of parameters p in the simulated object, p trace plots arranged in 
+  ##   2 columns.
+  
+  # needs ergm
+  require(ergm)
+  
+  # take out the statistics from the simulated object
+  simObjStats = attr(simObj, "stats")
+  
+  # number of parameters
+  p = ncol(simObjStats)
+  
+  # setting margins for the trace plots
+  # setting it to 2 columns (arbitrarily)
+  # and setting the number of rows to the ceiling of the number of parameters, halved
+  par(mfrow = c(ceiling(p/2), 2))
+  
+  # for loop to plot each trace plot
+  for(ind in 1:ncol(simObjStats)){
+    
+    # trace plots to see how the parameter values are doing
+    plot(ts(simObjStats[,ind]), ylab = colnames(simObjStats)[ind])
+  }
+  
+# setting text for the whole plot
+mtext(text = modelName,
+      side = 3,
+      line = -2,
+      outer = TRUE)
+}
+
+
+
+
+```
+
+
+### Latent space model for missingness
+
+```{r latent space fn}
+### Initialising some latent space
+simLatentCoords = function(n, noDim = 2){
+  
+  ## simLatentCoords(n, noDim) takes a simulated matrix of network statistics from 
+  ## the simulate.ergm() function and plots the trace plots of the parameters.
+  ##
+  ## Input:
+  ## - n:     An integer for the number of nodes for the missingness indicator matrix.
+  ##
+  ## - noDim: An integer for the number of dimensions in the latent space. The default is
+  ##          set to 2. Upwards of 3 dimensions (4+) might be difficult to visualise. 
+  ## Output: 
+  ## - An n x noDim matrix with random standardised normal values for each dimension.
+  
+  # specify the matrix of coordinates
+  latentCoords = matrix(0, nrow = n, ncol = noDim)
+
+  # using the base constant letters for axis names
+  colnames(latentCoords) = letters[1:noDim]
+
+  # randomly generating positions with a normal dist
+  for(dim in 1:noDim){
+    latentCoords[,dim] = rnorm(n, mean = 0, sd = 1)
+  }
+
+  # return the latent coordinates
+  return(latentCoords)
+}
+
+  
+```
+
+
+### Degradation function
+
+```{r degradation function}
+# A general purpose function to degrade 'true' matrices 
+degradeAdj = function(trueNet, missAdj, missSave = NA){
+  
+  ## degradeAdj(trueNet, missNet, missSave) takes a 'true network' and then degrades
+  ## the network with the missingness adjacency matrix provided. The missingness can then
+  ## be saved as either missing values (NA) or any other value (e.g., 1).
+  ##
+  ## Input:
+  ## - trueNet:  An n x n adjacency matrix to indicate the 'true' network.
+  ##
+  ## - missAdj:  An n x n adjacency matrix to indicate the missingness/observation of tie variables
+  ##             for the provided true network.
+  ##
+  ## - missSave: Any value (usually integer or NA) to be used as the value missingness is saved as.
+  ##             The default is set to NA for missing as per R definitions, but can be any value.
+  ##
+  ## Output: 
+  ## - An n x n matrix containing missing values (however saved/stored) for the provided missingness
+  ##   matrix.
+  
+  # make sure the object types are right
+  test_that(desc = "Make sure both objects are matrices",
+            code = expect_true(inherits(trueNet, "matrix") && inherits(missAdj, "matrix")))
+  
+  
+  # copy the graph to punch holes in it
+  degradedGraph = trueNet
+    
+  # punch holes
+  degradedGraph[missAdj==1] = missSave
+  
+  # return the degraded graph
+  return(degradedGraph)  
+  
+}
+
+```
+
+
+## What to do with the functions:
+
+(the tutorial for using the functions)
+
+
+### Setting parameters
+
+```{r setting para values}
+## These values will be used for all the functions below so:
+# first choosing the dataset
+trueNet = adjMatList[[1]]
+
+# setting proportion of missingness
+propMiss = 0.3
+
+```
+
+
+### Indep miss tutorial
+
+```{r indep miss tutorial}
+## initMissAdj for a bernoulli generated graph with a given density
+indepMissAdj = initMissAdj(n = nrow(trueNet),
+                           propMiss = propMiss)
+
+# and degrade it
+indepDegradedAdj = degradeAdj(trueNet = trueNet,
+                              missAdj = indepMissAdj)
+
+## unit test to make sure the proportions are right
+# grab the maximum number of ties for the matrix
+n = nrow(trueNet)
+
+# calculate a 'density' of sorts with the NAs in the degraded matrix
+# not dividing the density at the end by 2 because the sum is counting both ends of the undirected matrix
+test_that(desc = 'Independently simulated missingness equals expected missingness', code = 
+            expect_equal(object = sum(is.na(indepDegradedAdj))/((n * (n-1))), expected = propMiss))
+
+```
+
+
+### ERGM miss tutorial
+
+```{r ergm miss tutorial}
+## generate the initial missingness matrix
+initAdj = initMissAdj(n = nrow(trueNet), propMiss = 0.3)
+
+# turn into a network object
+initMissNet = network::as.network(initAdj, directed = FALSE)
+initMissNet %v% 'degree' = rowSums(trueNet)
+
+# setting coefficients for the ERGM
+someCoefs = c(0, 0.4, 0.5, 0.8, 0.2)  # everything set to positive is dangerous for mcmc explosions, but fixed density helps.
+
+## specify a model for the missingness
+# Note: 0.69 is chosen for the decay value because that's what log(2) is. Rounding lets the diagnostic plots be more interpretable
+
+## this specification was chosen for a couple of reasons:
+# a) social circuit assumptions are difficult to justify substantively for missingness
+#    but if the point I want to make is that 'dependency maters for missingness', they will suffice
+#    because markov model parameters are known to be difficult to work with
+# b) dyadCov for the true network (an entrainment effect) to weigh the probability of missingness
+#    on the presence of a tie in the true network (either positive or negative weights can be justiied)
+# c) a node covariate for degree to weigh more or less popular ties with an additional weight, 
+#    a positive value means that nodes with higher degree are more likely to have missing tie variables
+chosenModel = 
+  initMissNet ~ edges + 
+  gwdegree(0.69, fixed = TRUE) +
+  gwesp(0.69, fixed = TRUE) +
+  dyadcov(trueNet) +
+  nodecov('degree')
+
+# and now we simulate
+missErgmSimNets = simMissNet(model = chosenModel, coef = someCoefs)
+
+# and check diagnostics
+missSimDiag(simObj = missErgmSimNets)
+
+# randomly sampling from the simulated random networks
+chosenErgmMissInd = sample(1:length(missErgmSimNets), size = 1)
+print(paste("Your chosen missingness network for the ERGM-simulated missingness is", chosenErgmMissInd))
+
+# take that network out
+ergmMissAdj = as.matrix(missErgmSimNets[[chosenErgmMissInd]])
+
+# and degrade
+ergmDegradedAdj = degradeAdj(trueNet = trueNet, 
+                             missAdj = ergmMissAdj)
+
+# and check that it's degrading properly..
+# calculate a 'density' of sorts with the NAs in the degraded matrix
+# not dividing the density at the end by 2 because the sum is counting both ends of the undirected matrix
+test_that(desc = 'ERGM-simulated missingness equals expected missingness', 
+          code = expect_equal(object = sum(is.na(ergmDegradedAdj))/((n * (n-1))), expected = propMiss))
+```
+
+
+### Latent miss tutorial
+
+```{r latent miss tutorial}
+# latent model parameters
+# specifying the model with an initialised missingness matrix (with specific 'density')
+# with a single covariate being a dyadic covariate for the distance matrix
+# edges included for the trace plots' sake
+latentMissModel = initMissNet ~ edges + dyadcov(distanceMat)
+
+# setting the coefficient value (the 'beta' value that weighs the distance matrix)
+beta = 0.4
+
+# generate latent variable coordinates
+latentCoords = simLatentCoords(n = nrow(trueNet), 
+                               noDim = 2)
+
+# instead of making my own distance function that doesn't support more than 2 dimensions,
+# why not make life easier and use stats::dist instead?
+distanceMat = as.matrix(stats::dist(latentCoords))
+
+## doing it with the previously specified functions for the ergm simulation
+## generate the initial missingness matrix
+initAdj = initMissAdj(n = nrow(trueNet), propMiss = 0.3)
+
+# turn initialised missingness matrix into a network object
+initMissNet = network::as.network(initAdj, directed = FALSE)
+
+# and then simulate
+missLatentSimNets = simMissNet(model = latentMissModel, coef = c(0,beta))
+
+# then can check the same diagnostics as above
+missSimDiag(simObj = missLatentSimNets, modelName = "Latent model")
+
+# and go through the same process of choosing a network and depleting with it
+# randomly sampling from the simulated random networks
+chosenLatentMissInd = sample(1:length(missLatentSimNets), size = 1)
+print(paste("Your chosen missingness network for the ERGM-simulated missingness is", chosenLatentMissInd))
+
+# take that network out
+latentMissAdj = as.matrix(missLatentSimNets[[chosenLatentMissInd]])
+
+# and degrade
+latentDegradedAdj = degradeAdj(trueNet = trueNet, 
+                               missAdj = latentMissAdj)
+
+# and check that it's degrading properly..
+# calculate a 'density' of sorts with the NAs in the degraded matrix
+# not dividing the density at the end by 2 because the sum is counting both ends of the undirected matrix
+test_that(desc = 'Latent model simulated missingness equals expected missingness', 
+          code = expect_equal(object = sum(is.na(latentDegradedAdj))/((n * (n-1))), expected = propMiss))
+```
+

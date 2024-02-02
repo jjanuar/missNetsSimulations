@@ -1,0 +1,634 @@
+---
+title: "20230616_sunbeltSimulations"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Goals of this document
+
+I need to generate various missingness models:
+
+-   Independent tie variables with a homogenous missingness probability
+-   A Markov model that isn't conditional on the network
+-   A Markov model that IS conditional on the network
+-   The specified ERGM with a positive entrainment effect (d_ij is affected by x_ij), degree (x_i+ + x\_+j), some markov dependence (2star and triangles)
+
+All with approximately the same proportion of missingness (arbitrarily \~40%ish??)
+
+-   Choose an extant dataset (one of the UCINet ones)
+-   Converge a model on said dataset
+-   Deplete the model with the missingness models
+-   Evalute the effects of the missingness
+
+
+
+**general update:** refine these simulations into functional forms. make sure these work with differing adjmats (e.g., take multiple datasets from the ucinet database and make it so I can switch the chosen adjmat with the code adapting to the changing networks.)
+
+
+## Estimating a model on extant data
+
+```{r read in bombing data}
+# packages
+library(here)
+library(ergm)
+library(sna)
+library(network)
+
+# as taken from UCINET (17 Nov Greek Bombings)
+greeceBombs = as.matrix(read.csv(file = here("Data", "17Nov Greece Bombing", "17NOV_GREECE_19751984.csv"), header = T, row.names = "X"))
+
+# symmetrising column and row names because isSymmetric checks this
+colnames(greeceBombs) = rownames(greeceBombs)
+
+# add in the missing tie, ONLY FOR 19952002, the other two versions already have this as 1.
+greeceBombs[4,18] = 1
+
+# making sure it's an undirected network
+print(paste("Check on whether the network is undirected:", isSymmetric(greeceBombs)))
+
+# brief inspection
+# density
+print(paste("Density:", round(mean(greeceBombs), 3)))
+
+par(mfrow = c(1,2))
+
+# plot network
+gplot(greeceBombs,
+      gmode = "graph",
+      edge.col = "grey",
+     # vertex.cex = sna::degree(greeceBombs)*0.2,
+      main = "Nov 17 bombing network")
+
+# check degree distribution
+plot(table(colSums(greeceBombs)), type = "h", main = "Degree distribution", xlab = "Degree", ylab = "Frequency")
+
+# turn into a network and estimate
+bombNet = as.network(greeceBombs, directed = FALSE)
+
+# model specification
+trueModel = bombNet ~ edges + gwdegree(decay = log(2), fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE)
+
+# run ergm
+n17res = ergm(trueModel, 
+     control = control.ergm(init = c(-4.38, 0.48, 1.51), MCMC.burnin = 5024, MCMC.interval=5024))
+
+# maybe try updating the  ergm package
+
+# summary
+summary(n17res)
+```
+
+
+## Generating missingness
+
+### Simulated toy network
+
+```{r simuNet}
+# generating a simulated undirected network as X
+# set number of nodes, choosing 30 arbitrarily
+n = 18
+
+# using a uniform dist
+simMat = matrix(data = 0, nrow = n, ncol = n)
+
+# randomly generate values for all nonzero values (i.e., all off-diagonal elements) 
+# take only one triangle
+simMat[upper.tri(simMat)] = runif((n*(n-1))/2)
+
+# and symmetrise
+simMat[lower.tri(simMat)] = t(simMat)[lower.tri(simMat)]
+
+# use some threshold (this would be the density)
+threshold = 0.25
+
+# all values above the threshold are not ties
+simMat[simMat > threshold] = 0
+
+# all nonzero elements are then ties
+simMat[simMat != 0] = 1
+
+# how to approach this symmetrically..?
+```
+
+### 'Brute forcing' starting parameters
+
+```{r start paras, eval = F}
+# randomly choosing ergm parameter values is driving me nuts
+# so I'll just randomly generate a network with the approximate amount of missingness
+# and estimate a model on it for coefficients to use for simulation
+
+# turn the previously simulated random network with the specified threshold as an undirected network object
+simNet = as.network(simMat, directed = FALSE)
+
+# degree as a node covariate
+n17degree = rowSums(greeceBombs)
+
+# slap it on the network object
+simNet %v% 'degree' = n17degree
+
+# compare with a degree dyadcov
+sentTies = matrix(rep(rowSums(greeceBombs), nrow(greeceBombs)), nrow = nrow(greeceBombs), ncol = ncol(greeceBombs))
+receivedTies = matrix(rep(colSums(greeceBombs), ncol(greeceBombs)), nrow = nrow(greeceBombs), ncol = ncol(greeceBombs), byrow = T)
+
+# sum them up for an edge covariate weighed by degree
+degreeCov = sentTies + receivedTies
+
+# diag is 0 because adjmat
+diag(degreeCov) = 0
+
+# specify the model
+simModel = simNet ~ edges + kstar(2) + triangle + dyadcov(greeceBombs) + dyadcov(degreeCov)
+
+# estimate it
+simRes = ergm(simModel,
+              control = control.ergm(MCMC.burnin = 20000,
+                                     MCMC.interval = 20000,
+                                     init.method = "CD"))
+
+# check it
+summary(simRes)
+
+```
+
+
+
+### Independent tie variables
+
+```{r independent D}
+## taking some old code 
+
+# degrade net function from previous script
+indepMiss <- function(adjMat, propMiss, directed = FALSE){
+  
+  ## indepMiss(adjMat, propMiss, directed) takes a graph and replaces the observed graph ties with missing 
+  ## values(NA). This function does not handle actor non-response as it only works off the observed
+  ## network ties. Works with undirected networks.
+  ##
+  ## Input:
+  ## - adjMat:    An adjacency matrix describing a graph. There shouldn't
+  ##             be any missing values in this adjacency matrix yet.
+  ##             Should still work if there were though. I think.
+  ## - propMiss: A numeric value to indicate the proportion of missingness
+  ##             that will be imposed on the observed network.
+  ##             Is bounded between 0 and 1.
+  ## - directed: A logical value to indicate if it's a directed or
+  ##             undirected network. Default is set to undirected.
+  ##
+  ## Output: 
+  ## - A degraded network with missing ties where observed ties once were.
+  ##   Note that it only handles item non-response for now. Given the inputs,
+  ##   the missing values would be ~'propMiss'% of the observed tie variables in 'graph'.
+  
+  ## spit out an error if the directed argument is misspecified
+  if(directed != TRUE & !isSymmetric(adjMat)){
+    stop("The undirected network doesn't have a symmetric matrix")
+  }
+  
+  ## spit out an error if the proportion of missingness exceeds bounds
+  if(propMiss > 1 | propMiss < 0){
+    stop("The proportion of missingness exceeds bounds")
+  }
+  
+  # grab the number of nodes
+  n = nrow(adjMat)
+  
+  # make an n x n matrix containing randomly generated values between 0 and 1
+  missThresh = matrix(data = runif(n^2, min = 0, max = 1),
+                      nrow = n,
+                      ncol = n)
+  
+  # set diagonal to 0 for the dircted network
+  diag(missThresh) = 0
+  
+  # branch for undirected network
+  if( directed == FALSE ){
+    
+    # make a matrix
+    missThresh = matrix(data = 0, nrow = n, ncol = n)
+    
+    # take only one triangle
+    missThresh[upper.tri(missThresh)] = runif((n*(n-1))/2)
+
+    # and symmetrise
+    missThresh[lower.tri(missThresh)] = t(missThresh)[lower.tri(missThresh)]
+  }
+     
+  # index which of the ties are going to be missing
+  missTies = missThresh <= propMiss
+  
+  # copy the graph to punch holes in it
+  degradedGraph = adjMat
+    
+  # punch holes
+  degradedGraph[missTies] = NA
+  
+  # diagonal is always fixed to 0, this is an artefact of the way missingness is generated
+  diag(degradedGraph) = 0
+  
+  # return the degraded graph
+  return(degradedGraph)
+}
+
+
+## Test run of the function above
+indepMissTrial = indepMiss(adjMat = greeceBombs, propMiss = 0.3, directed = FALSE)
+
+# grabbing the D matrix
+indepMissMat = 1 * is.na(indepMissTrial) 
+
+## Seems good enough
+```
+
+### Markov model not conditional on the network
+
+```{r mrkv model uncond}
+## The network the ergm's supposed to be 'modelling'
+## But since we're using it strictly for simulation purposes, we're starting empty
+missMat = matrix(data = 0, nrow = n, ncol = n)
+
+# format as network object
+missNet = as.network(missMat, directed = FALSE)
+
+## specify an ergm, unconditional to the actual data
+UncondMrkv = missNet ~ edges + kstar(2) + triangle
+
+```
+
+```{r uncondmrkv simulate}
+## choose some parameter values
+chosenCoefUM = c(-2.12,
+                 0.17,
+              #   -0.3, three stars are hard
+                 -0.3)
+
+# generate simulated networks
+simMissNetStatsUM <- simulate(UncondMrkv ,
+                        coef = chosenCoefUM, # I think these parameters should yield non-degenerate models
+                        nsim = 1000 ,# how many samples to pick up
+                        control=control.simulate.formula(MCMC.burnin=1024,MCMC.interval=1024),#for estimate it is 'control'
+                        output='stats')
+
+
+# trace plots to see how the parameter values are doing
+par(mfrow = c(2,2))
+plot(ts(simMissNetStatsUM[,"edges"]), ylab = "Edges", xlab = paste("Par value =", chosenCoefUM[1]))
+plot(ts(simMissNetStatsUM[,"kstar2"]), ylab = "2-stars", xlab = paste("Par value =", chosenCoefUM[2]))
+# plot(ts(simMissNetStatsUM[,"kstar3"]), ylab = "3-stars", xlab = paste("Par value =", chosenCoefUM[3]))
+plot(ts(simMissNetStatsUM[,3]), ylab = "Triangle", xlab = paste("Par value =", chosenCoefUM[3]))
+mtext("Unconditional Markov model",
+      side = 3,
+      line = -2,
+      outer = TRUE)
+
+# take some draws
+simMissNetsUM <- simulate(UncondMrkv ,
+                        coef = chosenCoefUM, # I think these parameters should yield non-degenerate models
+                        nsim = 1000 ,# how many samples to pick up
+                        control=control.simulate.formula(MCMC.burnin=1024,MCMC.interval=1024))#for estimate it is 'control'
+
+```
+
+### Markov model conditional on the network
+
+```{r mrkv model cond}
+
+## specify an ergm, conditional to the actual data with an entrainment effect
+condMrkv = missNet ~ edges + kstar(2) + triangle + dyadcov(greeceBombs)
+
+## choose some parameter values
+chosenCoefCM = c(-2.12,
+                 0.17,
+                -0.28,
+                 -0.4)
+
+# generate simulated networks
+simMissNetStatsCM <- simulate(condMrkv ,
+                        coef = chosenCoefCM, # I think these parameters should yield non-degenerate models
+                        nsim = 1000 ,# how many samples to pick up
+                        control=control.simulate.formula(MCMC.burnin=1024,MCMC.interval=1024),#for estimate it is 'control'
+                        output='stats')
+
+# trace plots to see how the parameter values are doing
+par(mfrow = c(2,2))
+plot(ts(simMissNetStatsCM[,"edges"]), ylab = "Edges", xlab = paste("Par value =", chosenCoefCM[1]))
+plot(ts(simMissNetStatsCM[,"kstar2"]), ylab = "2-stars", xlab = paste("Par value =", chosenCoefCM[2]))
+plot(ts(simMissNetStatsCM[,"triangle"]), ylab = "Triangle", xlab = paste("Par value =", chosenCoefCM[3]))
+plot(ts(simMissNetStatsCM[,"dyadcov.greeceBombs"]), ylab = "Entrainment", xlab = paste("Par value =", chosenCoefCM[4]))
+
+mtext("Conditional Markov model",
+      side = 3,
+      line = -2,
+      outer = TRUE)
+
+# take some draws
+simMissNetsCM <- simulate(condMrkv ,
+                        coef = chosenCoefCM, # I think these parameters should yield non-degenerate models
+                        nsim = 1000 ,# how many samples to pick up
+                        control=control.simulate.formula(MCMC.burnin=1024,MCMC.interval=1024)) #for estimate it is 'control'
+```
+
+### ERGM
+
+```{r ergmtime baby}
+## Say a degree covariate with the actual data
+## edge covariate for the sum of degrees
+# a cute piece of vectorised code to give each tie variable a weight based on the sender and receiver
+sentTies = matrix(rep(rowSums(greeceBombs), nrow(greeceBombs)), nrow = nrow(greeceBombs), ncol = ncol(greeceBombs))
+receivedTies = matrix(rep(colSums(greeceBombs), ncol(greeceBombs)), nrow = nrow(greeceBombs), ncol = ncol(greeceBombs), byrow = T)
+
+# sum them up for an edge covariate weighed by degree
+degreeCov = sentTies + receivedTies
+
+# diag is 0 because adjmat
+diag(degreeCov) = 0
+
+# another way to do the above is just using the node's degree as a degree covariate
+n17degree = rowSums(greeceBombs)
+
+## slap it on the network object
+missNet %v% 'degree' = n17degree
+
+
+## adding in the degree effect
+ergmMod = missNet ~ edges + kstar(2) + triangle +  dyadcov(greeceBombs) + nodecov('degree')
+
+## choose some parameter values
+chosenCoefERGM = c(-2.3,
+                 0.17,
+                -0.28,
+                 -0.2,
+                 0.04)
+
+# generate simulated networks
+simMissNetStatsERGM <- simulate(ergmMod ,
+                        coef = chosenCoefERGM, # I think these parameters should yield non-degenerate models
+                        nsim = 1000 ,# how many samples to pick up
+                        control=control.simulate.formula(MCMC.burnin=1024,MCMC.interval=1024),#for estimate it is 'control'
+                        output='stats')
+
+# trace plots to see how the parameter values are doing
+par(mfrow = c(2,3))
+plot(ts(simMissNetStatsERGM[,"edges"]), ylab = "Edges", xlab = paste("Par value =", chosenCoefERGM[1]))
+plot(ts(simMissNetStatsERGM[,"kstar2"]), ylab = "2-stars", xlab = paste("Par value =", chosenCoefERGM[2]))
+plot(ts(simMissNetStatsERGM[,"triangle"]), ylab = "Triangle", xlab = paste("Par value =", chosenCoefERGM[3]))
+plot(ts(simMissNetStatsERGM[,"dyadcov.greeceBombs"]), ylab = "Entrainment", xlab = paste("Par value =", chosenCoefERGM[4]))
+plot(ts(simMissNetStatsERGM[,"nodecov.degree"]), ylab = "Degree nodecov", xlab = paste("Par value =", chosenCoefERGM[5]))
+
+mtext("Full ERGM",
+      side = 3,
+      line = -2,
+      outer = TRUE)
+
+## Take some draws
+simMissNetsERGM <- simulate(ergmMod ,
+                            coef = chosenCoefERGM, # I think these parameters should yield non-degenerate models
+                            nsim = 1000 ,# how many samples to pick up
+                            control=control.simulate.formula(MCMC.burnin=1024,MCMC.interval=1024))#for estimate it is 'control'
+
+```
+
+
+## Depleting the network with different models
+
+### Choosing missingness matrices
+
+```{r choosing missingns}
+# a loop to draw some (missingness) networks with over 25% missing
+# initialise
+goodCount = 0
+
+# a while loop becuase i'm spicy
+while(goodCount < 4){
+  
+  # randomly sample an index
+  index = sample(1:1000, 1)
+  
+  # differently for the independent model
+  # use the function
+  indepMissNet = indepMiss(adjMat = greeceBombs, propMiss = 0.25, directed = FALSE)
+  
+  # take a network out
+  chosenIndep = 1 * is.na(indepMissNet)
+  chosenMissNetUM = simMissNetsUM[index]
+  chosenMissNetCM = simMissNetsCM[index]
+  chosenMissNetERGM = simMissNetsERGM[index]
+
+  # grab the edge counts
+  edgeCounts = c(sum(chosenIndep)/2, 
+                 network.edgecount(chosenMissNetUM[[1]]), 
+                 network.edgecount(chosenMissNetCM[[1]]), 
+                 network.edgecount(chosenMissNetERGM[[1]]))
+  
+  # check if in range
+  over40 = edgeCounts >= 40
+  under49 = edgeCounts < 49
+  edgeRange = over40 & under49
+  
+  # and average it
+  goodCount = sum(edgeRange)
+}
+
+# turn them all into matrix objects
+chosenMissMatUM = as.matrix(chosenMissNetUM[[1]])
+chosenMissMatCM = as.matrix(chosenMissNetCM[[1]])
+chosenMissMatERGM = as.matrix(chosenMissNetERGM[[1]])
+
+
+```
+
+
+## Reestimating the ERGMs
+
+### Peter
+
+```{r reeeedo peter}
+# a loop to draw some (missingness) networks with over 25% missing
+# initialise
+goodCount = 0
+
+# a while loop becuase i'm spicy
+while(goodCount < 4){
+  
+  # randomly sample an index
+  index = sample(1:1000, 1)
+  
+  # differently for the independent model
+  # use the function
+  indepMissNet = indepMiss(adjMat = greeceBombs, propMiss = 0.25, directed = FALSE)
+  
+  # take a network out
+  chosenIndep = 1 * is.na(indepMissNet)
+  chosenMissNetUM = simMissNetsUM[index]
+  chosenMissNetCM = simMissNetsCM[index]
+  chosenMissNetERGM = simMissNetsERGM[index]
+
+  # grab the edge counts
+  edgeCounts = c(sum(chosenIndep)/2, 
+                 network.edgecount(chosenMissNetUM[[1]]), 
+                 network.edgecount(chosenMissNetCM[[1]]), 
+                 network.edgecount(chosenMissNetERGM[[1]]))
+  
+  # check if in range
+  over40 = edgeCounts >= 40
+  under49 = edgeCounts < 49
+  edgeRange = over40 & under49
+  
+  # and average it
+  goodCount = sum(edgeRange)
+}
+
+# turn them all into matrix objects
+chosenMissMatUM = as.matrix(chosenMissNetUM[[1]])
+chosenMissMatCM = as.matrix(chosenMissNetCM[[1]])
+chosenMissMatERGM = as.matrix(chosenMissNetERGM[[1]])
+
+
+# copy over the adjacency matrix
+greeceBombsMissIndep = greeceBombs
+greeceBombsMissUM = greeceBombs
+greeceBombsMissCM = greeceBombs
+greeceBombsMissERGM = greeceBombs
+
+# Now we're actually depleting the network
+greeceBombsMissIndep[chosenIndep == 1] = NA
+greeceBombsMissUM[chosenMissMatUM == 1] = NA
+greeceBombsMissCM[chosenMissMatCM == 1] = NA
+greeceBombsMissERGM[chosenMissMatERGM == 1] = NA
+
+# turn into networks again
+bombNetMissIndep = as.network(greeceBombsMissIndep, directed = FALSE)
+bombNetMissUM = as.network(greeceBombsMissUM, directed = FALSE)
+bombNetMissCM = as.network(greeceBombsMissCM, directed = FALSE)
+bombNetMissERGM = as.network(greeceBombsMissERGM, directed = FALSE)
+
+# models to be reestimated
+bombNetMissIndepModel = bombNetMissIndep ~ edges + gwdegree(decay = log(2), fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) 
+bombNetMissUMModel = bombNetMissUM ~ edges + gwdegree(decay = log(2), fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) 
+bombNetMissCMModel = bombNetMissCM ~ edges + gwdegree(decay = log(2), fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) 
+bombNetMissERGMModel = bombNetMissERGM ~ edges + gwdegree(decay = log(2), fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) 
+
+# reeeeeestimations
+depletedMissIndep = ergm(bombNetMissIndepModel,
+              control = control.ergm(init = c(-1.407, 
+    -1.1974, 2.189), MCMC.interval = 5024))
+depletedMissUM = ergm(bombNetMissUMModel,
+              control = control.ergm(init = c(-1.407, 
+    -1.1974, 2.189), MCMC.interval = 5024))
+depletedMissCM = ergm(bombNetMissCMModel,
+              control = control.ergm(init = c(-1.407, 
+    -1.1974, 2.189), MCMC.interval = 5024))
+depletedMissERGM = ergm(bombNetMissERGMModel,
+              control = control.ergm(init = c(-1.407, 
+    -1.1974, 2.189), MCMC.interval = 5024))
+
+## Note: screw reestimations, just read in the ones I've saved.
+
+# copy over the adjacency matrix
+greeceBombsMissIndepTodd = greeceBombs
+greeceBombsMissUMTodd = greeceBombs
+greeceBombsMissCMTodd = greeceBombs
+greeceBombsMissERGMTodd = greeceBombs
+
+# Now we're actually depleting the network
+greeceBombsMissIndepTodd[chosenIndep == 1] = 0
+greeceBombsMissUMTodd[chosenMissMatUM == 1] = 0
+greeceBombsMissCMTodd[chosenMissMatCM == 1] = 0
+greeceBombsMissERGMTodd[chosenMissMatERGM == 1] = 0
+
+# turn into networks again
+bombNetMissIndepTodd = as.network(greeceBombsMissIndepTodd, directed = FALSE)
+bombNetMissUMTodd = as.network(greeceBombsMissUMTodd, directed = FALSE)
+bombNetMissCMTodd = as.network(greeceBombsMissCMTodd, directed = FALSE)
+bombNetMissERGMTodd = as.network(greeceBombsMissERGMTodd, directed = FALSE)
+
+# models to be reestimated
+bombNetMissIndepModelTodd = bombNetMissIndepTodd ~ edges + gwdegree(decay = log(2), fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) 
+bombNetMissUMModelTodd = bombNetMissUMTodd ~ edges + gwdegree(decay = log(2), fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) 
+bombNetMissCMModelTodd = bombNetMissCMTodd ~ edges + gwdegree(decay = log(2), fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) 
+bombNetMissERGMModelTodd = bombNetMissERGMTodd ~ edges + gwdegree(decay = log(2), fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) 
+
+# reeeeeestimations
+depletedMissIndepTodd = ergm(bombNetMissIndepModelTodd,
+              control = control.ergm(init = c(-1.407, 
+    -1.1974, 2.189), MCMC.interval = 5024))
+depletedMissUMTodd = ergm(bombNetMissUMModelTodd,
+             control = control.ergm(init = c(-1.407, 
+    -1.1974, 2.189), MCMC.interval = 5024))
+depletedMissCMTodd = ergm(bombNetMissCMModelTodd,
+              control = control.ergm(init = c(-1.407, 
+    -1.1974, 2.189), MCMC.interval = 5024))
+depletedMissERGMTodd = ergm(bombNetMissERGMModelTodd,
+              control = control.ergm(init = c(-1.407, 
+    -1.1974, 2.189), MCMC.interval = 5024))
+
+
+```
+
+### Todd
+
+```{r todd}
+# copy over the adjacency matrix
+greeceBombsMissIndepTodd = greeceBombs
+greeceBombsMissUMTodd = greeceBombs
+greeceBombsMissCMTodd = greeceBombs
+greeceBombsMissERGMTodd = greeceBombs
+
+# Now we're actually depleting the network
+greeceBombsMissIndepTodd[chosenIndep == 1] = 0
+greeceBombsMissUMTodd[chosenMissMatUM == 1] = 0
+greeceBombsMissCMTodd[chosenMissMatCM == 1] = 0
+greeceBombsMissERGMTodd[chosenMissMatERGM == 1] = 0
+
+# turn into networks again
+bombNetMissIndepTodd = as.network(greeceBombsMissIndepTodd, directed = FALSE)
+bombNetMissUMTodd = as.network(greeceBombsMissUMTodd, directed = FALSE)
+bombNetMissCMTodd = as.network(greeceBombsMissCMTodd, directed = FALSE)
+bombNetMissERGMTodd = as.network(greeceBombsMissERGMTodd, directed = FALSE)
+
+# models to be reestimated
+bombNetMissIndepModelTodd = bombNetMissIndepTodd ~ edges + gwdegree(decay = log(2), fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) 
+bombNetMissUMModelTodd = bombNetMissUMTodd ~ edges + gwdegree(decay = log(2), fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) 
+bombNetMissCMModelTodd = bombNetMissCMTodd ~ edges + gwdegree(decay = log(2), fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) 
+bombNetMissERGMModelTodd = bombNetMissERGMTodd ~ edges + gwdegree(decay = log(2), fixed = TRUE) + gwesp(decay = log(2), fixed = TRUE) 
+
+# reeeeeestimations
+# depletedMissIndepTodd = ergm(bombNetMissIndepModelTodd,
+#               control = control.ergm( #init.method = "CD",
+#                                      MCMC.burnin = 10000,
+#                                      MCMC.interval = 10000))
+# depletedMissUMTodd = ergm(bombNetMissUMModelTodd,
+#               control = control.ergm( #init.method = "CD",
+#                                      MCMC.burnin = 10000,
+#                                      MCMC.interval = 10000))
+depletedMissCMTodd = ergm(bombNetMissCMModelTodd,
+              control = control.ergm( #init.method = "CD",
+                                     MCMC.burnin = 10000,
+                                     MCMC.interval = 10000))
+# depletedMissERGMTodd = ergm(bombNetMissERGMModelTodd,
+#               control = control.ergm( #init.method = "CD",
+#                                      MCMC.burnin = 10000,
+#                                      MCMC.interval = 10000))
+
+```
+
+
+
+### Evaluating the depleted networks
+
+Metrics to check:
+density
+centrality (degree, betweenness)
+mean geodesic
+avg degree
+centralisation
+
+```{r metrics for depleted nets}
+# 
+
+```
+
+
