@@ -20,6 +20,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
 library(here)
 library(dplyr)
+library(tibble)
 
 # true estimates
 resultsFiles = list.files(path = here("Output", "20230726_missNetsTrueModels"))
@@ -143,7 +144,7 @@ missModelChosenPropList = missModelList[chosenPropIndex]
 # making the dataset
 altStarPlotData = data.frame(altStar = c(unlist(lapply(modelResChosenPropList, `[[`, 2) )), 
                              SE = c(unlist(lapply(modelSeChosenPropList, `[[`, 2))),
-                             missModel = factor(c(unlist(missModelChosenPropList)), levels = c(1,2,3,4), labels = c("Indep", "marErgm", "Latent", "mnarErgm")))
+                             missModel = factor(c(unlist(missModelChosenPropList)), levels = c(1,2,3,4), labels = c("Indep", "mcarERGM", "Latent", "mnarErgm")))
 
 # order the plot data
 altStarPlotOrd = altStarPlotData[order(altStarPlotData[,"altStar"]),]
@@ -186,7 +187,7 @@ altStarPlot
 # making the dataset
 gwespPlotData = data.frame(gwesp = c(unlist(lapply(modelResChosenPropList, `[[`, 3) )), 
                              SE = c(unlist(lapply(modelSeChosenPropList, `[[`, 3))),
-                             missModel = factor(c(unlist(missModelChosenPropList)), levels = c(1,2,3,4), labels = c("Indep", "marErgm", "Latent", "mnarErgm")))
+                             missModel = factor(c(unlist(missModelChosenPropList)), levels = c(1,2,3,4), labels = c("Indep", "mcarERGM", "Latent", "mnarErgm")))
 
 # order the plot data
 gwespPlotOrd = gwespPlotData[order(gwespPlotData[,"gwesp"]),]
@@ -346,9 +347,9 @@ prepMissPlot = function(modelResList, modelSeList, missModelList, propMissList, 
   # making the dataset
   plotData = data.frame(parameter = c(unlist(lapply(modelResChosenPropList, `[[`, chosenParaIndex) )), 
                         SE = c(unlist(lapply(modelSeChosenPropList, `[[`, chosenParaIndex))),
-                        missModel = factor(c(unlist(missModelChosenPropList)), levels = c(1,2,3,4), labels = c("Indep", "marErgm", "Latent", "mnarErgm")))
+                        missModel = factor(c(unlist(missModelChosenPropList)), levels = c(1,2,3,4), labels = c("Indep", "mcarERGM", "Latent", "mnarErgm")))
   
-  # change to allow 4 = mnarErgm and change missModel 2 = marErgm
+  # change to allow 4 = mnarErgm and change missModel 2 = mcarERGM
   
   # order the plot data
   plotOrd = plotData[order(plotData[,"parameter"]),]
@@ -2588,7 +2589,7 @@ failRatePlotData = failRateData %>%
 
 
 # turn variables into factors for plotting
-failRatePlotData$missModel = factor(failRatePlotData$missModel, levels = c(1,2,3,4), labels = c("Indep", "marErgm", "Latent", "mnarErgm"))
+failRatePlotData$missModel = factor(failRatePlotData$missModel, levels = c(1,2,3,4), labels = c("Indep", "mcarERGM", "Latent", "mnarErgm"))
 failRatePlotData$missCondition =  factor(failRatePlotData$missCondition, levels = c(2,4,6,1,3,5), labels = c("Miss10", "Miss35", "Miss60", "Zero10", "Zero35", "Zero60"))
 ```
 
@@ -2759,5 +2760,198 @@ for(chosenProp in missPropChoices){
   
   }
 }
+```
+
+
+## Entrainment inspection
+
+As we see in the MNAR ERGM, the parameter estimates are biased in an intuitve fashion when we consider the value of the coefficient for the entrainment parameter.
+
+This section (and estimates) are really to look at how differences in the entrainment parameter can affect parameter estimates and potentially various metrics.
+
+```{r loading entr results}
+# loading in the output results
+outputList = list.files(here("Output", "20230825_simMissReest", "Peter"))
+
+# applying the code above to different reestimations
+# TODO: specify the missingness saved for current chunk, 1 = "NA"/peter, 2 = "0"/Todd
+chunkMissSave = 1
+
+# TODO: specify the chosen missingness proportion for each chunk (1/3 or 3.5/6)
+chunkMissProp = 3
+chunkMissPropFloat = 3.5 # specifically for 35% missingness because I regex by taking the first number next to 'prop'.
+
+# take out the index for the chosen missingness saved value
+chosenMissLabel = missSaveLabel[chunkMissSave]
+chosenMissValue = missSaveValue[chunkMissSave]
+
+
+# now looping with a specific vector of applicable networks
+# TODO: specify the UCINet networks for the chunk, these are networks with enough re-estimations
+# this section only has one network, but I need multiple coefficient sets.
+chunkNetworks = 4
+chunkCoefSets = c(7, 8, 9, 10, 11, 12, 13, 14, 15)
+
+# TODO: vector of file names for regex
+chunkMnarNames = c("20240227_missErgmNetReest_Miss",
+                   "20240306_missErgmNetReest_Miss")
+
+# ... add a name indicator to choose what the file name is
+nameInd = c(1, 1, 1, 1, 1, 2, 2, 2, 2)
+
+# vector of parameter names to loop over
+modelParaOptions = c("edges", "altStar", "gwesp")
+
+# make sure the re-estimation lists are empty in the beginning
+modelResList = list()
+modelSeList = list()
+missModelList = list()
+propMissList = list()
+coefSetList = list()
+
+# set a specific index for the network
+chosenNetInd = chunkNetworks[chunkInd]
+
+## regex the MNAR files 
+# combine the two indices, netOut isnt used because only MNAR ergms are used here (technically not 9 because 0, but yeah.)
+combinedNetOutList = c(grep(paste(chunkMnarNames[1], chosenMissLabel, "_net", chosenNetInd, sep = ""), outputList),
+                       grep(paste(chunkMnarNames[2], chosenMissLabel, "_net", chosenNetInd, sep = ""), outputList))
+
+# check to make sure there aren't any duplicates
+if( length(unique(combinedNetOutList)) != length(combinedNetOutList)){
+  stop("Duplicate re-estimation datafiles! BAD.")
+}
+
+# loop to load
+chosenNetOutList = outputList[combinedNetOutList]
+
+for(fileInd in 1:length(chosenNetOutList)){
+  # load all files
+  load(here("Output", "20230825_simMissReest", chosenMissLabel, chosenNetOutList[fileInd]))
+  
+  # suppress these version difference warnings. 
+  suppressWarnings({
+  modelResList[[fileInd]] = modelres$coefficients
+  modelSeList[[fileInd]] = summary(modelres)$coefficients[,2]
+  })
+  
+  # always 'MNAR'. Don't think this'll be used but yeah
+  missModelList[[fileInd]] = 4
+  
+  # and always 35% missingness
+  propMissList[[fileInd]] = 3
+  
+  # I do however need the coefset list
+  coefSetList[[fileInd]] = as.integer(sub(".*?_coefSet.*?(\\d+).*", "\\1", chosenNetOutList[[fileInd]]))
+  
+  }
+
+
+
+
+
+# we now have all the objects we need
+# let's check how many of each coefset made it
+table(unlist(coefSetList))
+
+# and now figure out how we're plotting this
+# first we need to know which coefsets refer to what value
+entrValue = c(-1, -0.5, 0, 0.5, 1, -0.75, -0.25, 0.25, 0.75)
+
+# initialise the final plot data
+entrPlotData = tibble()
+
+# next we want to take out the re-estimated coefficients
+# this can be a loop!
+  for( chosenPara in 1:length(modelParaOptions)){
+    
+    # grab the chosen parameter name
+    chosenParaName = modelParaOptions[chosenPara]
+    
+    # including edges
+    # I'm bastardising the prepMissPlot function to include the coef set index
+    ## Check to make sure all the lists are of the same length
+    listLengths = lapply(list(modelResList, modelSeList, missModelList, propMissList, coefSetList), FUN = length)
+    
+    ## A unit test that spits out an error if there's more than one unique length in the list of lengths
+    if( length(unique(listLengths)) != 1 ){
+      stop("Lists have differing lengths")
+    }
+    
+    # subset the lists to only be a single chosen proportion
+    chosenPropIndex = propMissList == 3
+    
+    modelResChosenPropList = modelResList[chosenPropIndex]
+    modelSeChosenPropList = modelSeList[chosenPropIndex]
+    missModelChosenPropList = missModelList[chosenPropIndex]
+
+    # Specify indices for the chosen parameter
+    # doing it this way because parameter names get very lengthy
+    paraIndex = c(1:3)
+    modelParaNames = c("edges", "altStar", "gwesp")
+    chosenParaIndex = paraIndex[modelParaNames == chosenParaName]
+    
+    
+    # making the dataset
+    plotData = data.frame(parameter = c(unlist(lapply(modelResChosenPropList, `[[`, chosenParaIndex) )), 
+                          SE = c(unlist(lapply(modelSeChosenPropList, `[[`, chosenParaIndex))),
+                          missModel = factor(c(unlist(missModelChosenPropList)), levels = c(1,2,3,4), labels = c("Indep", "mcarERGM", "Latent", "mnarErgm")),
+                          coefSet = unlist(coefSetList))
+      
+    # brief inspection just to make sure nothing's wrong
+    head(plotData) %>% 
+      print()
+      
+      
+    # now that we have the 'raw' plot data for a given parameter, let's transform it to a mean and 95% CI to plot
+    # basically for each coefset, I want a mean and 95% CI
+    tempEntrPlotData = plotData %>% 
+      group_by(coefSet) %>%
+      summarize(Mean = mean(parameter),
+                Lower = quantile(parameter, probs = 0.025),
+                Upper = quantile(parameter, probs = 0.975)) %>% 
+      add_column(Parameter = chosenParaName)
+    
+    # and bind the temp datasets
+    entrPlotData = bind_rows(entrPlotData, tempEntrPlotData)
+
+  }
+
+# basically want to recode the coefsets into meaningful-ish values.. so:
+entrPlotData = entrPlotData %>% 
+  mutate(entrValue = recode(coefSet, `7` = -1, `8` = -0.5, `9` = 0, `10` = 0.5, `11` = 1, `12` = -0.75, `13` = -0.25, `14` = 0.25, `15` = 0.75))
+
+# and plot it
+entrPlotData %>% 
+  filter(Parameter == "edges") %>% 
+  ggplot(aes(x = entrValue, y = Mean)) + 
+  geom_line() + 
+  geom_hline(yintercept = -0.77, col = "darkblue") + 
+  geom_ribbon(aes(ymin = Lower, ymax = Upper), alpha = 0.2) +
+  labs( x = "Entrainment parameter value", y = "Mean (95% CI) edges estimate" ) +
+  ggtitle("Edges") +
+  theme_classic()
+  
+
+entrPlotData %>% 
+  filter(Parameter == "altStar") %>% 
+  ggplot(aes(x = entrValue, y = Mean)) + 
+  geom_line() + 
+  geom_hline(yintercept = -1.88, col = "darkblue") + 
+  geom_ribbon(aes(ymin = Lower, ymax = Upper), alpha = 0.2)+
+  labs( x = "Entrainment parameter value", y = "Mean (95% CI) altStar estimate")+ 
+  ggtitle("AltStar") +
+  theme_classic()
+
+entrPlotData %>% 
+  filter(Parameter == "gwesp") %>% 
+  ggplot(aes(x = entrValue, y = Mean)) + 
+  geom_line() + 
+  geom_hline(yintercept = 3.10, col = "darkblue") + 
+  geom_ribbon(aes(ymin = Lower, ymax = Upper), alpha = 0.2)+
+  labs( x = "Entrainment parameter value", y = "Mean (95% CI) gwesp estimate")+ 
+  ggtitle("Gwesp") +
+  theme_classic()
+
 ```
 

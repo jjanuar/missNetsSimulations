@@ -1,0 +1,1562 @@
+---
+title: "20241002_ergmSquared"
+author: "Jon Januar"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This document will be exploring the computation of a Bayesian estimation of the ERGM with a specified missingness model for a network with some missingness.
+
+# {.tabset}
+
+## Setup
+
+First we want a network and some missingness
+
+```{r loadstuff}
+
+# packages
+library(here)
+library(sna)
+library(mvtnorm)
+library(ergm)
+
+# some functions
+source(here("Scripts", "20230811_missNetFunctions.R"))
+
+# Load in some dataset
+load(here("Data", "20231006_missNetsEnMasse.RData"))
+
+# London gangs since it's an easy dataset with some attributes
+trueAdj = adjMatList[[6]]
+
+# get the true statistics for the given estimation model for reference
+trueNet = as.network(trueAdj, directed = FALSE)
+trueNet %v% 'Age' = scale(londonGangsAtt$Age)[,1]
+
+# get the 'true' values
+trueModel = trueNet ~ edges +
+  gwdegree(0.69, fixed = TRUE) +
+  gwesp(0.69, fixed = TRUE) +
+  nodecov("Age") +
+  absdiff("Age")
+
+trueStats = as.numeric(summary(trueModel))
+
+print(trueStats)
+
+
+# plot
+gplot(trueAdj, gmode = "graph", xlab = "True network")
+
+
+# some (randomly specified) proportion of missingness
+propMiss = 0.3
+
+## generate the initial missingness matrix
+initAdj = initMissAdj(n = nrow(trueAdj), propMiss = propMiss)
+
+# turn into a network object
+initMissNet = network::as.network(initAdj, directed = FALSE)
+initMissNet %v% 'degree' = rowSums(trueAdj)
+
+# setting coefficients for the ERGM to make the MNAR mechanism
+missCoefs = c(0, 0, 0, 0.4)  # everything set to positive is dangerous for mcmc explosions, but fixed density helps.
+
+## specify a model for the missingness
+# Note: 0.69 is chosen for the decay value because that's what log(2) is. Rounding lets the diagnostic plots be more interpretable
+
+## this specification was chosen for a couple of reasons:
+# a) social circuit assumptions are difficult to justify substantively for missingness
+#    but if the point I want to make is that 'dependency maters for missingness', they will suffice
+#    because markov model parameters are known to be difficult to work with
+# b) dyadCov for the true network (an entrainment effect) to weigh the probability of missingness
+#    on the presence of a tie in the true network (either positive or negative weights can be justiied)
+# removed the degree covariate since I want a simpler missingness model with only entrainment as the effect conditional on the network
+
+chosenModel = 
+  initMissNet ~ edges + 
+  gwdegree(0.69, fixed = TRUE) +
+  gwesp(0.69, fixed = TRUE) +
+  dyadcov(trueAdj) 
+
+# and now we simulate
+missErgmSimNets = simMissNet(model = chosenModel, coef = missCoefs)
+
+# and check diagnostics
+#missSimDiag(simObj = missErgmSimNets)
+
+# randomly sampling from the simulated random networks
+chosenErgmMissInd = sample(1:length(missErgmSimNets), size = 1)
+print(paste("Your chosen missingness network for the ERGM-simulated missingness is", chosenErgmMissInd))
+
+# take that network out
+ergmMissAdj = as.matrix(missErgmSimNets[[chosenErgmMissInd]])
+
+# and degrade
+ergmDegradedAdj = degradeAdj(trueNet = trueAdj, 
+                             missAdj = ergmMissAdj)
+
+# and plot
+
+par(mfrow = c(1,1))
+gplot(ergmDegradedAdj, gmode = "graph", xlab = "ERGM depleted network")
+
+
+```
+
+
+### Algorithm
+
+Initialising the algorithm
+
+```{r initalg}
+# Initialising the network
+peterAdjmat = as.network(ergmDegradedAdj, directed = FALSE)
+
+# normalise the age so the variance doesn't get too big
+# add the age attribute
+peterAdjmat %v% 'Age' = scale(londonGangsAtt$Age)[,1]
+
+# can specify some estimation model
+peterModel = peterAdjmat ~ edges + gwdegree(0.69, fixed = TRUE) + gwesp(0.69, fixed = TRUE) + nodecov("Age") + absdiff("Age")
+
+# number of nodes
+n = nrow(trueAdj)
+
+# initial parameter value, taking what's in miss ERGM bayes if a starting point was not specified
+numberPara = length(summary(peterModel))
+
+# number of missing ties
+numMiss = network.naedgecount(peterAdjmat)
+
+# get the observed density
+densObs <- network.edgecount(peterAdjmat)/(n*(n-1)-numMiss)
+
+
+
+# alternatively, we can cheat to using the natural mle parameters of the complete network
+trueRes = ergm(trueModel,
+               control = control.ergm(init = c(-4.409, 0.92919, 1.386, 0.163, -0.489),
+                                      MCMC.burnin = 20000, 
+                                      MCMC.interval = 20000))
+initTrueTheta = trueRes$coefficients
+
+initTrueStats = summary(trueModel)
+
+# what if we start with 0? initTheta)
+# and get the initialised density
+initTheta <- matrix(0, 1, numberPara)
+initTheta[1,1] <- - log(1 / densObs - 1)
+initStats = summary(peterModel)
+
+# for future purposes, the coefs are c(-4.409, 0.92919, 1.386, 0.163, -0.489)
+# setting up the same scheme for the variance of the multivariate normal
+tuningConst = 1
+
+# simulate networks given the starting parameters that were either set or previously initialised for the warming phase
+# cheating once again with the complete network
+tempStats <- simulate( trueModel,                                                     # model formula
+                       coef = initTrueTheta,                                           # coefficients
+                       output = "stats",                                              # save statistical output (not network objects)
+                       basis = trueNet,                                               # starting network
+                       nsim = 3000,                                                   # number of saved simulated networks
+                       control = control.simulate(MCMC.burnin = 1,                    # various MCMC controls
+                                                  MCMC.prop.weights='default',
+                                                  MCMC.interval = 2000) )
+
+
+# calculate the statistics for the model after some burn in
+tempStats <- tempStats[2001:3000,]
+
+# calculate the parameter covariance matrix by using the inverse covariance matrix scaled by some tuning constant
+propSigma <-  solve(cov(tempStats)) * tuningConst 
+
+
+```
+
+
+### Function-ising
+
+
+```{r functionalforms}
+## Setting up the functional form of the sampler
+ergmSquaredSampler = function(formula, adjMat, initParams, initStats, propSigma, iterations, entrainment){
+  
+  ## ergmSquaredSampler(formula, adjMat, initParams, ...) takes an ergm formula, an adjacency matrix with missingness, 
+  ## some initial values, and an entrainment parameter value to sample generate model estimates under 
+  ## a specific not-at-random missingness model with a specific entrainment value.
+  ##
+  ## Input:
+  ## - formula:     An R formula object following the ergm specifications of network ~ ergm terms
+  ##
+  ## - adjMat:      An n x n adjacency matrix with some amount of missingness. Ideally the missing
+  ##                values are set to NA values. Currently only supports undirected networks.
+  ##
+  ## - initParams:  A p-long vector containing the initial parameters for the sampler. 
+  ##
+  ## - initStats:   A p-long vector containing the initial statistics (mean value/observed parameters)
+  ##                to calculate the acceptance ratio in the sampler.
+  ##
+  ## - propSigma:   A p x p matrix reflecting the proposal covariance matrix. When the true network parameters
+  ##                are known, use the inverse covariance matrix scaled by some tuning constant.
+  ##
+  ## - iterations:  The number of iterations to run the sampler.
+  ##
+  ## - entrainment: A single float corresponding to the entrainment parameter in the missingness model.
+  ##                Can be set to 0 to perform 'typical' miss ergm bayes assuming MAR.
+  ##
+  ## Output: 
+  ## - output:      A list with 4 items,
+  ##                - sampledThetas is an iterations x p matrix containing the sampled parameter values
+  ##                - impNetList is a p-long list containing the imputed networks
+  ##                - impNetStatMat is an iterations x p matrix containing the imputed network statistics
+  ##                - auxNetStatMat is an iterations x p matrix containing the auxiliary network statistics
+  
+  # requires the ergm and mvtnorm packages
+  require(ergm)
+  require(mvtnorm)
+  
+  # get some values
+  numberPara = length(initParams)
+  
+  ## initialising some storage objects
+  # the sampled parameters
+  sampledThetas = matrix(data = NA, nrow = iterations, ncol = numberPara)  
+  
+  # auxiliary and imputed network statistics
+  auxNetStatMat = matrix(data = NA, nrow = iterations, ncol = numberPara)
+  impNetStatMat = matrix(data = NA, nrow = iterations, ncol = numberPara)
+  
+  # parameters with entrainment adjustment to the density
+  psi = matrix(data = NA, nrow = iterations, ncol = numberPara)
+
+  # a list for the imputed networks
+  impNetList = list()
+  
+  ## sequentially printing some iterations to make sure the sampler's progressing
+  printIter = floor(seq(from = 1, to = iterations, length.out = 5))
+  
+  ## Starting the sampler
+  for(iter in 1:iterations){
+    
+    # if current iteration is in any of the specified printing iterations
+    if(iter %in% printIter){
+      
+      # print something out to show that the sampler's progressing
+      message(paste("Current sampler iteration is", iter))
+    }
+    
+      # set something up for the first iteration
+      if(iter == 1){
+        nextInitTheta = initParams
+        nextInitStats = initStats
+        
+      } else {
+      # and for the rest of the iterations
+      nextInitTheta = sampledThetas[iter-1, ]
+      nextInitStats = impNetStatMat[iter-1, ]
+      
+      }
+    
+
+          
+    ## Generating a proposal theta and auxiliary network
+    # auxiliary parameters drawn from a multivariate normal distribution
+    auxTheta = rmvnorm(n = 1, mean = nextInitTheta, sigma = propSigma)
+    
+    # generate a network using the auxiliary parameters
+    auxNetStats = simulate( object = formula, 
+                            coef = auxTheta,
+                            output = "stats",
+                            basis = adjMat,
+                            nsim = 1,
+                            control = control.simulate(MCMC.burnin = 20000,
+                                                        MCMC.interval = 2000))
+    
+    # saving its statistics
+    auxNetStatMat[iter, ] = auxNetStats
+    auxStats = as.numeric(auxNetStats)
+    
+    ## Calculate the acceptance ratio
+    acceptRatio = (auxTheta - nextInitTheta) %*% (nextInitStats - auxStats)
+    
+    ## parameter swap
+    if(log(runif(1)) < acceptRatio){
+      
+      # swap parameters if acceptance ratio is larger than random
+      sampledThetas[iter, ] = auxTheta
+      } else {
+      
+      # keep the previous params
+      sampledThetas[iter, ] = nextInitTheta 
+      }
+    
+    ## Generation of imputed network and statistics
+    # use the most recent thetas with the MNAR model to impute the data
+    psi[iter, ] = sampledThetas[iter, ]
+    
+    # add the entrainment parameter from the missingness model
+    psi[iter, 1] = sampledThetas[iter, 1] + entrainment
+    
+    # get the list of free dyads
+    # need the missingness indicator so we can work backwards from the adjmat
+    missIndMat = (as.matrix(is.na(adjMat)) * 1)
+    missTiesEdgeList = as.edgelist(as.network(missIndMat, directed=FALSE), n = nrow(missIndMat))
+    
+    # get the conditional distribution of the missing tie variables given the specified model
+    impNets = simulate(object = formula,
+                       coef = psi[iter, ],
+                       output = "network",
+                       basis = adjMat,
+                       nsim = 1,
+                       constraints=~fixallbut(missTiesEdgeList),
+                       control = control.simulate(MCMC.burnin = 20000,
+                                                  MCMC.interval = 2000))
+    
+    # save the imputed networks
+    impNetList[[iter]] = impNets
+    
+    # get its stats
+    impNetStats = attributes(impNets)$stats
+    
+    # save stuff in the structures specified beforehand
+    impNetStatMat[iter,] = impNetStats
+    
+  }
+  
+  # put all the output in a list
+  output = list(
+    sampledThetas = sampledThetas,
+    impNetList = impNetList,
+    impNetStatMat = impNetStatMat,
+    auxNetStatMat = auxNetStatMat)
+  
+  # and return it
+  return(output)
+}
+
+
+
+```
+
+#### Testing the function
+
+```{r functiontest}
+# running the function
+testOut = ergmSquaredSampler(formula = peterModel, 
+                             adjMat = peterAdjmat,
+                             initParams = initTrueTheta,
+                             initStats = initTrueStats,
+                             propSigma = propSigma,
+                             iterations = 5000,
+                             entrainment = missCoefs[4])
+
+```
+
+```{r functiontestplots}
+# some plots
+# trace plots
+par(mfrow = c(1, 2))
+
+plot(ts(testOut$impNetStatMat[,1]), main = "Impnet edges")
+abline(h = as.numeric(trueStats[1]), col = "red")
+
+plot(ts(testOut$auxNetStatMat[,1]), main = "Auxnet edges")
+abline(h = as.numeric(trueStats[1]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(testOut$impNetStatMat[,2]), main = "Impnet gwdeg")
+abline(h = as.numeric(trueStats[2]), col = "red")
+
+plot(ts(testOut$auxNetStatMat[,2]), main = "Auxnet gwdeg")
+abline(h = as.numeric(trueStats[2]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(testOut$impNetStatMat[,3]), main = "Impnet gwesp")
+abline(h = as.numeric(trueStats[3]), col = "red")
+
+plot(ts(testOut$auxNetStatMat[,3]), main = "Auxnet gwesp")
+abline(h = as.numeric(trueStats[3]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(testOut$impNetStatMat[,4]), main = "Impnet age node covariate")
+abline(h = as.numeric(trueStats[4]), col = "red")
+
+plot(ts(testOut$auxNetStatMat[,4]), main = "Auxnet age node covariate")
+abline(h = as.numeric(trueStats[4]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(testOut$impNetStatMat[,5]), main = "Impnet age absdiff")
+abline(h = as.numeric(trueStats[5]), col = "red")
+
+plot(ts(testOut$auxNetStatMat[,5]), main = "Auxnet age absdiff")
+abline(h = as.numeric(trueStats[5]), col = "red")
+
+
+## Check the actual sampled thetas to see how the sampler is handling parameter values
+par(mfrow = c(1,1))
+# edges
+plot(ts(testOut$sampledThetas[,1]), main = "Sampled theta values", ylab = "edges")
+abline(h = as.numeric(initTrueTheta[1]), col = "red")
+
+# gwdeg
+plot(ts(testOut$sampledThetas[,2]), main = "Sampled theta values", ylab = "gwdeg")
+abline(h = as.numeric(initTrueTheta[2]), col = "red")
+
+# gwesp
+plot(ts(testOut$sampledThetas[,3]), main = "Sampled theta values", ylab = "gwesp")
+abline(h = as.numeric(initTrueTheta[3]), col = "red")
+
+# age nodecov
+plot(ts(testOut$sampledThetas[,4]), main = "Sampled theta values", ylab = "age nodecov")
+abline(h = as.numeric(initTrueTheta[4]), col = "red")
+
+# age absdiff
+plot(ts(testOut$sampledThetas[,5]), main = "Sampled theta values", ylab = "age absdiff")
+abline(h = as.numeric(initTrueTheta[5]), col = "red")
+
+
+```
+
+
+
+## MNAR Zero init
+
+### Beginning the sampler
+
+```{r sampler}
+# set some number of iterations and data structure
+iterations = 2
+sampledThetas = matrix(data = NA, nrow = iterations, ncol = numberPara)
+
+# arrays of the auxiliary and imputed network statistics
+auxNetStatMat = matrix(data = NA, nrow = iterations, ncol = numberPara)
+impNetStatMat = matrix(data = NA, nrow = iterations, ncol = numberPara)
+
+# list of imputed networks (... list of imputed network lists really...)
+impNetList = list()
+
+# a structure for the missingness model parameters
+psi = matrix(data = NA, nrow = iterations, ncol = numberPara)
+
+# start the sampler
+for(iter in 1:iterations){
+  
+  
+  # set something up for the first iteration
+  if(iter == 1){
+    nextInitTheta =  initTrueTheta
+    nextInitStats = initTrueStats
+    
+  } else {
+    nextInitTheta = sampledThetas[iter-1,]
+    nextInitStats = impNetStatMat[iter-1,]
+  }
+  
+  ## Drawing the auxiliary network
+  
+  # generate a proposed theta
+  auxTheta = rmvnorm(n = 1, mean = nextInitTheta, sigma = propSigma)
+  
+  # generate the aux net
+  auxNet = simulate( peterModel, 
+                     coef = auxTheta,
+                     output = "stats",
+                     basis = peterAdjmat,
+                     nsim = 1,
+                     control = control.simulate(MCMC.burnin = 20000,
+                                                MCMC.interval = 2000))
+  
+  # save the aux net stats
+  auxNetStatMat[iter, ] = auxNet
+
+  # use the aux net stats for the acceptance ratio  
+  auxStats = as.numeric(auxNet)
+    
+  ## acceptance ratio calculation
+  acceptRatio = (auxTheta - nextInitTheta) %*% (nextInitStats - auxStats)
+  
+  # generate some uniform value
+  if(log(runif(1)) < acceptRatio){
+    
+    # swap parameters
+    sampledThetas[iter, ] = auxTheta
+    } else {
+    
+    # keep the previous params
+    sampledThetas[iter, ] = nextInitTheta 
+    }
+  
+  
+  
+  # use the most recent thetas with the MNAR model to impute the data
+  psi[iter, ] = sampledThetas[iter, ]
+  
+  # add the entrainment parameter from the missingness model
+  psi[iter, 1] = sampledThetas[iter, 1] + missCoefs[4]
+  
+  # what happens if I remove all the other model parameters except for the density?
+ # psi[iter, -1] = 0
+  
+  # get the list of free dyads
+  missTiesEdgeList = as.edgelist(as.network(ergmMissAdj,directed=FALSE), n = n)
+  
+  # get the conditional distribution of the missing tie variables given the specified model
+  impNets = simulate(peterModel,
+                     coef = psi[iter, ],
+                     output = "stats",
+                     basis = peterAdjmat,
+                     nsim = 1,
+                     constraints=~fixallbut(missTiesEdgeList),
+                     control = control.simulate(MCMC.burnin = 20000,
+                                                MCMC.interval = 2000))
+
+
+  # save the imputed networks
+  impNetList[[iter]] = impNets
+  
+  # get its stats
+  impNetStats = attributes(impNets)$stats
+  
+
+  # save stuff in the structures specified beforehand
+  impNetStatMat[iter,] = impNetStats
+}
+
+
+```
+
+
+```{r inspections}
+# check the 'outputs'
+# basically check the trace plots for the imputed network stats
+# trace plots
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,1]), main = "Impnet edges")
+abline(h = as.numeric(trueStats[1]), col = "red")
+
+plot(ts(auxNetStatMat[,1]), main = "Auxnet edges")
+abline(h = as.numeric(trueStats[1]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,2]), main = "Impnet gwdeg")
+abline(h = as.numeric(trueStats[2]), col = "red")
+
+plot(ts(auxNetStatMat[,2]), main = "Auxnet gwdeg")
+abline(h = as.numeric(trueStats[2]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,3]), main = "Impnet gwesp")
+abline(h = as.numeric(trueStats[3]), col = "red")
+
+plot(ts(auxNetStatMat[,3]), main = "Auxnet gwesp")
+abline(h = as.numeric(trueStats[3]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,4]), main = "Impnet age node covariate")
+abline(h = as.numeric(trueStats[4]), col = "red")
+
+plot(ts(auxNetStatMat[,4]), main = "Auxnet age node covariate")
+abline(h = as.numeric(trueStats[4]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,5]), main = "Impnet age absdiff")
+abline(h = as.numeric(trueStats[5]), col = "red")
+
+plot(ts(auxNetStatMat[,5]), main = "Auxnet age absdiff")
+abline(h = as.numeric(trueStats[5]), col = "red")
+
+
+## Check the actual sampled thetas to see how the sampler is handling parameter values
+par(mfrow = c(1,1))
+# edges
+plot(ts(sampledThetas[,1]), main = "Sampled theta values", ylab = "edges")
+abline(h = as.numeric(initTrueTheta[1]), col = "red")
+
+# gwdeg
+plot(ts(sampledThetas[,2]), main = "Sampled theta values", ylab = "gwdeg")
+abline(h = as.numeric(initTrueTheta[2]), col = "red")
+
+# gwesp
+plot(ts(sampledThetas[,3]), main = "Sampled theta values", ylab = "gwesp")
+abline(h = as.numeric(initTrueTheta[3]), col = "red")
+
+# age nodecov
+plot(ts(sampledThetas[,4]), main = "Sampled theta values", ylab = "age nodecov")
+abline(h = as.numeric(initTrueTheta[4]), col = "red")
+
+# age absdiff
+plot(ts(sampledThetas[,5]), main = "Sampled theta values", ylab = "age absdiff")
+abline(h = as.numeric(initTrueTheta[5]), col = "red")
+
+```
+
+### Zero initial statistics
+
+```{r initZeroStats}
+# set everything except the edge count to zero to see if the trace plots are any different
+initStats = c(network.edgecount(peterAdjmat), 0, 0, 0, 0)
+
+# set some number of iterations and data structure
+iterations = 5000
+sampledThetas = matrix(data = NA, nrow = iterations, ncol = numberPara)
+
+# arrays of the auxiliary and imputed network statistics
+auxNetStatMat = matrix(data = NA, nrow = iterations, ncol = numberPara)
+impNetStatMat = matrix(data = NA, nrow = iterations, ncol = numberPara)
+
+# list of imputed networks (... list of imputed network lists really...)
+impNetList = list()
+
+# a structure for the missingness model parameters
+psi = matrix(data = NA, nrow = iterations, ncol = numberPara)
+
+# start the sampler
+for(iter in 1:iterations){
+  
+  
+  # set something up for the first iteration
+  if(iter == 1){
+    nextInitTheta =  initTheta
+    nextInitStats = initStats
+    
+  } else {
+    nextInitTheta = sampledThetas[iter-1,]
+    nextInitStats = impNetStatMat[iter-1,]
+  }
+  
+  ## Drawing the auxiliary network
+  
+  # generate a proposed theta
+  auxTheta = rmvnorm(n = 1, mean = nextInitTheta, sigma = propSigma)
+  
+  # generate the aux net
+  auxNet = simulate( peterModel, 
+                     coef = auxTheta,
+                     output = "stats",
+                     basis = peterAdjmat,
+                     nsim = 1,
+                     control = control.simulate(MCMC.burnin = 20000,
+                                                MCMC.interval = 2000))
+  
+  # save the aux net stats
+  auxNetStatMat[iter, ] = auxNet
+
+  # use the aux net stats for the acceptance ratio  
+  auxStats = as.numeric(auxNet)
+    
+  ## acceptance ratio calculation
+  acceptRatio = (auxTheta - nextInitTheta) %*% (nextInitStats - auxStats)
+  
+  # generate some uniform value
+  if(log(runif(1)) < acceptRatio){
+    
+    # swap parameters
+    sampledThetas[iter, ] = auxTheta
+    } else {
+    
+    # keep the previous params
+    sampledThetas[iter, ] = nextInitTheta 
+    }
+  
+  
+  
+  # use the most recent thetas with the MNAR model to impute the data
+  psi[iter, ] = sampledThetas[iter, ]
+  
+  # add the entrainment parameter from the missingness model
+  psi[iter, 1] = sampledThetas[iter, 1] + missCoefs[4]
+  
+  # get the list of free dyads
+  missTiesEdgeList = as.edgelist(as.network(ergmMissAdj,directed=FALSE), n = n)
+  
+  # get the conditional distribution of the missing tie variables given the specified model
+  impNets = simulate(peterModel,
+                     coef = psi[iter, ],
+                     output = "network",
+                     basis = peterAdjmat,
+                     nsim = 1,
+                     constraints=~fixallbut(missTiesEdgeList),
+                     control = control.simulate(MCMC.burnin = 20000,
+                                                MCMC.interval = 2000))
+  
+  # save the imputed networks
+  impNetList[[iter]] = impNets
+  
+  # get its stats
+  impNetStats = attributes(impNets)$stats
+  
+  # save stuff in the structures specified beforehand
+  impNetStatMat[iter,] = impNetStats
+}
+
+# check the 'outputs'
+# basically check the trace plots for the imputed network stats
+# trace plots
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,1]), main = "Impnet edges")
+abline(h = as.numeric(trueStats[1]), col = "red")
+
+plot(ts(auxNetStatMat[,1]), main = "Auxnet edges")
+abline(h = as.numeric(trueStats[1]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,2]), main = "Impnet gwdeg")
+abline(h = as.numeric(trueStats[2]), col = "red")
+
+plot(ts(auxNetStatMat[,2]), main = "Auxnet gwdeg")
+abline(h = as.numeric(trueStats[2]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,3]), main = "Impnet gwesp")
+abline(h = as.numeric(trueStats[3]), col = "red")
+
+plot(ts(auxNetStatMat[,3]), main = "Auxnet gwesp")
+abline(h = as.numeric(trueStats[3]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,4]), main = "Impnet age node covariate")
+abline(h = as.numeric(trueStats[4]), col = "red")
+
+plot(ts(auxNetStatMat[,4]), main = "Auxnet age node covariate")
+abline(h = as.numeric(trueStats[4]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,5]), main = "Impnet age absdiff")
+abline(h = as.numeric(trueStats[5]), col = "red")
+
+plot(ts(auxNetStatMat[,5]), main = "Auxnet age absdiff")
+abline(h = as.numeric(trueStats[5]), col = "red")
+
+
+## Check the actual sampled thetas to see how the sampler is handling parameter values
+par(mfrow = c(1,1))
+# edges
+plot(ts(sampledThetas[,1]), main = "Sampled theta values", ylab = "edges")
+abline(h = as.numeric(initTrueTheta[1]), col = "red")
+
+# gwdeg
+plot(ts(sampledThetas[,2]), main = "Sampled theta values", ylab = "gwdeg")
+abline(h = as.numeric(initTrueTheta[2]), col = "red")
+
+# gwesp
+plot(ts(sampledThetas[,3]), main = "Sampled theta values", ylab = "gwesp")
+abline(h = as.numeric(initTrueTheta[3]), col = "red")
+
+# age nodecov
+plot(ts(sampledThetas[,4]), main = "Sampled theta values", ylab = "age nodecov")
+abline(h = as.numeric(initTrueTheta[4]), col = "red")
+
+# age absdiff
+plot(ts(sampledThetas[,5]), main = "Sampled theta values", ylab = "age absdiff")
+abline(h = as.numeric(initTrueTheta[5]), col = "red")
+
+```
+
+```{r mnartrueinit}
+# set some number of iterations and data structure
+iterations = 5000
+sampledThetas = matrix(data = NA, nrow = iterations, ncol = numberPara)
+
+# arrays of the auxiliary and imputed network statistics
+auxNetStatMat = matrix(data = NA, nrow = iterations, ncol = numberPara)
+impNetStatMat = matrix(data = NA, nrow = iterations, ncol = numberPara)
+
+# list of imputed networks (... list of imputed network lists really...)
+impNetList = list()
+
+# a structure for the missingness model parameters
+psi = matrix(data = NA, nrow = iterations, ncol = numberPara)
+
+# start the sampler
+for(iter in 1:iterations){
+  
+  
+  # set something up for the first iteration
+  if(iter == 1){
+    
+    # using the true thetas to initialise
+    nextInitTheta =  initTrueTheta
+    nextInitStats = initTrueStats
+    
+  } else {
+    nextInitTheta = sampledThetas[iter-1,]
+    nextInitStats = impNetStatMat[iter-1,]
+  }
+  
+  ## Drawing the auxiliary network
+  
+  # generate a proposed theta
+  auxTheta = rmvnorm(n = 1, mean = nextInitTheta, sigma = propSigma)
+  
+  # generate the aux net
+  auxNet = simulate( peterModel, 
+                     coef = auxTheta,
+                     output = "stats",
+                     basis = peterAdjmat,
+                     nsim = 1,
+                     control = control.simulate(MCMC.burnin = 20000,
+                                                MCMC.interval = 2000))
+  
+  # save the aux net stats
+  auxNetStatMat[iter, ] = auxNet
+
+  # use the aux net stats for the acceptance ratio  
+  auxStats = as.numeric(auxNet)
+    
+  ## acceptance ratio calculation
+  acceptRatio = (auxTheta - nextInitTheta) %*% (nextInitStats - auxStats)
+  
+  # generate some uniform value
+  if(log(runif(1)) < acceptRatio){
+    
+    # swap parameters
+    sampledThetas[iter, ] = auxTheta
+    } else {
+    
+    # keep the previous params
+    sampledThetas[iter, ] = nextInitTheta 
+    }
+  
+  
+  
+  # use the most recent thetas with the MNAR model to impute the data
+  psi[iter, ] = sampledThetas[iter, ]
+  
+  # add the entrainment parameter from the missingness model
+  psi[iter, 1] = sampledThetas[iter, 1] + missCoefs[4]
+  
+  # get the list of free dyads
+  missTiesEdgeList = as.edgelist(as.network(ergmMissAdj,directed=FALSE), n = n)
+  
+  # get the conditional distribution of the missing tie variables given the specified model
+  impNets = simulate(peterModel,
+                     coef = psi[iter, ],
+                     output = "network",
+                     basis = peterAdjmat,
+                     nsim = 1,
+                     constraints=~fixallbut(missTiesEdgeList),
+                     control = control.simulate(MCMC.burnin = 20000,
+                                                MCMC.interval = 2000))
+  
+  # save the imputed networks
+  impNetList[[iter]] = impNets
+  
+  # get its stats
+  impNetStats = attributes(impNets)$stats
+  
+  # save stuff in the structures specified beforehand
+  impNetStatMat[iter,] = impNetStats
+}
+
+# check the 'outputs'
+# basically check the trace plots for the imputed network stats
+# trace plots
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,1]), main = "Impnet edges")
+abline(h = as.numeric(trueStats[1]), col = "red")
+
+plot(ts(auxNetStatMat[,1]), main = "Auxnet edges")
+abline(h = as.numeric(trueStats[1]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,2]), main = "Impnet gwdeg")
+abline(h = as.numeric(trueStats[2]), col = "red")
+
+plot(ts(auxNetStatMat[,2]), main = "Auxnet gwdeg")
+abline(h = as.numeric(trueStats[2]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,3]), main = "Impnet gwesp")
+abline(h = as.numeric(trueStats[3]), col = "red")
+
+plot(ts(auxNetStatMat[,3]), main = "Auxnet gwesp")
+abline(h = as.numeric(trueStats[3]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,4]), main = "Impnet age node covariate")
+abline(h = as.numeric(trueStats[4]), col = "red")
+
+plot(ts(auxNetStatMat[,4]), main = "Auxnet age node covariate")
+abline(h = as.numeric(trueStats[4]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,5]), main = "Impnet age absdiff")
+abline(h = as.numeric(trueStats[5]), col = "red")
+
+plot(ts(auxNetStatMat[,5]), main = "Auxnet age absdiff")
+abline(h = as.numeric(trueStats[5]), col = "red")
+
+
+## Check the actual sampled thetas to see how the sampler is handling parameter values
+par(mfrow = c(1,1))
+# edges
+plot(ts(sampledThetas[,1]), main = "Sampled theta values", ylab = "edges")
+abline(h = as.numeric(initTrueTheta[1]), col = "red")
+
+# gwdeg
+plot(ts(sampledThetas[,2]), main = "Sampled theta values", ylab = "gwdeg")
+abline(h = as.numeric(initTrueTheta[2]), col = "red")
+
+# gwesp
+plot(ts(sampledThetas[,3]), main = "Sampled theta values", ylab = "gwesp")
+abline(h = as.numeric(initTrueTheta[3]), col = "red")
+
+# age nodecov
+plot(ts(sampledThetas[,4]), main = "Sampled theta values", ylab = "age nodecov")
+abline(h = as.numeric(initTrueTheta[4]), col = "red")
+
+# age absdiff
+plot(ts(sampledThetas[,5]), main = "Sampled theta values", ylab = "age absdiff")
+abline(h = as.numeric(initTrueTheta[5]), col = "red")
+
+```
+
+
+
+## MNAR larger entrainment
+
+
+### Initialising using zero thetas and statistics
+
+```{r largeEntr}
+# setting coefficients for the ERGM to make the MNAR mechanism
+missCoefs = c(0, 0.4, 0.5, 0.8)  # everything set to positive is dangerous for mcmc explosions, but fixed density helps.
+
+## specify a model for the missingness
+# Note: 0.69 is chosen for the decay value because that's what log(2) is. Rounding lets the diagnostic plots be more interpretable
+
+## this specification was chosen for a couple of reasons:
+# a) social circuit assumptions are difficult to justify substantively for missingness
+#    but if the point I want to make is that 'dependency maters for missingness', they will suffice
+#    because markov model parameters are known to be difficult to work with
+# b) dyadCov for the true network (an entrainment effect) to weigh the probability of missingness
+#    on the presence of a tie in the true network (either positive or negative weights can be justiied)
+# removed the degree covariate since I want a simpler missingness model with only entrainment as the effect conditional on the network
+
+chosenModel = 
+  initMissNet ~ edges + 
+  gwdegree(0.69, fixed = TRUE) +
+  gwesp(0.69, fixed = TRUE) +
+  dyadcov(trueAdj) 
+
+# and now we simulate
+missErgmSimNets = simMissNet(model = chosenModel, coef = missCoefs)
+
+# and check diagnostics
+missSimDiag(simObj = missErgmSimNets)
+
+# randomly sampling from the simulated random networks
+chosenErgmMissInd = sample(1:length(missErgmSimNets), size = 1)
+print(paste("Your chosen missingness network for the ERGM-simulated missingness is", chosenErgmMissInd))
+
+# take that network out
+ergmMissAdj = as.matrix(missErgmSimNets[[chosenErgmMissInd]])
+
+# and degrade
+ergmDegradedAdj = degradeAdj(trueNet = trueAdj, 
+                             missAdj = ergmMissAdj)
+
+# and plot
+
+par(mfrow = c(1,1))
+gplot(ergmDegradedAdj, gmode = "graph", xlab = "ERGM depleted network")
+
+# Initialising the network
+peterAdjmat = as.network(ergmDegradedAdj, directed = FALSE)
+
+# normalise the age so the variance doesn't get too big
+# add the age attribute
+peterAdjmat %v% 'Age' = scale(londonGangsAtt$Age)[,1]
+
+# number of missing ties
+numMiss = network.naedgecount(peterAdjmat)
+
+# get the observed density
+densObs <- network.edgecount(peterAdjmat)/(n*(n-1)-numMiss)
+
+
+# what if we start with 0? initTheta
+# and get the initialised density
+initTheta <- matrix(0, 1, numberPara)
+initTheta[1,1] <- - log(1 / densObs - 1)
+initStats = summary(peterModel)
+
+# set everything except the edge count to zero
+initStats = c(network.edgecount(peterAdjmat), 0, 0, 0, 0)
+
+
+# set some number of iterations and data structure
+iterations = 5000
+sampledThetas = matrix(data = NA, nrow = iterations, ncol = numberPara)
+
+# arrays of the auxiliary and imputed network statistics
+auxNetStatMat = matrix(data = NA, nrow = iterations, ncol = numberPara)
+impNetStatMat = matrix(data = NA, nrow = iterations, ncol = numberPara)
+
+# list of imputed networks (... list of imputed network lists really...)
+impNetList = list()
+
+# a structure for the missingness model parameters
+psi = matrix(data = NA, nrow = iterations, ncol = numberPara)
+
+# start the sampler
+for(iter in 1:iterations){
+  
+  
+  # set something up for the first iteration
+  if(iter == 1){
+    
+    # using the zero theta (except density)
+    nextInitTheta =  initTheta
+    nextInitStats = initStats
+    
+  } else {
+    nextInitTheta = sampledThetas[iter-1,]
+    nextInitStats = impNetStatMat[iter-1,]
+  }
+  
+  ## Drawing the auxiliary network
+  
+  # generate a proposed theta
+  auxTheta = rmvnorm(n = 1, mean = nextInitTheta, sigma = propSigma)
+  
+  # generate the aux net
+  auxNet = simulate( peterModel, 
+                     coef = auxTheta,
+                     output = "stats",
+                     basis = peterAdjmat,
+                     nsim = 1,
+                     control = control.simulate(MCMC.burnin = 20000,
+                                                MCMC.interval = 2000))
+  
+  # save the aux net stats
+  auxNetStatMat[iter, ] = auxNet
+
+  # use the aux net stats for the acceptance ratio  
+  auxStats = as.numeric(auxNet)
+    
+  ## acceptance ratio calculation
+  acceptRatio = (auxTheta - nextInitTheta) %*% (nextInitStats - auxStats)
+  
+  # generate some uniform value
+  if(log(runif(1)) < acceptRatio){
+    
+    # swap parameters
+    sampledThetas[iter, ] = auxTheta
+    } else {
+    
+    # keep the previous params
+    sampledThetas[iter, ] = nextInitTheta 
+    }
+  
+  
+  
+  # use the most recent thetas with the MNAR model to impute the data
+  psi[iter, ] = sampledThetas[iter, ]
+  
+  # add the entrainment parameter from the missingness model
+  psi[iter, 1] = sampledThetas[iter, 1] + missCoefs[4]
+  
+  # get the list of free dyads
+  missTiesEdgeList = as.edgelist(as.network(ergmMissAdj,directed=FALSE), n = n)
+  
+  # get the conditional distribution of the missing tie variables given the specified model
+  impNets = simulate(peterModel,
+                     coef = psi[iter, ],
+                     output = "network",
+                     basis = peterAdjmat,
+                     nsim = 1,
+                     constraints=~fixallbut(missTiesEdgeList),
+                     control = control.simulate(MCMC.burnin = 20000,
+                                                MCMC.interval = 2000))
+  
+  # save the imputed networks
+  impNetList[[iter]] = impNets
+  
+  # get its stats
+  impNetStats = attributes(impNets)$stats
+  
+  # save stuff in the structures specified beforehand
+  impNetStatMat[iter,] = impNetStats
+}
+
+# check the 'outputs'
+# basically check the trace plots for the imputed network stats
+# trace plots
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,1]), main = "Impnet edges")
+abline(h = as.numeric(trueStats[1]), col = "red")
+
+plot(ts(auxNetStatMat[,1]), main = "Auxnet edges")
+abline(h = as.numeric(trueStats[1]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,2]), main = "Impnet gwdeg")
+abline(h = as.numeric(trueStats[2]), col = "red")
+
+plot(ts(auxNetStatMat[,2]), main = "Auxnet gwdeg")
+abline(h = as.numeric(trueStats[2]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,3]), main = "Impnet gwesp")
+abline(h = as.numeric(trueStats[3]), col = "red")
+
+plot(ts(auxNetStatMat[,3]), main = "Auxnet gwesp")
+abline(h = as.numeric(trueStats[3]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,4]), main = "Impnet age node covariate")
+abline(h = as.numeric(trueStats[4]), col = "red")
+
+plot(ts(auxNetStatMat[,4]), main = "Auxnet age node covariate")
+abline(h = as.numeric(trueStats[4]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,5]), main = "Impnet age absdiff")
+abline(h = as.numeric(trueStats[5]), col = "red")
+
+plot(ts(auxNetStatMat[,5]), main = "Auxnet age absdiff")
+abline(h = as.numeric(trueStats[5]), col = "red")
+
+
+## Check the actual sampled thetas to see how the sampler is handling parameter values
+par(mfrow = c(1,1))
+# edges
+plot(ts(sampledThetas[,1]), main = "Sampled theta values", ylab = "edges")
+abline(h = as.numeric(initTrueTheta[1]), col = "red")
+
+# gwdeg
+plot(ts(sampledThetas[,2]), main = "Sampled theta values", ylab = "gwdeg")
+abline(h = as.numeric(initTrueTheta[2]), col = "red")
+
+# gwesp
+plot(ts(sampledThetas[,3]), main = "Sampled theta values", ylab = "gwesp")
+abline(h = as.numeric(initTrueTheta[3]), col = "red")
+
+# age nodecov
+plot(ts(sampledThetas[,4]), main = "Sampled theta values", ylab = "age nodecov")
+abline(h = as.numeric(initTrueTheta[4]), col = "red")
+
+# age absdiff
+plot(ts(sampledThetas[,5]), main = "Sampled theta values", ylab = "age absdiff")
+abline(h = as.numeric(initTrueTheta[5]), col = "red")
+
+```
+
+
+### Initialised with true thetas and stats
+
+```{r largeentrInitrTrue}
+
+# set some number of iterations and data structure
+iterations = 5000
+sampledThetas = matrix(data = NA, nrow = iterations, ncol = numberPara)
+
+# arrays of the auxiliary and imputed network statistics
+auxNetStatMat = matrix(data = NA, nrow = iterations, ncol = numberPara)
+impNetStatMat = matrix(data = NA, nrow = iterations, ncol = numberPara)
+
+# list of imputed networks (... list of imputed network lists really...)
+impNetList = list()
+
+# a structure for the missingness model parameters
+psi = matrix(data = NA, nrow = iterations, ncol = numberPara)
+
+# start the sampler
+for(iter in 1:iterations){
+  
+  
+  # set something up for the first iteration
+  if(iter == 1){
+    
+    # using the zero theta (except density)
+    nextInitTheta =  initTrueTheta
+    nextInitStats = initTrueStats
+    
+  } else {
+    nextInitTheta = sampledThetas[iter-1,]
+    nextInitStats = impNetStatMat[iter-1,]
+  }
+  
+  ## Drawing the auxiliary network
+  
+  # generate a proposed theta
+  auxTheta = rmvnorm(n = 1, mean = nextInitTheta, sigma = propSigma)
+  
+  # generate the aux net
+  auxNet = simulate( peterModel, 
+                     coef = auxTheta,
+                     output = "stats",
+                     basis = peterAdjmat,
+                     nsim = 1,
+                     control = control.simulate(MCMC.burnin = 20000,
+                                                MCMC.interval = 2000))
+  
+  # save the aux net stats
+  auxNetStatMat[iter, ] = auxNet
+
+  # use the aux net stats for the acceptance ratio  
+  auxStats = as.numeric(auxNet)
+    
+  ## acceptance ratio calculation
+  acceptRatio = (auxTheta - nextInitTheta) %*% (nextInitStats - auxStats)
+  
+  # generate some uniform value
+  if(log(runif(1)) < acceptRatio){
+    
+    # swap parameters
+    sampledThetas[iter, ] = auxTheta
+    } else {
+    
+    # keep the previous params
+    sampledThetas[iter, ] = nextInitTheta 
+    }
+  
+  
+  
+  # use the most recent thetas with the MNAR model to impute the data
+  psi[iter, ] = sampledThetas[iter, ]
+  
+  # add the entrainment parameter from the missingness model
+  psi[iter, 1] = sampledThetas[iter, 1] + missCoefs[4]
+  
+  # get the list of free dyads
+  missTiesEdgeList = as.edgelist(as.network(ergmMissAdj,directed=FALSE), n = n)
+  
+  # get the conditional distribution of the missing tie variables given the specified model
+  impNets = simulate(peterModel,
+                     coef = psi[iter, ],
+                     output = "network",
+                     basis = peterAdjmat,
+                     nsim = 1,
+                     constraints=~fixallbut(missTiesEdgeList),
+                     control = control.simulate(MCMC.burnin = 20000,
+                                                MCMC.interval = 2000))
+  
+  # save the imputed networks
+  impNetList[[iter]] = impNets
+  
+  # get its stats
+  impNetStats = attributes(impNets)$stats
+  
+  # save stuff in the structures specified beforehand
+  impNetStatMat[iter,] = impNetStats
+}
+
+# check the 'outputs'
+# basically check the trace plots for the imputed network stats
+# trace plots
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,1]), main = "Impnet edges")
+abline(h = as.numeric(trueStats[1]), col = "red")
+
+plot(ts(auxNetStatMat[,1]), main = "Auxnet edges")
+abline(h = as.numeric(trueStats[1]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,2]), main = "Impnet gwdeg")
+abline(h = as.numeric(trueStats[2]), col = "red")
+
+plot(ts(auxNetStatMat[,2]), main = "Auxnet gwdeg")
+abline(h = as.numeric(trueStats[2]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,3]), main = "Impnet gwesp")
+abline(h = as.numeric(trueStats[3]), col = "red")
+
+plot(ts(auxNetStatMat[,3]), main = "Auxnet gwesp")
+abline(h = as.numeric(trueStats[3]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,4]), main = "Impnet age node covariate")
+abline(h = as.numeric(trueStats[4]), col = "red")
+
+plot(ts(auxNetStatMat[,4]), main = "Auxnet age node covariate")
+abline(h = as.numeric(trueStats[4]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,5]), main = "Impnet age absdiff")
+abline(h = as.numeric(trueStats[5]), col = "red")
+
+plot(ts(auxNetStatMat[,5]), main = "Auxnet age absdiff")
+abline(h = as.numeric(trueStats[5]), col = "red")
+
+
+## Check the actual sampled thetas to see how the sampler is handling parameter values
+par(mfrow = c(1,1))
+# edges
+plot(ts(sampledThetas[,1]), main = "Sampled theta values", ylab = "edges")
+abline(h = as.numeric(initTrueTheta[1]), col = "red")
+
+# gwdeg
+plot(ts(sampledThetas[,2]), main = "Sampled theta values", ylab = "gwdeg")
+abline(h = as.numeric(initTrueTheta[2]), col = "red")
+
+# gwesp
+plot(ts(sampledThetas[,3]), main = "Sampled theta values", ylab = "gwesp")
+abline(h = as.numeric(initTrueTheta[3]), col = "red")
+
+# age nodecov
+plot(ts(sampledThetas[,4]), main = "Sampled theta values", ylab = "age nodecov")
+abline(h = as.numeric(initTrueTheta[4]), col = "red")
+
+# age absdiff
+plot(ts(sampledThetas[,5]), main = "Sampled theta values", ylab = "age absdiff")
+abline(h = as.numeric(initTrueTheta[5]), col = "red")
+```
+
+## M(C)AR
+
+### No entrainment (M(C)AR) to compare
+
+```{r mcar}
+# setting coefficients for the ERGM to make the MNAR mechanism
+missCoefs = c(0, 0.4, 0.5)  # everything set to positive is dangerous for mcmc explosions, but fixed density helps.
+
+## specify a model for the missingness
+# Note: 0.69 is chosen for the decay value because that's what log(2) is. Rounding lets the diagnostic plots be more interpretable
+
+## this specification was chosen for a couple of reasons:
+# a) social circuit assumptions are difficult to justify substantively for missingness
+#    but if the point I want to make is that 'dependency maters for missingness', they will suffice
+#    because markov model parameters are known to be difficult to work with
+# b) no entrainment here because yeah.
+# removed the degree covariate since I want a simpler missingness model with only entrainment as the effect conditional on the network
+
+chosenModel = 
+  initMissNet ~ edges + 
+  gwdegree(0.69, fixed = TRUE) +
+  gwesp(0.69, fixed = TRUE)
+
+# and now we simulate
+missErgmSimNets = simMissNet(model = chosenModel, coef = missCoefs)
+
+# and check diagnostics
+missSimDiag(simObj = missErgmSimNets)
+
+# randomly sampling from the simulated random networks
+chosenErgmMissInd = sample(1:length(missErgmSimNets), size = 1)
+print(paste("Your chosen missingness network for the ERGM-simulated missingness is", chosenErgmMissInd))
+
+# take that network out
+ergmMissAdj = as.matrix(missErgmSimNets[[chosenErgmMissInd]])
+
+# and degrade
+ergmDegradedAdj = degradeAdj(trueNet = trueAdj, 
+                             missAdj = ergmMissAdj)
+
+# and plot
+par(mfrow = c(1,1))
+gplot(ergmDegradedAdj, gmode = "graph", xlab = "ERGM depleted network")
+
+# Initialising the network
+peterAdjmat = as.network(ergmDegradedAdj, directed = FALSE)
+
+# normalise the age so the variance doesn't get too big
+# add the age attribute
+peterAdjmat %v% 'Age' = scale(londonGangsAtt$Age)[,1]
+
+# set some number of iterations and data structure
+iterations = 5000
+sampledThetas = matrix(data = NA, nrow = iterations, ncol = numberPara)
+
+# arrays of the auxiliary and imputed network statistics
+auxNetStatMat = matrix(data = NA, nrow = iterations, ncol = numberPara)
+impNetStatMat = matrix(data = NA, nrow = iterations, ncol = numberPara)
+
+# list of imputed networks (... list of imputed network lists really...)
+impNetList = list()
+
+# a structure for the missingness model parameters
+psi = matrix(data = NA, nrow = iterations, ncol = numberPara)
+
+
+## generation of the auxiliary network
+
+# calculate the parameter covariance matrix by using the inverse covariance matrix scaled by some tuning constant
+propSigma <-  solve(cov(tempStats)) * tuningConst 
+
+
+# start the sampler
+for(iter in 1:iterations){
+  
+  
+  # set something up for the first iteration
+  if(iter == 1){
+    nextInitTheta =  initTheta
+    nextInitStats = initStats
+    
+  } else {
+    nextInitTheta = sampledThetas[iter-1,]
+    nextInitStats = impNetStatMat[iter-1,]
+  }
+  
+  ## Drawing the auxiliary network
+  
+  # generate a proposed theta
+  auxTheta = rmvnorm(n = 1, mean = nextInitTheta, sigma = propSigma)
+  
+  # generate the aux net
+  auxNet = simulate( peterModel, 
+                     coef = auxTheta,
+                     output = "stats",
+                     basis = peterAdjmat,
+                     nsim = 1,
+                     control = control.simulate(MCMC.burnin = 20000,
+                                                MCMC.interval = 2000))
+  
+  # save the aux net stats
+  auxNetStatMat[iter, ] = auxNet
+
+  # use the aux net stats for the acceptance ratio  
+  auxStats = as.numeric(auxNet)
+    
+  ## acceptance ratio calculation
+  acceptRatio = (auxTheta - nextInitTheta) %*% (nextInitStats - auxStats)
+  
+  # generate some uniform value
+  if(log(runif(1)) < acceptRatio){
+    
+    # swap parameters
+    sampledThetas[iter, ] = auxTheta
+    } else {
+    
+    # keep the previous params
+    sampledThetas[iter, ] = nextInitTheta 
+    }
+  
+  
+  
+  # use the most recent thetas with the MNAR model to impute the data
+  psi[iter, ] = sampledThetas[iter, ]
+  
+  # no entrainment here
+  
+  # get the list of free dyads
+  missTiesEdgeList = as.edgelist(as.network(ergmMissAdj,directed=FALSE), n = n)
+  
+  # get the conditional distribution of the missing tie variables given the specified model
+  impNets = simulate(peterModel,
+                     coef = psi[iter, ],
+                     output = "network",
+                     basis = peterAdjmat,
+                     nsim = 1,
+                     constraints=~fixallbut(missTiesEdgeList),
+                     control = control.simulate(MCMC.burnin = 20000,
+                                                MCMC.interval = 2000))
+  
+  # save the imputed networks
+  impNetList[[iter]] = impNets
+  
+  # get its stats
+  impNetStats = attributes(impNets)$stats
+  
+  # save stuff in the structures specified beforehand
+  impNetStatMat[iter,] = impNetStats
+}
+
+# for this case, check if the psi values match the sampled thetas exactly
+paste("The number of discrepancies between psi values and sampled thetas are", sum(psi != sampledThetas))
+
+# check the 'outputs'
+# basically check the trace plots for the imputed network stats
+# trace plots
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,1]), main = "Impnet edges")
+abline(h = as.numeric(trueStats[1]), col = "red")
+
+plot(ts(auxNetStatMat[,1]), main = "Auxnet edges")
+abline(h = as.numeric(trueStats[1]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,2]), main = "Impnet gwdeg")
+abline(h = as.numeric(trueStats[2]), col = "red")
+
+plot(ts(auxNetStatMat[,2]), main = "Auxnet gwdeg")
+abline(h = as.numeric(trueStats[2]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,3]), main = "Impnet gwesp")
+abline(h = as.numeric(trueStats[3]), col = "red")
+
+plot(ts(auxNetStatMat[,3]), main = "Auxnet gwesp")
+abline(h = as.numeric(trueStats[3]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,4]), main = "Impnet age node covariate")
+abline(h = as.numeric(trueStats[4]), col = "red")
+
+plot(ts(auxNetStatMat[,4]), main = "Auxnet age node covariate")
+abline(h = as.numeric(trueStats[4]), col = "red")
+
+par(mfrow = c(1, 2))
+
+plot(ts(impNetStatMat[,5]), main = "Impnet age absdiff")
+abline(h = as.numeric(trueStats[5]), col = "red")
+
+plot(ts(auxNetStatMat[,5]), main = "Auxnet age absdiff")
+abline(h = as.numeric(trueStats[5]), col = "red")
+
+
+## Check the actual sampled thetas to see how the sampler is handling parameter values
+par(mfrow = c(1,1))
+# edges
+plot(ts(sampledThetas[,1]), main = "Sampled theta values", ylab = "edges")
+abline(h = as.numeric(initTrueTheta[1]), col = "red")
+
+# gwdeg
+plot(ts(sampledThetas[,2]), main = "Sampled theta values", ylab = "gwdeg")
+abline(h = as.numeric(initTrueTheta[2]), col = "red")
+
+# gwesp
+plot(ts(sampledThetas[,3]), main = "Sampled theta values", ylab = "gwesp")
+abline(h = as.numeric(initTrueTheta[3]), col = "red")
+
+# age nodecov
+plot(ts(sampledThetas[,4]), main = "Sampled theta values", ylab = "age nodecov")
+abline(h = as.numeric(initTrueTheta[4]), col = "red")
+
+# age absdiff
+plot(ts(sampledThetas[,5]), main = "Sampled theta values", ylab = "age absdiff")
+abline(h = as.numeric(initTrueTheta[5]), col = "red")
+
+```

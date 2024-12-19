@@ -1,0 +1,657 @@
+---
+title: "20241206_ergmSqBernAnalysis"
+format: 
+  html:
+   toc: true
+   toc-depth: 3
+editor: visual
+---
+
+This markdown's going to be implementing the 'simplest' case for the ERGM\^2 scheme with a toy network.
+
+## Loading in stuff
+
+```{r load stuff, message = FALSE, warning = FALSE}
+# packages
+library(here)
+library(sna)
+library(ergm)
+
+# loadinergm# loading a network
+load(here("Data", "20231006_missNetsEnMasse.RData"))
+
+# good ol london gangs
+trueAdj = adjMatList[[6]]
+trueNet = as.network(trueAdj, directed= FALSE)
+
+# the 'true' Bernoulli model
+trueModel = trueNet ~ edges
+summary(ergm(trueModel))
+
+```
+
+```{r missModel}
+# loading some functions
+source(here("Scripts", "20230811_missNetFunctions.R"))
+
+# initialising the missingness indicator
+initMiss = initMissAdj(n = nrow(trueAdj), propMiss = 0.3)
+initMissNet = as.network(initMiss, directed = FALSE)
+
+# specifying the bernoulli missingness model
+missModel = initMissNet ~ edges + dyadcov(trueAdj)
+
+# and simulate the network
+simMissInds = simMissNet(missModel, coef = c(0, 0.2))
+oneMissConstrained= simMissInds[[49]]
+
+missUnconstrainedNets = simulate(object =  missModel,
+         coef = c(-0.84143, 0.2),
+         nsim = 100,
+          control = control.simulate.formula(MCMC.burnin=20000,MCMC.interval=100))
+
+# take one
+oneMissUncon  = missUnconstrainedNets[[23]]
+
+# re-estimate
+estMissUncon= ergm(oneMissUncon ~ edges + dyadcov(trueAdj), constraints = ~edges)
+
+summary(estMissUncon)
+
+# choose one
+chosenSimMissInd = as.matrix(simMissInds[[74]])
+
+# check some parameters
+summary(ergm(as.network(chosenSimMissInd, directed = FALSE) ~ edges + dyadcov(trueAdj)))
+
+# degrading the network
+obsAdj = degradeAdj(trueNet = trueAdj,
+                    missAdj = chosenSimMissInd)
+
+# an indicator for just the missing edges
+missEdgeIndi = as.matrix((trueAdj == 1) & (chosenSimMissInd == 1)) * 1
+
+```
+
+### Sidebar: Sampling distibutions
+
+```{r sampdist sims}
+# simulate some missingness
+
+# unconstrained networks
+missUnconNets = simulate(object =  missModel,
+         coef = c(-0.87016, 0.2),
+         nsim = 100,
+          control = control.simulate.formula(MCMC.burnin=20000,MCMC.interval=100))
+
+# check its edges
+unconEdges = unlist(lapply(missUnconNets, FUN = network.edgecount))
+mean(unconEdges)
+
+# constrained networks
+missConNets = simulate(object =  missModel,
+         coef = c(0, 0.2),
+         nsim = 100,
+          control = control.simulate.formula(MCMC.burnin=20000,MCMC.interval=100),
+         constraints =~ edges)
+
+# check its edges
+conEdges = unlist(lapply(missConNets, FUN = network.edgecount))
+mean(conEdges)
+
+```
+
+```{r samp dists, message = FALSE, warning = FALSE}
+# specifying the bernoulli missingness model
+missModel = initMissNet ~ edges + dyadcov(trueAdj)
+
+## various estimations
+# specify the model
+estModel = chosenNet ~ edges + dyadcov(trueAdj)
+
+# objects for the coefficients
+conEstConNetParas = matrix(data = NA, nrow = 50, ncol = 2)
+conEstUnconNetParas = matrix(data = NA, nrow = 50, ncol = 2)
+unconEstConNetParas = matrix(data = NA, nrow = 50, ncol = 2)
+unconEstUnconNetParas = matrix(data = NA, nrow = 50, ncol = 2)
+
+
+# loops to extract the coefficients
+for(netInd in 1:50){
+  
+  # grab one network
+  chosenNet = missConNets[[netInd*2]]
+  
+  # plug into the chosen matrix
+  conEstConNetParas[netInd, ] = coef(
+    ergm(estModel,  
+         control = control.ergm(MCMC.burnin=20000,MCMC.interval=100),
+         constraints = ~edges))
+}
+
+# loops to extract the coefficients
+for(netInd in 1:50){
+  
+  # grab one network
+  chosenNet = missConNets[[netInd*2]]
+  
+  # plug into the chosen matrix
+  unconEstConNetParas[netInd, ] = coef(
+    ergm(estModel,  
+         control = control.ergm(MCMC.burnin=20000,MCMC.interval=100)))
+}
+
+
+# loops to extract the coefficients
+for(netInd in 1:50){
+  
+  # grab one network
+  chosenNet = missUnconNets[[netInd*2]]
+  
+  # plug into the chosen matrix
+  conEstUnconNetParas[netInd, ] = coef(
+    ergm(estModel,  
+         control = control.ergm(MCMC.burnin=20000,MCMC.interval=100),
+          constraints =~edges))
+}
+
+
+# loops to extract the coefficients
+for(netInd in 1:50){
+  
+  # grab one network
+  chosenNet = missUnconNets[[netInd*2]]
+  
+  # plug into the chosen matrix
+  unconEstUnconNetParas[netInd, ] = coef(
+    ergm(estModel,  
+         control = control.ergm(MCMC.burnin=20000,MCMC.interval=100)))
+}
+```
+
+```{r sampdist plots}
+# plot them
+# two columns
+par(mfrow = c(1, 2))
+
+# con est con net
+plot(x = conEstConNetParas[,1], type = 'l', main = "Con Est Con Net", ylab = "Edges")
+plot(density(conEstConNetParas[,2]), main = "Con Est Con Net", ylab = "Entrainment")
+abline(v = 0.2, col = 'red')
+
+# con est uncon net
+plot(x = conEstUnconNetParas[,1], type = 'l', main = "Con Est Uncon Net", ylab = "Edges")
+plot(density(conEstUnconNetParas[,2]), main = "Con Est Uncon Net", ylab = "Entrainment")
+abline(v = 0.2, col = 'red')
+
+# uncon est con net
+plot(density(unconEstConNetParas[,1]), main = "Uncon Est Con Net", ylab = "Edges")
+abline(v = -0.87016, col = 'red')
+plot(density(unconEstConNetParas[,2]), main = "Uncon Est Con Net", ylab = "Entrainment")
+abline(v = 0.2, col = 'red')
+
+# uncon est uncon net
+plot(density(unconEstUnconNetParas[,1]), main = "Uncon Est Con Net", ylab = "Edges")
+abline(v = -0.87016, col = 'red')
+plot(density(unconEstUnconNetParas[,2]), main = "Uncon Est Uncon Net", ylab = "Entrainment")
+abline(v = 0.2, col = 'red')
+
+```
+
+With a missingness proportion of 0.3, the alpha is roughly corresponds to -0.84143.
+
+We know the missingness mechanism,
+
+$$ D \sim Bern(q), \ q= logit(-0.84143 + 0.2 x_{ij})$$
+
+and the estimation model is assumed to be
+
+$$ X \sim Bern(p), \ p = logit(\theta)$$
+
+With $\theta = -2.27823$
+
+The full conditional posterior for the missing tie variables are $$\exp\{\sum_{d_{ij}} [\alpha - \log(\frac{1 + \exp\{\alpha\}}{1 + \exp\{\theta\}})] + \sum_{d_{ij}x_{ij}} [(\psi + \theta) + \log(\frac{1 + \exp\{\alpha \}}{1 + \exp\{\alpha + \psi \}}) ] \}$$
+
+```{r, echo = F, eval = F}
+# the conditional posterior is....
+alpha = -0.84143
+psi = -0.07486
+theta = -2.27823
+
+# let's see if the number of missing ties is accurate...
+# goal = 38
+missTiesLogOdds = (psi + theta) + log((1 + exp(alpha))/(1 + exp(alpha + psi)))
+
+# something to simulate
+missIndMat = (as.matrix(is.na(obsAdj)) * 1)
+missTiesEdgeList = as.edgelist(as.network(missIndMat, directed=FALSE), n = nrow(missIndMat))
+    
+
+
+ impNets = simulate(object = obsAdj ~ edges,
+                       coef = c(missTiesLogOdds),
+                       output = "stats",
+                       basis = trueNet,
+                       nsim = 50,
+                       constraints=~fixallbut(missTiesEdgeList),
+                       control = control.simulate(MCMC.burnin = 20000,
+                                                  MCMC.interval = 2000))
+```
+
+## Rao-Blackwell device
+
+We can get more accurate estimates of marginal tie-probabilities if we used the Monte Carlo estimates of
+
+$$\mathbb{E}[\mathbb{E}(X_{ij} | X_{-ij} = x_{-ij})],$$
+
+Thus we can take a large sample $x^{(g)}$ from the ERGM and for each tie variable calculate
+
+$$p^{(g)}_{ij} = \mathbb{P}(X_{ij} = 1|X_{-ij} = x^{(g)}_{-ij})$$
+
+Actually implementing this would need the imputed networks for each iteration and a calculation for the marginal tie probability. I can likely apply this as a Hadamard/element-wise across all the tie variables.
+
+## Running Bernoulli samplers
+
+### Setup
+
+```{r bernSetup, message = FALSE, warning = FALSE}
+## setting up a specific missingness indicator
+
+# # specifying the bernoulli missingness model
+# missModel = initMissNet ~ edges + dyadcov(trueAdj)
+# 
+# # constrained networks
+# missConNets = simulate(object =  missModel,
+#          coef = c(0, 0.2),
+#          nsim = 100,
+#           control = control.simulate.formula(MCMC.burnin=20000,MCMC.interval=100),
+#          constraints =~ edges)
+# 
+# # check its edges
+# conEdges = unlist(lapply(missConNets, FUN = network.edgecount))
+# mean(conEdges)
+# 
+# # specify the model
+# estModel = chosenNet ~ edges + dyadcov(trueAdj)
+# 
+# # choose a missingness indicator with 0.2 entrainment
+# unconEstConNetParas = matrix(data = NA, nrow = 100, ncol = 2)
+# 
+# # loops to extract the coefficients
+# for(netInd in 1:100){
+# 
+#   # grab one network
+#   chosenNet = missConNets[[netInd]]
+# 
+#   # plug into the chosen matrix
+#   unconEstConNetParas[netInd, ] = coef(
+#     ergm(estModel,
+#          control = control.ergm(MCMC.burnin=20000,MCMC.interval=100)))
+# }
+# 
+# # choose the closest missingness indicator
+# chosenMissInd = missConNets[[24]]
+# 
+# # save the missingness indicator with an estimate closest to 0.2
+# save(chosenMissInd, file = "20241212_chosenMissInd.RData")
+
+```
+
+### Sampler
+
+```{r bernSampler}
+
+
+## initialisations
+tuningConst  = 1
+
+# loading the missingness indicator
+load(file = here("Data", "20241212_chosenMissInd.RData"))
+
+# grab the missingness model's true parameters
+missModelCoefs = coef(ergm(as.network(chosenMissInd, directed = FALSE) ~ edges + dyadcov(trueAdj)))
+trueAlpha = missModelCoefs[1]
+
+# finding a proposal variance
+bernRes = ergm(trueModel,
+               control = control.ergm(init = c(-2.27823),
+                                      MCMC.burnin = 20000, 
+                                      MCMC.interval = 20000))
+
+bernInitTheta = bernRes$coefficients
+bernNames = names(coef(bernRes))
+bernEdge = as.numeric(summary(trueModel))
+
+
+# getting the proposal steps for only the edges
+bernTempStats <- simulate( trueModel,                                                     # model formula
+                           coef = bernRes$coefficients,                                   # coefficients
+                           output = "stats",                                              # save statistical output (not network objects)
+                           basis = trueNet,                                               # starting network
+                           nsim = 3000,                                                   # number of saved simulated networks
+                           control = control.simulate(MCMC.burnin = 1,                    # various MCMC controls
+                                                      MCMC.prop.weights='default',
+                                                      MCMC.interval = 2000) )
+
+# calculate the statistics for the model after some burn in
+burnedBernStats <- bernTempStats[2001:3000,]
+
+bernPropSigma = sd(burnedBernStats)^(-1) * tuningConst
+
+# degrade the network
+peterAdjmat = as.network(degradeAdj(trueNet = trueAdj, missAdj = as.matrix(chosenMissInd)), directed = FALSE)
+
+# specify some relevant objects
+peterBernModel = peterAdjmat ~ edges
+
+
+# a functional form
+
+## Setting up the functional form of the sampler
+bernErgmSquaredSampler = function(formula, adjMat, initParams, initStats, propSigma, iterations, entrainment, coefNames){
+  
+  ## bernErgmSquaredSampler(formula, adjMat, initParams, ...) takes a bernoulli ergm formula, an adjacency matrix with missingness, 
+  ## some initial values, and an entrainment parameter value to sample generate model estimates under 
+  ## a specific not-at-random missingness model with a specific entrainment value.
+  ##
+  ## Input:
+  ## - formula:     An R formula object following the ergm specifications of network ~ ergm terms
+  ##
+  ## - adjMat:      An n x n adjacency matrix with some amount of missingness. Ideally the missing
+  ##                values are set to NA values. Currently only supports undirected networks.
+  ##
+  ## - initParams:  A p-long vector containing the initial parameters for the sampler. 
+  ##
+  ## - initStats:   A p-long vector containing the initial statistics (mean value/observed parameters)
+  ##                to calculate the acceptance ratio in the sampler.
+  ##
+  ## - propSigma:   A p x p matrix reflecting the proposal covariance matrix. When the true network parameters
+  ##                are known, use the inverse covariance matrix scaled by some tuning constant.
+  ##
+  ## - iterations:  The number of iterations to run the sampler.
+  ##
+  ## - entrainment: A single float corresponding to the entrainment parameter in the missingness model.
+  ##                Can be set to 0 to perform 'typical' miss ergm bayes assuming MAR.
+  ##
+  ## - coefNames:   A p-long vector of coefficient names in the specified estimation model. 
+  ##                Purely visual input, there's likely a way to refine this and get names from the formula object.
+  ##
+  ## Output: 
+  ## - output:      A list with 4 items,
+  ##                - sampledThetas is an iterations x p matrix containing the sampled parameter values
+  ##                - impNetList is a p-long list containing the imputed networks
+  ##                - impNetStatMat is an iterations x p matrix containing the imputed network statistics
+  ##                - auxNetStatMat is an iterations x p matrix containing the auxiliary network statistics
+  
+  # requires the ergm package
+  require(ergm)
+  
+  # get some values
+  numberPara = length(initParams)
+  
+  ## initialising some storage objects
+  # the sampled parameters
+  sampledThetas = matrix(data = NA, nrow = iterations, ncol = numberPara) 
+  colnames(sampledThetas) = coefNames
+  
+  # auxiliary and imputed network statistics
+  auxNetStatMat = matrix(data = NA, nrow = iterations, ncol = numberPara)
+  colnames(auxNetStatMat) = coefNames
+  
+  impNetStatMat = matrix(data = NA, nrow = iterations, ncol = numberPara)
+  colnames(impNetStatMat) = coefNames
+  
+  # parameters with entrainment adjustment to the density
+  psi = matrix(data = NA, nrow = iterations, ncol = numberPara)
+  colnames(psi) = coefNames
+  
+  # a list for the imputed networks
+  impNetList = list()
+  
+  ## sequentially printing some iterations to make sure the sampler's progressing
+  printIter = floor(seq(from = 1, to = iterations, length.out = 5))
+  
+  # get the list of free dyads
+  # need the missingness indicator so we can work backwards from the adjmat
+  missIndMat = (as.matrix(is.na(adjMat)) * 1)
+  missTiesEdgeList = as.edgelist(as.network(missIndMat, directed=FALSE), n = nrow(missIndMat))
+  
+  # get a proportion of missingness
+  propMiss = sum(as.matrix(is.na(adjMat[upper.tri(adjMat)])))/length(as.matrix(is.na(adjMat[upper.tri(adjMat)])))
+  
+  # and the alpha value
+  alpha = log(propMiss/(1 - propMiss))
+  
+  ## Starting the sampler
+  for(iter in 1:iterations){
+    
+    # if current iteration is in any of the specified printing iterations
+    if(iter %in% printIter){
+      
+      # print something out to show that the sampler's progressing
+      message(paste("Current sampler iteration is", iter))
+    }
+    
+    # set something up for the first iteration
+    if(iter == 1){
+      nextInitTheta = initParams
+      nextInitStats = initStats
+      
+    } else {
+      # and for the rest of the iterations
+      nextInitTheta = sampledThetas[iter-1, ]
+      nextInitStats = impNetStatMat[iter-1, ]
+    }
+    
+    ## Generating a proposal theta and auxiliary network
+    # auxiliary parameters drawn from a multivariate normal distribution
+    auxTheta = rnorm(n = 1, mean = nextInitTheta, sd = propSigma)
+    
+    # generate a network using the auxiliary parameters
+    auxNetStats = simulate( object = formula, 
+                            coef = auxTheta,
+                            output = "stats",
+                            basis = adjMat,
+                            nsim = 1,
+                            control = control.simulate(MCMC.burnin = 20000,
+                                                       MCMC.interval = 2000))
+    
+    # saving its statistics
+    auxNetStatMat[iter, ] = auxNetStats
+    auxStats = as.numeric(auxNetStats)
+    
+    ## Calculate the acceptance ratio
+    acceptRatio = (auxTheta - nextInitTheta) %*% (nextInitStats - auxStats)
+    
+    ## parameter swap
+    if(log(runif(1)) < acceptRatio){
+      
+      # swap parameters if acceptance ratio is larger than random
+      sampledThetas[iter, ] = auxTheta
+    } else {
+      
+      # keep the previous params
+      sampledThetas[iter, ] = nextInitTheta 
+    }
+    
+    # a log ratio penalty
+    logPenalty = log((1 + exp(alpha))/(1 + exp(alpha + entrainment)))
+    
+    ## Generation of imputed network and statistics
+    # use the most recent thetas with the MNAR model to impute the data
+    psi[iter, ] = sampledThetas[iter, ]
+    
+    # add the entrainment parameter from the missingness model
+    psi[iter, 1] = sampledThetas[iter, 1] + entrainment + logPenalty
+  
+    # get the conditional distribution of the missing tie variables given the specified model
+    impNets = simulate(object = formula,
+                       coef = psi[iter, ],
+                       output = "network",
+                       basis = adjMat,
+                       nsim = 1,
+                       constraints=~fixallbut(missTiesEdgeList),
+                       control = control.simulate(MCMC.burnin = 20000,
+                                                  MCMC.interval = 2000))
+    
+    # save the imputed networks
+    impNetList[[iter]] = impNets
+    
+    # get its stats
+    impNetStats = attributes(impNets)$stats
+    
+    # save stuff in the structures specified beforehand
+    impNetStatMat[iter,] = impNetStats
+    
+  }
+  
+  # put all the output in a list
+  output = list(
+    sampledThetas = sampledThetas,
+    #impNetList = impNetList,
+    impNetStatMat = impNetStatMat,
+    auxNetStatMat = auxNetStatMat)
+  
+  # and return it
+  return(output) 
+}
+
+# specify the psi levels
+entrValues = c(-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3)
+
+# a list for the output
+bernSquaredResList = list()
+
+# a loop for the simulations
+for(entrInd in 1:length(entrValues)){
+  chosenEntrValue = entrValues[entrInd]
+  
+  
+  # run the function
+  bernSquaredResList[[entrInd]]  = bernErgmSquaredSampler(formula = peterBernModel,
+                                                          adjMat = peterAdjmat,
+                                                          initParams = bernInitTheta,
+                                                          initStats = bernEdge,
+                                                          propSigma = bernPropSigma,
+                                                          iterations = 2000,
+                                                          entrainment = chosenEntrValue,
+                                                          coefNames = bernNames)
+}
+
+
+
+```
+
+### Plots
+
+```{r bernPlots}
+# load ggplot
+library(ggplot2)
+library(magrittr)
+
+
+# prepare the plot data
+bernThetaPlotData = data.frame(param = NA,
+                                   mean = NA,
+                                   lower = NA,
+                                   upper = NA,
+                                   entrVal = NA)
+
+bernImpStatsPlotData = data.frame(param = NA,
+                                     mean = NA,
+                                     lower = NA,
+                                     upper = NA,
+                                     entrVal = NA)
+
+bernAuxStatsPlotData = data.frame(param = NA,
+                                     mean = NA,
+                                     lower = NA,
+                                     upper = NA,
+                                     entrVal = NA)
+
+
+# looping to grab the sampled thetas
+sampledThetaList = list()
+impNetStatList = list()
+auxNetStatList = list()
+
+# loop it
+for(entrValInd in 1:length(entrValues)){
+  
+  sampledThetaList[[entrValInd]] = bernSquaredResList[[entrValInd]]$sampledThetas
+  impNetStatList[[entrValInd]] = bernSquaredResList[[entrValInd]]$impNetStatMat
+  auxNetStatList[[entrValInd]] = bernSquaredResList[[entrValInd]]$auxNetStatMat
+}
+
+
+# I don't know how to vectorise this in the time it takes to loop this.
+trial = 1
+
+for(entrValInd in 1:length(entrValues)){
+  
+  # sampled thetas
+  bernThetaPlotData[trial,'param'] = names(colMeans(sampledThetaList[[entrValInd]]))
+  bernThetaPlotData[trial,'mean'] = colMeans(sampledThetaList[[entrValInd]])
+  bernThetaPlotData[trial,'lower'] = as.numeric(apply(sampledThetaList[[entrValInd]], MARGIN = 2, FUN = quantile, probs = 0.025))
+  bernThetaPlotData[trial,'upper'] = as.numeric(apply(sampledThetaList[[entrValInd]], MARGIN = 2, FUN = quantile, probs = 0.975))
+  bernThetaPlotData[trial,'entrVal'] = entrValues[entrValInd]
+  
+  # imputed network statistics
+  bernImpStatsPlotData[trial,'param'] = names(colMeans(impNetStatList[[entrValInd]]))
+  bernImpStatsPlotData[trial,'mean'] = colMeans(impNetStatList[[entrValInd]])
+  bernImpStatsPlotData[trial,'lower'] = as.numeric(apply(impNetStatList[[entrValInd]], MARGIN = 2, FUN = quantile, probs = 0.025))
+  bernImpStatsPlotData[trial,'upper'] = as.numeric(apply(impNetStatList[[entrValInd]], MARGIN = 2, FUN = quantile, probs = 0.975))
+  bernImpStatsPlotData[trial,'entrVal'] = entrValues[entrValInd]
+    
+  # auxiliary network statistics
+  bernAuxStatsPlotData[trial,'param'] = names(colMeans(auxNetStatList[[entrValInd]]))
+  bernAuxStatsPlotData[trial,'mean'] = colMeans(auxNetStatList[[entrValInd]])
+  bernAuxStatsPlotData[trial,'lower'] = as.numeric(apply(auxNetStatList[[entrValInd]], MARGIN = 2, FUN = quantile, probs = 0.025))
+  bernAuxStatsPlotData[trial,'upper'] = as.numeric(apply(auxNetStatList[[entrValInd]], MARGIN = 2, FUN = quantile, probs = 0.975))
+  bernAuxStatsPlotData[trial,'entrVal'] = entrValues[entrValInd]  
+  
+  # advance the trial index
+  trial = trial + 1
+}
+
+# plot it individually
+bernThetaPlotData %>% 
+#  filter(param == 'edges') %>% 
+  ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+  geom_line() + 
+  geom_vline(xintercept = 0.2, col = "darkblue") +
+  geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+  geom_hline(yintercept = -2.278, col = "forestgreen") +
+  labs(x = "Entrainment adjustment value", y = "Mean (95% CI) edges estimate") + 
+  ggtitle("Estimate - Edges") + 
+  theme_classic()
+
+
+# and now for the imputed network statistics
+bernImpStatsPlotData %>% 
+#  filter(param == 'edges') %>% 
+  ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+  geom_line() + 
+  geom_vline(xintercept = 0.2, col = "darkblue") +
+  geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+  geom_hline(yintercept = 133, col = "forestgreen") +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+  labs(x = "Entrainment adjustment value", y = "Mean (95% CI) edges MVP") + 
+  ggtitle("Impnet stats - Edges") + 
+  theme_classic()
+
+
+# and auxiliary?
+## NOTE: their axes are really wide and not too useful.
+bernAuxStatsPlotData %>%
+#  filter(param == 'edges') %>%
+  ggplot(., mapping = aes(x = entrVal, y = mean)) +
+  geom_line() +
+  geom_hline(yintercept = 133, col = "forestgreen") +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) +
+  labs(x = "Entrainment adjustment value", y = "Mean (95% CI) edges MVP") +
+  ggtitle("Auxnet - Edges") +
+  theme_classic()
+
+```

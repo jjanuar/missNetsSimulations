@@ -1,0 +1,1752 @@
+---
+title: "20240229_Line_graphs_and_the_Titanic"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Title's because it's fun. Also Titanic refers to Johan's ASNAC (2023) and Chile talk about Jack's survival in the Titanic as a function of the l'homme moyen described in statistical models, including the auspicious ALAAM.
+
+This markdown's my foray into finding density-conditioned ALAAM simulations by merging some of my old code for INW and Johan's Titanic document.
+
+## Load stuff
+
+```{r preamble}
+# packages
+library(here)
+library(sna)
+library(stringr)
+
+# BayesALaam, don't forget I have documentation on their functions in my notebook (Vol 5-The green one, pg 113-118)
+source(here("Scripts", "bayesNetworkRoutines", "MultivarALAAMalt.R"))
+
+# this proof of concept works for simulating an ALAAM,
+# now let's try doing this with a UCINet empirical covert network
+# load in the london gangs dataset (Net 6)
+load(here("Data", "20231006_missNetsEnMasse.RData"))
+
+# take the specific adjmat
+exampleMat = adjMatList[[6]]
+
+
+```
+
+
+## Density-conditioned ALAAM simulations
+
+```{r linegraph}
+### TODO:: check to make sure the function's actually doing what it's supposed to. Ideally figure out a unit test for it
+# a function made in May 2022 to translate an adjmat into a line graph, go 2022 me
+lineGraph <- function(adjMat, directed = FALSE){
+  
+  ## lineGraph(adjMat, directed) takes an adjacency matrix and generates its 
+  ## corresponding line graph for its edges. 
+  ##
+  ## Input:
+  ## - adjMat:   An adjacency matrix describing a graph. Not sure if missing data 
+  ##             will mess with the conversion. 
+  ##
+  ## - directed: A logical value to indicate whether the graph is directed or not.
+  ##
+  ## Output:
+  ## - The line graph for the input adjacency matrix, stored as another matrix.
+  
+  ### count the number of edges
+  edgeCount = sum(adjMat)
+  
+  # if undirected, divide in half.
+  if (directed == FALSE){
+    edgeCount = edgeCount/2
+    adjMat[lower.tri(adjMat)] = 0
+  }
+  
+  # make a matrix of indices for edges (basically an edgelist)
+  inds = which(adjMat == 1, arr.ind = TRUE)
+  
+  # order it for readability
+  inds = inds[order(inds[,1]),]
+  
+  # make an empty matrix for the edges (represented as nodes)
+  lineMat = matrix(data = 0, 
+                   nrow = edgeCount,
+                   ncol = edgeCount)
+  
+  # use the edge list to make the line graph matrix
+  for(edgeInd in 1:edgeCount){                              # for every edge in the edge list
+    tempMat = matrix(data = c(inds %in% inds[edgeInd,]),    # match the edge with the same nodes
+                     ncol = 2)    
+    tempMat[edgeInd,] = FALSE                               # remove the selected edge in the matches
+    lineMat[edgeInd,] = tempMat[,1] + tempMat[,2]           # and put all the edges with the same nodes in the matrix
+  }
+  
+  
+  # make a vector of labels for the nodes
+  nodeLabel = apply(inds,
+                    MARGIN = 1,
+                    FUN = toString)
+  
+  # remove whitespace
+  nodeLabel = gsub(" ", "", nodeLabel, fixed = TRUE)
+  
+  # name the matrix
+  rownames(lineMat) = nodeLabel
+  
+  # return the line graph matrix
+  return(lineMat)
+}
+
+# grab the line graph
+lineTest = lineGraph(adjMat = exampleMat, directed = FALSE)
+
+# what does the line graph look like?
+gplot(lineTest, gmode = "graph", main = "Line graph")
+
+# get unique ids for dyadic cov
+lineTestEdgeListStr = str_split(rownames(lineTest), pattern = ",")
+
+# reformat into a more friendly data frame
+lineTestEdgeList = data.frame(sender = as.numeric(unlist(lapply(lineTestEdgeListStr, FUN = function(x){x[1]}))), 
+                              receiver = as.numeric(unlist(lapply(lineTestEdgeListStr, FUN = function(x){x[2]}))))
+
+# some covariates, these need to be specifc to the edge... so they need to be formatted as dyadic covariates
+centeredAge = (londonGangsAtt$Age - mean(londonGangsAtt$Age))/sd(londonGangsAtt$Age)
+
+# turn into a 'edge' covariate using the indices in the edge list data frame
+centAgeDiffEdgeCov = c()
+prisonEdgeCov = c()
+
+# just loop it
+for(edgeNo in 1:nrow(lineTestEdgeList)){
+
+  sender = lineTestEdgeList[edgeNo, "sender"]
+  receiver = lineTestEdgeList[edgeNo, "receiver"]
+
+  centAgeDiffEdgeCov[edgeNo] = centeredAge[sender] - centeredAge[receiver]
+  prisonEdgeCov[edgeNo] = londonGangsAtt$Prison[sender] + londonGangsAtt$Prison[receiver]
+
+}
+
+# since Prison is a binary variable, the dyad cov can be 0, 1 or 2.
+# let's keep it to mutual ties for now
+prisonEdgeCov[prisonEdgeCov == 2] = 1
+
+
+# taking prison out for now since it's not that much heterogeneity
+
+
+# covs
+lineAlaamCovs = cbind(centAgeDiffEdgeCov)
+
+# line graph outcome variable
+lineOutcome = rep(0, times = nrow(lineTest))
+
+# specifying a sampling rate to fix, say 65% sampled (35% missing)
+fixSampledRate = 0.65
+
+# I want the density to be very precise so I'll try using less probabilistic sampling (less randomness)
+# so turn that density to a number of sampled edges, rounding down
+fixSampledEdges = floor(fixSampledRate *nrow(lineTest))
+
+# use the number of fixed sampled edges as the sum of some kind of index for which variable in lineOutcome is sampled
+sampledIndex = sample(1:nrow(lineTest), fixSampledEdges, replace = FALSE)
+
+# and turn them into sampled edges
+lineOutcome[sampledIndex] = 1
+
+# check to see if it's equal
+sum(lineOutcome) == fixSampledEdges
+
+```
+
+Start with the 'best' estimate of the model when contagion is null
+
+```{r alaam sim initialisation}
+# start with a contagion model
+contAlaam <- BayesALAAM(y = lineOutcome,           # dependent variable
+                        ADJ = lineTest,           # 'network'
+                        covariates = lineAlaamCovs,   # covariates
+                        directed = FALSE,    # directed / undirecred network
+                        useDegree = FALSE,
+                        burnin = 1000,
+                        Iterations = 5000,   # number of iterations
+                        saveFreq = 500)
+
+# plot it to check the chains
+plot(ts(contAlaam$Theta))
+
+# grab the means
+contThetaMeans <- colMeans(contAlaam$Theta)
+
+# then a null contagion model
+nullAlaam <- BayesALAAM(y = lineOutcome,           # dependent variable
+                        ADJ = lineTest,           # 'network'
+                        covariates = lineAlaamCovs,   # covariates
+                        directed = FALSE,    # directed / undirecred network
+                        useDegree = FALSE,
+                        burnin = 1000,
+                        Iterations = 5000,   # number of iterations
+                        saveFreq = 500,
+                        contagion = 'none')  
+
+# plot it to check the chains
+plot(ts(nullAlaam$Theta))
+
+# grab the means
+nullThetaMeans <- colMeans(nullAlaam$Theta)
+
+
+# simulating the outcome of the alaam object using the null thetas.
+nullAlaamSim <- simulate.alaam(ALAAMobj=contAlaam$ALAAMobj,
+                            theta=nullThetaMeans,
+                            contagion ='simple', 
+                            thinning = 30, 
+                            NumIterations = 10000, 
+                            burnin = 5000, 
+                            DoSave=TRUE, 
+                            returnNet= TRUE, 
+                            doGOF=FALSE)
+
+# inspecting the object
+class(nullAlaamSim$statsvec)
+dim(nullAlaamSim$statsvec)
+dim(cov(t(nullAlaamSim$statsvec)))
+
+```
+
+What we want to do is to update the $\theta$ without increasing the 'density' of the network, or rather keeping the total number of sampled edges a constant value. It's similar to 'density-conditioning' in a way.
+
+$$\theta^{(t+1)} = \theta^{(t)} - Cov_{\theta^{(t)}}(z(Y))^{-1} S,$$
+
+where $S$ is a vector of increments with $S_2$ corresponding to contagion. 
+
+```{r contagion increment}
+## I'm breaking apart Johan's increment_theta function
+# let's say we want to increase the number of contagion occurrences by 5
+contIncrement = -5
+
+# set up some number of iterations for the simulations
+iterations = 20
+
+# let's plug that into a vector for increments
+incrementVector = matrix(0, nrow = length(nullThetaMeans), ncol =  1)
+
+# and plug that into the contagion parameter
+incrementVector[2,1] = contIncrement
+
+# some data structures for the simulations
+meanStats = matrix(0, nrow = iterations, ncol = length(nullThetaMeans))
+lowerStats =  matrix(0, nrow = iterations, ncol = length(nullThetaMeans))
+upperStats =  matrix(0, nrow = iterations, ncol = length(nullThetaMeans))
+updatedTheta = matrix(0, nrow = iterations, ncol = length(nullThetaMeans))
+currentTheta = nullThetaMeans
+
+# the main simulation loop
+for(iterIndex in 1:iterations){
+  
+  # simulate contagion
+  iterAlaamSim = simulate.alaam(ALAAMobj = contAlaam$ALAAMobj,
+                            theta=t(currentTheta),
+                            contagion ='simple', 
+                            thinning = 30, 
+                            NumIterations = 10000, 
+                            burnin = 5000, 
+                            DoSave=TRUE, 
+                            returnNet= TRUE, 
+                            doGOF=FALSE)
+  
+  # update the current theta
+  currentTheta = currentTheta - solve(cov(t(iterAlaamSim$statsvec))) %*% incrementVector
+  
+  # save all of those simulated statistics
+  meanStats[iterIndex, ] = rowMeans(iterAlaamSim$statsvec)
+  
+  # and for each parameter...
+  for(paraIndex in 1:length(nullThetaMeans)){
+    
+    # order the simulated statistics and grab the 95% CI
+    orderedStats = sort(iterAlaamSim$statsvec[paraIndex, ])
+    lowerStats[iterIndex, paraIndex] = quantile(orderedStats, probs = 0.025)
+    upperStats[iterIndex, paraIndex] = quantile(orderedStats, probs = 0.975)
+  }
+  
+  # save the updated theta
+  updatedTheta[iterIndex, ] = t(currentTheta)
+}
+
+# all of the object should be filled at the end of this main loop
+# so we can shove all of it in a list
+contIncrementResult = list(meanStats = meanStats,
+                           updatedTheta = updatedTheta,
+                           lowerStats = lowerStats,
+                           upperStats = upperStats)
+
+
+# plots to check if it works
+par(mfrow=c(3,2))
+for (paraIndex in 1:length(nullThetaMeans)){
+  
+  # plotting the mean simulated statistics
+  plot(ts(contIncrementResult$meanStats[, paraIndex]), 
+       ylim = range(contIncrementResult$meanStats[, paraIndex],
+                  contIncrementResult$lowerStats[, paraIndex],
+                  contIncrementResult$upperStats[, paraIndex]),
+     main = names(nullThetaMeans)[paraIndex],
+     ylab = NA,
+     xlab = NA)
+  
+  # adding the lower and upper bounds
+  lines(x = c(1:nrow(contIncrementResult$meanStats)), 
+        y = contIncrementResult$lowerStats[, paraIndex],col='red')
+  lines(x = c(1:nrow(contIncrementResult$meanStats)), 
+        y = contIncrementResult$upperStats[, paraIndex],col='red')
+}
+
+
+```
+
+## Drawing simulated networks
+
+```{r taking networks out}
+#  no contagion, taking nullAlaamSim
+zeroSimStats = t(nullAlaamSim$statsvec)
+
+# sampled edges
+zeroSampledEdges = t(nullAlaamSim$y)
+
+## Briefly inspect it
+summary(zeroSimStats)
+
+
+# Now let's increment it by an arbitrarily 'small' amount to emulate a 'small' amount of contagion
+# let's say we want to increase the number of contagion occurrences by 5
+contIncrement = -60
+
+# set up some number of iterations for the simulations, 2 for this case, one to initialise and another one for the single contagion increment
+iterations = 2
+
+# let's plug that into a vector for increments
+incrementVector = matrix(0, nrow = length(nullThetaMeans), ncol =  1)
+
+# and plug that into the contagion parameter
+incrementVector[2,1] = contIncrement
+
+# some data structures for the simulations
+meanStats = matrix(0, nrow = iterations, ncol = length(nullThetaMeans))
+lowerStats =  matrix(0, nrow = iterations, ncol = length(nullThetaMeans))
+upperStats =  matrix(0, nrow = iterations, ncol = length(nullThetaMeans))
+updatedTheta = matrix(0, nrow = iterations, ncol = length(nullThetaMeans))
+currentTheta = nullThetaMeans
+
+# the main simulation loop
+for(iterIndex in 1:iterations){
+  
+  # simulate contagion
+  smallContSim = simulate.alaam(ALAAMobj = contAlaam$ALAAMobj,
+                            theta=t(currentTheta),
+                            contagion ='simple', 
+                            thinning = 30, 
+                            NumIterations = 10000, 
+                            burnin = 5000, 
+                            DoSave=TRUE, 
+                            returnNet= TRUE, 
+                            doGOF=FALSE)
+  
+  # update the current theta
+  currentTheta = currentTheta - solve(cov(t(smallContSim$statsvec))) %*% incrementVector
+  
+  # save all of those simulated statistics
+  meanStats[iterIndex, ] = rowMeans(smallContSim$statsvec)
+  
+  # and for each parameter...
+  for(paraIndex in 1:length(nullThetaMeans)){
+    
+    # order the simulated statistics and grab the 95% CI
+    orderedStats = sort(smallContSim$statsvec[paraIndex, ])
+    lowerStats[iterIndex, paraIndex] = quantile(orderedStats, probs = 0.025)
+    upperStats[iterIndex, paraIndex] = quantile(orderedStats, probs = 0.975)
+  }
+  
+  # save the updated theta
+  updatedTheta[iterIndex, ] = t(currentTheta)
+}
+
+# taking the small contagion information out
+#  no contagion, taking nullAlaamSim
+smallSimStats = t(smallContSim$statsvec)
+
+# sampled edges
+smallSampledEdges = t(smallContSim$y)
+
+## Briefly inspect it
+summary(smallSimStats)
+
+## Same thing, but large
+# Now let's increment it by an arbitrarily 'small' amount to emulate a 'small' amount of contagion
+# let's say we want to increase the number of contagion occurrences by 5
+contIncrement = -120
+
+# set up some number of iterations for the simulations, 2 for this case, one to initialise and another one for the single contagion increment
+iterations = 2
+
+# let's plug that into a vector for increments
+incrementVector = matrix(0, nrow = length(nullThetaMeans), ncol =  1)
+
+# and plug that into the contagion parameter
+incrementVector[2,1] = contIncrement
+
+# some data structures for the simulations
+meanStats = matrix(0, nrow = iterations, ncol = length(nullThetaMeans))
+lowerStats =  matrix(0, nrow = iterations, ncol = length(nullThetaMeans))
+upperStats =  matrix(0, nrow = iterations, ncol = length(nullThetaMeans))
+updatedTheta = matrix(0, nrow = iterations, ncol = length(nullThetaMeans))
+currentTheta = nullThetaMeans
+
+# the main simulation loop
+for(iterIndex in 1:iterations){
+  
+  # simulate contagion
+  largeContSim = simulate.alaam(ALAAMobj = contAlaam$ALAAMobj,
+                            theta=t(currentTheta),
+                            contagion ='simple', 
+                            thinning = 30, 
+                            NumIterations = 10000, 
+                            burnin = 5000, 
+                            DoSave=TRUE, 
+                            returnNet= TRUE, 
+                            doGOF=FALSE)
+  
+  # update the current theta
+  currentTheta = currentTheta - solve(cov(t(largeContSim$statsvec))) %*% incrementVector
+  
+  # save all of those simulated statistics
+  meanStats[iterIndex, ] = rowMeans(largeContSim$statsvec)
+  
+  # and for each parameter...
+  for(paraIndex in 1:length(nullThetaMeans)){
+    
+    # order the simulated statistics and grab the 95% CI
+    orderedStats = sort(largeContSim$statsvec[paraIndex, ])
+    lowerStats[iterIndex, paraIndex] = quantile(orderedStats, probs = 0.025)
+    upperStats[iterIndex, paraIndex] = quantile(orderedStats, probs = 0.975)
+  }
+  
+  # save the updated theta
+  updatedTheta[iterIndex, ] = t(currentTheta)
+}
+
+# taking the small contagion information out
+#  no contagion, taking nullAlaamSim
+largeSimStats = t(largeContSim$statsvec)
+
+# sampled edges
+largeSampledEdges = t(largeContSim$y)
+
+## Briefly inspect it
+summary(largeSimStats)
+
+```
+```{r turn them into networks}
+## set number of trials (this is the number of iterations in the simulations)
+trials = 10000
+
+
+# an array because we are gonna have a lot of matrices
+zeroSampledArray = array(data = 0, dim = c(nrow(exampleMat), ncol(exampleMat), trials))
+smallSampledArray = array(data = 0, dim = c(nrow(exampleMat), ncol(exampleMat), trials))
+largeSampledArray = array(data = 0, dim = c(nrow(exampleMat), ncol(exampleMat), trials))
+
+# a loop for all of the simulated sampled edges
+for(trialInd in 1:trials){
+  
+  # turn the line graph into edge lists
+  zeroSampledEdgeList = lineTestEdgeList[zeroSampledEdges[trialInd,] == 1,]
+  smallSampledEdgeList = lineTestEdgeList[smallSampledEdges[trialInd,] == 1,]
+  largeSampledEdgeList = lineTestEdgeList[largeSampledEdges[trialInd,] == 1,]
+
+    # loops one at a time
+  for(edgeNo in 1:nrow(zeroSampledEdgeList)){
+    
+    # grab the sender
+    sender = zeroSampledEdgeList[edgeNo, 1]
+    
+    # grab the rceiver
+    receiver = zeroSampledEdgeList[edgeNo, 2]
+    
+    # fill in the empty matrix
+    zeroSampledArray[sender, receiver, trialInd] = 1
+    
+    # do the same for the other end because undirected
+    zeroSampledArray[receiver, sender, trialInd] = 1
+  }
+  
+  
+  # but anyways
+  for(edgeNo in 1:nrow(smallSampledEdgeList)){
+    
+    # grab the sender
+    sender = smallSampledEdgeList[edgeNo, 1]
+    
+    # grab the rceiver
+    receiver = smallSampledEdgeList[edgeNo, 2]
+    
+    # fill in the empty matrix
+    smallSampledArray[sender, receiver, trialInd] = 1
+    
+    # do the same for the other end because undirected
+    smallSampledArray[receiver, sender, trialInd] = 1
+  }
+  
+  for(edgeNo in 1:nrow(largeSampledEdgeList)){
+    
+    # grab the sender
+    sender = largeSampledEdgeList[edgeNo, 1]
+    
+    # grab the rceiver
+    receiver = largeSampledEdgeList[edgeNo, 2]
+    
+    # fill in the empty matrix
+    largeSampledArray[sender, receiver, trialInd] = 1
+    
+    # do the same for the other end because undirected
+    largeSampledArray[receiver, sender, trialInd] = 1
+  }
+}
+gplot(zeroSampledArray[,, sample(1:10000, 1)], gmode = "graph", main = "Zero POI")
+gplot(smallSampledArray[,, sample(1:10000, 1)], gmode = "graph", main = "Small POI")
+gplot(largeSampledArray[,, sample(1:10000, 1)], gmode = "graph", main = "Large POI")
+
+```
+
+
+
+```{r getting metrics}
+
+## appplying the calculations en masse
+# turn them into networkssss
+zeroSampledNets = apply(zeroSampledArray, MARGIN = 3, FUN = as.network, directed = FALSE)
+smallSampledNets = apply(smallSampledArray, MARGIN = 3, FUN = as.network, directed = FALSE)
+largeSampledNets = apply(largeSampledArray, MARGIN = 3, FUN = as.network, directed = FALSE)
+
+## calculating various metrics
+getMetrics = function(net, directed = FALSE){
+  
+  # fork for directed/undirecited
+  mode = "digraph"
+  
+  if(directed == FALSE){
+    mode = "graph"
+  } 
+  
+  # density
+  density = gden(net, mode = mode)
+  
+  # clustering coefficient
+  clustCoeff = gtrans(net, mode = mode)
+  
+  # centralisation
+  centralisation = centralization(net, FUN = sna::degree, mode = mode)
+  
+  # average geodesic
+  avgGeod = mean(geodist(net, inf.replace= NA)$gdist, na.rm = T)
+  
+  # diameter
+  diameter = max(geodist(net, inf.replace= NA)$gdist, na.rm = T)
+  
+  # avg degree
+  avgDegree = mean(sna::degree(net, gmode = mode))
+  
+  # avg betweenness
+  avgBetw = mean(betweenness(net, gmode = mode))
+  
+  # number of isolates
+  numIsolates = length(isolates(net))
+  
+  # slap them all in a list
+  metricList = list(
+    density = density,
+    clustCoeff = clustCoeff,
+    centralisation = centralisation,
+    avgGeod = avgGeod,
+    diameter = diameter,
+    avgDegree = avgDegree,
+    avgBetw = avgBetw,
+    numIsolates = numIsolates
+  )
+  
+  # reutrn the metric list
+  return(metricList)
+}
+
+# and calculate
+zeroMetricList = lapply(zeroSampledNets, FUN = getMetrics)
+smallMetricList = lapply(smallSampledNets, FUN = getMetrics)
+largeMetricList = lapply(largeSampledNets, FUN = getMetrics)
+
+# getting individual metrics
+zeroDensity = sapply(zeroMetricList, function(x){x[["density"]]})
+zeroClust = sapply(zeroMetricList, function(x){x[["clustCoeff"]]})
+zeroCentr = sapply(zeroMetricList, function(x){x[["centralisation"]]})
+zeroAvgGeo = sapply(zeroMetricList, function(x){x[["avgGeod"]]})
+zeroDiam = sapply(zeroMetricList, function(x){x[["diameter"]]})
+zeroAvgDeg = sapply(zeroMetricList, function(x){x[["avgDegree"]]})
+zeroAvgBetw = sapply(zeroMetricList, function(x){x[["avgBetw"]]})
+zeroNumIsolates = sapply(zeroMetricList, function(x){x[["numIsolates"]]})
+
+smallDensity = sapply(smallMetricList, function(x){x[["density"]]})
+smallClust = sapply(smallMetricList, function(x){x[["clustCoeff"]]})
+smallCentr = sapply(smallMetricList, function(x){x[["centralisation"]]})
+smallAvgGeo = sapply(smallMetricList, function(x){x[["avgGeod"]]})
+smallDiam = sapply(smallMetricList, function(x){x[["diameter"]]})
+smallAvgDeg = sapply(smallMetricList, function(x){x[["avgDegree"]]})
+smallAvgBetw = sapply(smallMetricList, function(x){x[["avgBetw"]]})
+smallNumIsolates = sapply(smallMetricList, function(x){x[["numIsolates"]]})
+
+largeDensity = sapply(largeMetricList, function(x){x[["density"]]})
+largeClust = sapply(largeMetricList, function(x){x[["clustCoeff"]]})
+largeCentr = sapply(largeMetricList, function(x){x[["centralisation"]]})
+largeAvgGeo = sapply(largeMetricList, function(x){x[["avgGeod"]]})
+largeDiam = sapply(largeMetricList, function(x){x[["diameter"]]})
+largeAvgDeg = sapply(largeMetricList, function(x){x[["avgDegree"]]})
+largeAvgBetw = sapply(largeMetricList, function(x){x[["avgBetw"]]})
+largeNumIsolates = sapply(largeMetricList, function(x){x[["numIsolates"]]})
+
+# get the 'true' metric value
+trueMetrics = getMetrics(as.network(exampleMat, directed = FALSE))
+
+```
+
+## Plotting
+
+```{r plotting code}
+# package
+library(ggplot2)
+
+# contagion counts
+contPlotData = data.frame(contStats = c(zeroSimStats[,2], smallSimStats[,2], largeSimStats[,2]),
+                          model = factor(c(rep("zeroPoi", trials), rep("smallPoi", trials), rep("largePoi", trials)),
+                                           levels = c( "zeroPoi", "smallPoi", "largePoi")),
+                            runs = rep(1:trials, 3))
+
+contPlot = ggplot( data = contPlotData,
+                    aes( x = contStats, col = model, fill = model)) + 
+             xlab("POI Bias") + 
+             ylab("Frequency") +
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - POI Bias") + 
+             theme_classic()
+
+contPlot
+
+# density
+densityPlotData = data.frame(density = c(zeroDensity, smallDensity, largeDensity), 
+                            model = factor(c(rep("zeroPoi", trials), rep("smallPoi", trials), rep("largePoi", trials)),
+                                           levels = c( "zeroPoi", "smallPoi", "largePoi")),
+                            runs = rep(1:trials, 3))
+
+densityPlot = ggplot( data = densityPlotData,
+                    aes( x = density, col = model, fill = model)) + 
+             xlab("Density") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$density, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Density") + 
+             theme_classic()
+
+densityPlot
+
+# Clustering coefficient
+clustPlotData = data.frame(clust = c(zeroClust, smallClust, largeClust), 
+                            model = factor(c( rep("zeroPoi", trials), rep("smallPoi", trials), rep("largePoi", trials)),
+                                           levels = c("zeroPoi", "smallPoi", "largePoi")),
+                            runs = rep(1:trials, 3))
+
+clustPlot = ggplot( data = clustPlotData,
+                    aes( x = clust, col = model, fill = model)) + 
+             xlab("Clustering coefficient") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$clustCoeff, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Clustering coefficient") + 
+             theme_classic()
+
+clustPlot
+
+# Centralisation
+centrPlotData = data.frame(centr = c(zeroCentr, smallCentr, largeCentr), 
+                            model = factor(c(rep("zeroPoi", trials), rep("smallPoi", trials), rep("largePoi", trials)),
+                                           levels = c("zeroPoi", "smallPoi", "largePoi")),
+                            runs = rep(1:trials, 3))
+
+centrPlot = ggplot( data = centrPlotData,
+                    aes( x = centr, col = model, fill = model)) + 
+             xlab("Centralisation") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$centralisation, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Centralisation") + 
+             theme_classic()
+
+centrPlot
+
+# Avg geod
+avgGeoPlotData = data.frame(avgGeo = c(zeroAvgGeo, smallAvgGeo, largeAvgGeo), 
+                            model = factor(c(rep("zeroPoi", trials), rep("smallPoi", trials), rep("largePoi", trials)),
+                                           levels = c("zeroPoi", "smallPoi", "largePoi")),
+                            runs = rep(1:trials, 3))
+
+avgGeoPlot = ggplot( data = avgGeoPlotData,
+                    aes( x = avgGeo, col = model, fill = model)) + 
+             xlab("Average geodesic") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$avgGeod, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Average geodesic") + 
+             theme_classic()
+
+avgGeoPlot
+
+# Diameter
+diamPlotData = data.frame(diam = c(zeroDiam, smallDiam, largeDiam), 
+                            model = factor(c(rep("zeroPoi", trials), rep("smallPoi", trials), rep("largePoi", trials)),
+                                           levels = c("zeroPoi", "smallPoi", "largePoi")),
+                            runs = rep(1:trials, 3))
+
+diamPlot = ggplot( data = diamPlotData,
+                    aes( x = diam, col = model, fill = model)) + 
+             xlab("Diameter") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$diameter, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Diameter") + 
+             theme_classic()
+
+diamPlot
+
+# Avg degree
+avgDegPlotData = data.frame(avgDeg = c(zeroAvgDeg, smallAvgDeg, largeAvgDeg), 
+                            model = factor(c(rep("zeroPoi", trials), rep("smallPoi", trials), rep("largePoi", trials)),
+                                           levels = c("zeroPoi", "smallPoi", "largePoi")),
+                            runs = rep(1:trials, 3))
+
+avgDegPlot = ggplot( data = avgDegPlotData,
+                    aes( x = avgDeg, col = model, fill = model)) + 
+             xlab("Average degree") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$avgDegree, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Average degree") + 
+             theme_classic()
+
+avgDegPlot
+
+# betw
+avgBetwPlotData = data.frame(avgBetw = c(zeroAvgBetw, smallAvgBetw, largeAvgBetw), 
+                            model = factor(c(rep("zeroPoi", trials), rep("smallPoi", trials), rep("largePoi", trials)),
+                                           levels = c("zeroPoi", "smallPoi", "largePoi")),
+                            runs = rep(1:trials, 3))
+
+avgBetwPlot = ggplot( data = avgBetwPlotData,
+                    aes( x = avgBetw, col = model, fill = model)) + 
+             xlab("Average betweenness centrality") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$avgBetw, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Average betweenness centrality") + 
+             theme_classic()
+
+avgBetwPlot
+
+isolatesPlotData = data.frame(isolates = c(zeroNumIsolates, smallNumIsolates, largeNumIsolates), 
+                            model = factor(c(rep("zeroPoi", trials), rep("smallPoi", trials), rep("largePoi", trials)),
+                                           levels = c("zeroPoi", "smallPoi", "largePoi")),
+                            runs = rep(1:trials, 3))
+
+isolatesPlot =  ggplot( data = isolatesPlotData,
+                    aes( x = isolates, col = model, fill = model)) + 
+             xlab("Number of isolates") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$numIsolates, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Isolate count") + 
+             theme_classic()
+
+isolatesPlot
+
+
+```
+
+
+
+## Random true network
+
+Instead of an empirical network, let's try simulating a random network without any clustering and seeing if a clustered network can be observed as a function of the sampling design (and not at all the true network).
+
+
+```{r random net, echo = F, eval = F}
+## generate random network
+# with the same number of vertices and density as the empirical network used above
+randMat = sna::rgnm(n = 1, 
+                    nv = 54,
+                    m = 133,
+                    mode = "graph")
+
+# view it
+gplot(randMat, gmode = "graph", main = "Random network")
+
+# line graph of the random network
+randLineGraph = lineGraph(randMat)
+
+## Slapping on a covariate
+# get unique ids for dyadic cov
+randLineStr = str_split(rownames(randLineGraph), pattern = ",")
+
+# reformat into a more friendly data frame
+randLineEdgeList = data.frame(sender = as.numeric(unlist(lapply(randLineStr, FUN = function(x){x[1]}))), 
+                              receiver = as.numeric(unlist(lapply(randLineStr, FUN = function(x){x[2]}))))
+
+# some covariates, these need to be specifc to the edge... so they need to be formatted as dyadic covariates
+centeredAge = (londonGangsAtt$Age - mean(londonGangsAtt$Age))/sd(londonGangsAtt$Age)
+
+# turn into a 'edge' covariate using the indices in the edge list data frame
+randCentAgeCov = c()
+
+# just loop it
+for(edgeNo in 1:nrow(randLineEdgeList)){
+
+  sender = randLineEdgeList[edgeNo, "sender"]
+  receiver = randLineEdgeList[edgeNo, "receiver"]
+
+  randCentAgeCov[edgeNo] = centeredAge[sender] - centeredAge[receiver]
+}
+
+# line covs
+randAlaamCovs = cbind(randCentAgeCov)
+
+# make an empty outcome variable
+randLineOutcome = rep(0, times = nrow(randLineGraph))
+
+# specifying a sampling rate to fix, say 65% sampled (35% missing)
+fixSampledRate = 0.65
+
+# I want the density to be very precise so I'll try using less probabilistic sampling (less randomness)
+# so turn that density to a number of sampled edges, rounding down
+fixSampledEdges = floor(fixSampledRate *nrow(randLineGraph))
+
+# use the number of fixed sampled edges as the sum of some kind of index for which variable in lineOutcome is sampled
+sampledIndex = sample(1:nrow(randLineGraph), fixSampledEdges, replace = FALSE)
+
+# and turn them into sampled edges
+randLineOutcome[sampledIndex] = 1
+
+# check to see if it's equal
+sum(randLineOutcome) == fixSampledEdges
+
+## Needs some kind of covariate... we can use the same as the one for the empirical covert network.
+randContAlaam <- BayesALAAM(y = randLineOutcome,           # dependent variable
+                            ADJ = randLineGraph,           # 'network'
+                            covariates = randAlaamCovs,
+                            directed = FALSE,    # directed / undirecred network
+                            useDegree = FALSE,
+                            burnin = 1000,
+                            Iterations = 5000,   # number of iterations
+                            saveFreq = 500)
+
+# plot it to check the chains
+plot(ts(randContAlaam$Theta))
+
+# grab the means
+randContThetaMeans <- colMeans(randContAlaam$Theta)
+
+# then a null contagion model
+randNullAlaam <- BayesALAAM(y = randLineOutcome,           # dependent variable
+                        ADJ = randLineGraph,           # 'network'
+                        covariates = randAlaamCovs,   # covariates
+                        directed = FALSE,    # directed / undirecred network
+                        useDegree = FALSE,
+                        burnin = 1000,
+                        Iterations = 5000,   # number of iterations
+                        saveFreq = 500,
+                        contagion = 'none') 
+
+# plot it to check the chains
+plot(ts(randNullAlaam$Theta))
+
+# grab the means
+randNullThetaMeans <- colMeans(randNullAlaam$Theta)
+
+# simulating the outcome of the alaam object using the null thetas.
+randNullAlaamSim <- simulate.alaam(ALAAMobj=randContAlaam$ALAAMobj,
+                            theta=randNullThetaMeans,
+                            contagion ='simple', 
+                            thinning = 30, 
+                            NumIterations = 10000, 
+                            burnin = 5000, 
+                            DoSave=TRUE, 
+                            returnNet= TRUE, 
+                            doGOF=FALSE)
+
+# inspecting the object
+class(randNullAlaamSim$statsvec)
+dim(randNullAlaamSim$statsvec)
+dim(cov(t(randNullAlaamSim$statsvec)))
+
+## I'm breaking apart Johan's increment_theta function
+# let's say we want to increase the number of contagion occurrences by 5
+contIncrement = -1
+
+# set up some number of iterations for the simulations
+iterations = 20
+
+# let's plug that into a vector for increments
+incrementVector = matrix(0, nrow = length(randNullThetaMeans), ncol =  1)
+
+# and plug that into the contagion parameter
+incrementVector[2,1] = contIncrement
+
+# some data structures for the simulations
+meanStats = matrix(0, nrow = iterations, ncol = length(randNullThetaMeans))
+lowerStats =  matrix(0, nrow = iterations, ncol = length(randNullThetaMeans))
+upperStats =  matrix(0, nrow = iterations, ncol = length(randNullThetaMeans))
+updatedTheta = matrix(0, nrow = iterations, ncol = length(randNullThetaMeans))
+currentTheta = randNullThetaMeans
+
+# the main simulation loop
+for(iterIndex in 1:iterations){
+  
+  # simulate contagion
+  iterAlaamSim = simulate.alaam(ALAAMobj = randContAlaam$ALAAMobj,
+                            theta=t(currentTheta),
+                            contagion ='simple', 
+                            thinning = 30, 
+                            NumIterations = 10000, 
+                            burnin = 5000, 
+                            DoSave=TRUE, 
+                            returnNet= TRUE, 
+                            doGOF=FALSE)
+  
+  # update the current theta
+  currentTheta = currentTheta - solve(cov(t(iterAlaamSim$statsvec))) %*% incrementVector
+  
+  # save all of those simulated statistics
+  meanStats[iterIndex, ] = rowMeans(iterAlaamSim$statsvec)
+  
+  # and for each parameter...
+  for(paraIndex in 1:length(randNullThetaMeans)){
+    
+    # order the simulated statistics and grab the 95% CI
+    orderedStats = sort(iterAlaamSim$statsvec[paraIndex, ])
+    lowerStats[iterIndex, paraIndex] = quantile(orderedStats, probs = 0.025)
+    upperStats[iterIndex, paraIndex] = quantile(orderedStats, probs = 0.975)
+  }
+  
+  # save the updated theta
+  updatedTheta[iterIndex, ] = t(currentTheta)
+}
+
+# all of the object should be filled at the end of this main loop
+# so we can shove all of it in a list
+contIncrementResult = list(meanStats = meanStats,
+                           updatedTheta = updatedTheta,
+                           lowerStats = lowerStats,
+                           upperStats = upperStats)
+
+
+# plots to check if it works
+par(mfrow=c(3,2))
+for (paraIndex in 1:length(randNullThetaMeans)){
+  
+  # plotting the mean simulated statistics
+  plot(ts(contIncrementResult$meanStats[, paraIndex]), 
+       ylim = range(contIncrementResult$meanStats[, paraIndex],
+                  contIncrementResult$lowerStats[, paraIndex],
+                  contIncrementResult$upperStats[, paraIndex]),
+     main = names(randNullThetaMeans)[paraIndex],
+     ylab = NA,
+     xlab = NA)
+  
+  # adding the lower and upper bounds
+  lines(x = c(1:nrow(contIncrementResult$meanStats)), 
+        y = contIncrementResult$lowerStats[, paraIndex],col='red')
+  lines(x = c(1:nrow(contIncrementResult$meanStats)), 
+        y = contIncrementResult$upperStats[, paraIndex],col='red')
+}
+
+#  no contagion, taking nullAlaamSim
+zeroSimStats = t(randNullAlaamSim$statsvec)
+
+# sampled edges
+zeroSampledEdges = t(randNullAlaamSim$y)
+
+## Briefly inspect it
+summary(zeroSimStats)
+
+# Now let's increment it by an arbitrarily 'small' amount to emulate a 'small' amount of contagion
+# let's say we want to increase the number of contagion occurrences by 5
+contIncrement = -25
+
+# set up some number of iterations for the simulations, 2 for this case, one to initialise and another one for the single contagion increment
+iterations = 2
+
+# let's plug that into a vector for increments
+incrementVector = matrix(0, nrow = length(randNullThetaMeans), ncol =  1)
+
+# and plug that into the contagion parameter
+incrementVector[2,1] = contIncrement
+
+# some data structures for the simulations
+meanStats = matrix(0, nrow = iterations, ncol = length(randNullThetaMeans))
+lowerStats =  matrix(0, nrow = iterations, ncol = length(randNullThetaMeans))
+upperStats =  matrix(0, nrow = iterations, ncol = length(randNullThetaMeans))
+updatedTheta = matrix(0, nrow = iterations, ncol = length(randNullThetaMeans))
+currentTheta = randNullThetaMeans
+
+# the main simulation loop
+for(iterIndex in 1:iterations){
+  
+  # simulate contagion
+  smallContSim = simulate.alaam(ALAAMobj = randContAlaam$ALAAMobj,
+                            theta=t(currentTheta),
+                            contagion ='simple', 
+                            thinning = 30, 
+                            NumIterations = 10000, 
+                            burnin = 5000, 
+                            DoSave=TRUE, 
+                            returnNet= TRUE, 
+                            doGOF=FALSE)
+  
+  # update the current theta
+  currentTheta = currentTheta - solve(cov(t(smallContSim$statsvec))) %*% incrementVector
+  
+  # save all of those simulated statistics
+  meanStats[iterIndex, ] = rowMeans(smallContSim$statsvec)
+  
+  # and for each parameter...
+  for(paraIndex in 1:length(randNullThetaMeans)){
+    
+    # order the simulated statistics and grab the 95% CI
+    orderedStats = sort(smallContSim$statsvec[paraIndex, ])
+    lowerStats[iterIndex, paraIndex] = quantile(orderedStats, probs = 0.025)
+    upperStats[iterIndex, paraIndex] = quantile(orderedStats, probs = 0.975)
+  }
+  
+  # save the updated theta
+  updatedTheta[iterIndex, ] = t(currentTheta)
+}
+
+# all of the object should be filled at the end of this main loop
+# so we can shove all of it in a list
+contIncrementResult = list(meanStats = meanStats,
+                           updatedTheta = updatedTheta,
+                           lowerStats = lowerStats,
+                           upperStats = upperStats)
+
+par(mfrow=c(3,2))
+for (paraIndex in 1:length(randNullThetaMeans)){
+  
+  # plotting the mean simulated statistics
+  plot(ts(contIncrementResult$meanStats[, paraIndex]), 
+       ylim = range(contIncrementResult$meanStats[, paraIndex],
+                  contIncrementResult$lowerStats[, paraIndex],
+                  contIncrementResult$upperStats[, paraIndex]),
+     main = names(randNullThetaMeans)[paraIndex],
+     ylab = NA,
+     xlab = NA)
+  
+  # adding the lower and upper bounds
+  lines(x = c(1:nrow(contIncrementResult$meanStats)), 
+        y = contIncrementResult$lowerStats[, paraIndex],col='red')
+  lines(x = c(1:nrow(contIncrementResult$meanStats)), 
+        y = contIncrementResult$upperStats[, paraIndex],col='red')
+}
+
+# taking the small contagion information out
+#  no contagion, taking nullAlaamSim
+smallSimStats = t(smallContSim$statsvec)
+
+# sampled edges
+smallSampledEdges = t(smallContSim$y)
+
+## Briefly inspect it
+summary(smallSimStats)
+
+## Same thing, but large
+# Now let's increment it by an arbitrarily 'small' amount to emulate a 'small' amount of contagion
+# let's say we want to increase the number of contagion occurrences by 5
+contIncrement = -55
+
+# set up some number of iterations for the simulations, 2 for this case, one to initialise and another one for the single contagion increment
+iterations = 2
+
+# let's plug that into a vector for increments
+incrementVector = matrix(0, nrow = length(randNullThetaMeans), ncol =  1)
+
+# and plug that into the contagion parameter
+incrementVector[2,1] = contIncrement
+
+# some data structures for the simulations
+meanStats = matrix(0, nrow = iterations, ncol = length(randNullThetaMeans))
+lowerStats =  matrix(0, nrow = iterations, ncol = length(randNullThetaMeans))
+upperStats =  matrix(0, nrow = iterations, ncol = length(randNullThetaMeans))
+updatedTheta = matrix(0, nrow = iterations, ncol = length(randNullThetaMeans))
+currentTheta = randNullThetaMeans
+
+# the main simulation loop
+for(iterIndex in 1:iterations){
+  
+  # simulate contagion
+  largeContSim = simulate.alaam(ALAAMobj = randContAlaam$ALAAMobj,
+                            theta=t(currentTheta),
+                            contagion ='simple', 
+                            thinning = 30, 
+                            NumIterations = 10000, 
+                            burnin = 5000, 
+                            DoSave=TRUE, 
+                            returnNet= TRUE, 
+                            doGOF=FALSE)
+  
+  # update the current theta
+  currentTheta = currentTheta - solve(cov(t(largeContSim$statsvec))) %*% incrementVector
+  
+  # save all of those simulated statistics
+  meanStats[iterIndex, ] = rowMeans(largeContSim$statsvec)
+  
+  # and for each parameter...
+  for(paraIndex in 1:length(randNullThetaMeans)){
+    
+    # order the simulated statistics and grab the 95% CI
+    orderedStats = sort(largeContSim$statsvec[paraIndex, ])
+    lowerStats[iterIndex, paraIndex] = quantile(orderedStats, probs = 0.025)
+    upperStats[iterIndex, paraIndex] = quantile(orderedStats, probs = 0.975)
+  }
+  
+  # save the updated theta
+  updatedTheta[iterIndex, ] = t(currentTheta)
+}
+
+# all of the object should be filled at the end of this main loop
+# so we can shove all of it in a list
+contIncrementResult = list(meanStats = meanStats,
+                           updatedTheta = updatedTheta,
+                           lowerStats = lowerStats,
+                           upperStats = upperStats)
+
+par(mfrow=c(3,2))
+for (paraIndex in 1:length(randNullThetaMeans)){
+  
+  # plotting the mean simulated statistics
+  plot(ts(contIncrementResult$meanStats[, paraIndex]), 
+       ylim = range(contIncrementResult$meanStats[, paraIndex],
+                  contIncrementResult$lowerStats[, paraIndex],
+                  contIncrementResult$upperStats[, paraIndex]),
+     main = names(randNullThetaMeans)[paraIndex],
+     ylab = NA,
+     xlab = NA)
+  
+  # adding the lower and upper bounds
+  lines(x = c(1:nrow(contIncrementResult$meanStats)), 
+        y = contIncrementResult$lowerStats[, paraIndex],col='red')
+  lines(x = c(1:nrow(contIncrementResult$meanStats)), 
+        y = contIncrementResult$upperStats[, paraIndex],col='red')
+}
+
+# taking the large contagion information out
+largeSimStats = t(largeContSim$statsvec)
+
+# sampled edges
+largeSampledEdges = t(largeContSim$y)
+
+## Briefly inspect it
+summary(largeSimStats)
+```
+
+```{r plot rand, echo = F, eval = F}
+## set number of trials (this is the number of iterations in the simulations)
+trials = 10000
+
+
+# an array because we are gonna have a lot of matrices
+zeroSampledArray = array(data = 0, dim = c(nrow(randMat), ncol(randMat), trials))
+smallSampledArray = array(data = 0, dim = c(nrow(randMat), ncol(randMat), trials))
+largeSampledArray = array(data = 0, dim = c(nrow(randMat), ncol(randMat), trials))
+
+# a loop for all of the simulated sampled edges
+for(trialInd in 1:trials){
+  
+  # turn the line graph into edge lists
+  zeroSampledEdgeList = randLineEdgeList[zeroSampledEdges[trialInd,] == 1,]
+  smallSampledEdgeList = randLineEdgeList[smallSampledEdges[trialInd,] == 1,]
+  largeSampledEdgeList = randLineEdgeList[largeSampledEdges[trialInd,] == 1,]
+
+    # loops one at a time
+  for(edgeNo in 1:nrow(zeroSampledEdgeList)){
+    
+    # grab the sender
+    sender = zeroSampledEdgeList[edgeNo, 1]
+    
+    # grab the rceiver
+    receiver = zeroSampledEdgeList[edgeNo, 2]
+    
+    # fill in the empty matrix
+    zeroSampledArray[sender, receiver, trialInd] = 1
+    
+    # do the same for the other end because undirected
+    zeroSampledArray[receiver, sender, trialInd] = 1
+  }
+  
+  
+  # but anyways
+  for(edgeNo in 1:nrow(smallSampledEdgeList)){
+    
+    # grab the sender
+    sender = smallSampledEdgeList[edgeNo, 1]
+    
+    # grab the rceiver
+    receiver = smallSampledEdgeList[edgeNo, 2]
+    
+    # fill in the empty matrix
+    smallSampledArray[sender, receiver, trialInd] = 1
+    
+    # do the same for the other end because undirected
+    smallSampledArray[receiver, sender, trialInd] = 1
+  }
+  
+  for(edgeNo in 1:nrow(largeSampledEdgeList)){
+    
+    # grab the sender
+    sender = largeSampledEdgeList[edgeNo, 1]
+    
+    # grab the rceiver
+    receiver = largeSampledEdgeList[edgeNo, 2]
+    
+    # fill in the empty matrix
+    largeSampledArray[sender, receiver, trialInd] = 1
+    
+    # do the same for the other end because undirected
+    largeSampledArray[receiver, sender, trialInd] = 1
+  }
+}
+gplot(zeroSampledArray[,, sample(1:10000, 1)], gmode = "graph", main = "Zero POI")
+gplot(smallSampledArray[,, sample(1:10000, 1)], gmode = "graph", main = "Small POI")
+gplot(largeSampledArray[,, sample(1:10000, 1)], gmode = "graph", main = "Large POI")
+
+
+## appplying the calculations en masse
+# turn them into networkssss
+zeroSampledNets = apply(zeroSampledArray, MARGIN = 3, FUN = as.network, directed = FALSE)
+smallSampledNets = apply(smallSampledArray, MARGIN = 3, FUN = as.network, directed = FALSE)
+largeSampledNets = apply(largeSampledArray, MARGIN = 3, FUN = as.network, directed = FALSE)
+
+
+## calculating various metrics
+getMetrics = function(net, directed = FALSE){
+  
+  # fork for directed/undirecited
+  mode = "digraph"
+  
+  if(directed == FALSE){
+    mode = "graph"
+  } 
+  
+  # density
+  density = gden(net, mode = mode)
+  
+  # clustering coefficient
+  clustCoeff = gtrans(net, mode = mode)
+  
+  # centralisation
+  centralisation = centralization(net, FUN = sna::degree, mode = mode)
+  
+  # average geodesic
+  avgGeod = mean(geodist(net, inf.replace= NA)$gdist, na.rm = T)
+  
+  # diameter
+  diameter = max(geodist(net, inf.replace= NA)$gdist, na.rm = T)
+  
+  # avg degree
+  avgDegree = mean(sna::degree(net, gmode = mode))
+  
+  # avg betweenness
+  avgBetw = mean(betweenness(net, gmode = mode))
+  
+  # number of isolates
+  numIsolates = length(isolates(net))
+  
+  # slap them all in a list
+  metricList = list(
+    density = density,
+    clustCoeff = clustCoeff,
+    centralisation = centralisation,
+    avgGeod = avgGeod,
+    diameter = diameter,
+    avgDegree = avgDegree,
+    avgBetw = avgBetw,
+    numIsolates = numIsolates
+  )
+  
+  # reutrn the metric list
+  return(metricList)
+}
+
+# and calculate
+zeroMetricList = lapply(zeroSampledNets, FUN = getMetrics)
+smallMetricList = lapply(smallSampledNets, FUN = getMetrics)
+largeMetricList = lapply(largeSampledNets, FUN = getMetrics)
+
+# getting individual metrics
+zeroDensity = sapply(zeroMetricList, function(x){x[["density"]]})
+zeroClust = sapply(zeroMetricList, function(x){x[["clustCoeff"]]})
+zeroCentr = sapply(zeroMetricList, function(x){x[["centralisation"]]})
+zeroAvgGeo = sapply(zeroMetricList, function(x){x[["avgGeod"]]})
+zeroDiam = sapply(zeroMetricList, function(x){x[["diameter"]]})
+zeroAvgDeg = sapply(zeroMetricList, function(x){x[["avgDegree"]]})
+zeroAvgBetw = sapply(zeroMetricList, function(x){x[["avgBetw"]]})
+zeroNumIsolates = sapply(zeroMetricList, function(x){x[["numIsolates"]]})
+
+smallDensity = sapply(smallMetricList, function(x){x[["density"]]})
+smallClust = sapply(smallMetricList, function(x){x[["clustCoeff"]]})
+smallCentr = sapply(smallMetricList, function(x){x[["centralisation"]]})
+smallAvgGeo = sapply(smallMetricList, function(x){x[["avgGeod"]]})
+smallDiam = sapply(smallMetricList, function(x){x[["diameter"]]})
+smallAvgDeg = sapply(smallMetricList, function(x){x[["avgDegree"]]})
+smallAvgBetw = sapply(smallMetricList, function(x){x[["avgBetw"]]})
+smallNumIsolates = sapply(smallMetricList, function(x){x[["numIsolates"]]})
+
+largeDensity = sapply(largeMetricList, function(x){x[["density"]]})
+largeClust = sapply(largeMetricList, function(x){x[["clustCoeff"]]})
+largeCentr = sapply(largeMetricList, function(x){x[["centralisation"]]})
+largeAvgGeo = sapply(largeMetricList, function(x){x[["avgGeod"]]})
+largeDiam = sapply(largeMetricList, function(x){x[["diameter"]]})
+largeAvgDeg = sapply(largeMetricList, function(x){x[["avgDegree"]]})
+largeAvgBetw = sapply(largeMetricList, function(x){x[["avgBetw"]]})
+largeNumIsolates = sapply(largeMetricList, function(x){x[["numIsolates"]]})
+
+
+# get the 'true' metric value
+trueMetrics = getMetrics(as.network(exampleMat, directed = FALSE))
+
+# package
+library(ggplot2)
+
+
+# density
+densityPlotData = data.frame(density = c(zeroDensity, smallDensity, largeDensity), 
+                            model = factor(c(rep("zeroPoi", trials), rep("smallPoi", trials), rep("largePoi", trials)),
+                                           levels = c( "zeroPoi", "smallPoi", "largePoi")),
+                            runs = rep(1:trials, 3))
+
+densityPlot = ggplot( data = densityPlotData,
+                    aes( x = density, col = model, fill = model)) + 
+             xlab("Density") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$density, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Density") + 
+             theme_classic()
+
+densityPlot
+
+# Clustering coefficient
+clustPlotData = data.frame(clust = c(zeroClust, smallClust, largeClust), 
+                            model = factor(c( rep("zeroPoi", trials), rep("smallPoi", trials), rep("largePoi", trials)),
+                                           levels = c("zeroPoi", "smallPoi", "largePoi")),
+                            runs = rep(1:trials, 3))
+
+clustPlot = ggplot( data = clustPlotData,
+                    aes( x = clust, col = model, fill = model)) + 
+             xlab("Clustering coefficient") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$clustCoeff, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Clustering coefficient") + 
+             theme_classic()
+
+clustPlot
+
+# Centralisation
+centrPlotData = data.frame(centr = c(zeroCentr, smallCentr, largeCentr), 
+                            model = factor(c(rep("zeroPoi", trials), rep("smallPoi", trials), rep("largePoi", trials)),
+                                           levels = c("zeroPoi", "smallPoi", "largePoi")),
+                            runs = rep(1:trials, 3))
+
+centrPlot = ggplot( data = centrPlotData,
+                    aes( x = centr, col = model, fill = model)) + 
+             xlab("Centralisation") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$centralisation, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Centralisation") + 
+             theme_classic()
+
+centrPlot
+
+# Avg geod
+avgGeoPlotData = data.frame(avgGeo = c(zeroAvgGeo, smallAvgGeo, largeAvgGeo), 
+                            model = factor(c(rep("zeroPoi", trials), rep("smallPoi", trials), rep("largePoi", trials)),
+                                           levels = c("zeroPoi", "smallPoi", "largePoi")),
+                            runs = rep(1:trials, 3))
+
+avgGeoPlot = ggplot( data = avgGeoPlotData,
+                    aes( x = avgGeo, col = model, fill = model)) + 
+             xlab("Average geodesic") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$avgGeod, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Average geodesic") + 
+             theme_classic()
+
+avgGeoPlot
+
+# Diameter
+diamPlotData = data.frame(diam = c(zeroDiam, smallDiam, largeDiam), 
+                            model = factor(c(rep("zeroPoi", trials), rep("smallPoi", trials), rep("largePoi", trials)),
+                                           levels = c("zeroPoi", "smallPoi", "largePoi")),
+                            runs = rep(1:trials, 3))
+
+diamPlot = ggplot( data = diamPlotData,
+                    aes( x = diam, col = model, fill = model)) + 
+             xlab("Diameter") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$diameter, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Diameter") + 
+             theme_classic()
+
+diamPlot
+
+# Avg degree
+avgDegPlotData = data.frame(avgDeg = c(zeroAvgDeg, smallAvgDeg, largeAvgDeg), 
+                            model = factor(c(rep("zeroPoi", trials), rep("smallPoi", trials), rep("largePoi", trials)),
+                                           levels = c("zeroPoi", "smallPoi", "largePoi")),
+                            runs = rep(1:trials, 3))
+
+avgDegPlot = ggplot( data = avgDegPlotData,
+                    aes( x = avgDeg, col = model, fill = model)) + 
+             xlab("Average degree") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$avgDegree, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Average degree") + 
+             theme_classic()
+
+avgDegPlot
+
+# betw
+avgBetwPlotData = data.frame(avgBetw = c(zeroAvgBetw, smallAvgBetw, largeAvgBetw), 
+                            model = factor(c(rep("zeroPoi", trials), rep("smallPoi", trials), rep("largePoi", trials)),
+                                           levels = c("zeroPoi", "smallPoi", "largePoi")),
+                            runs = rep(1:trials, 3))
+
+avgBetwPlot = ggplot( data = avgBetwPlotData,
+                    aes( x = avgBetw, col = model, fill = model)) + 
+             xlab("Average betweenness centrality") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$avgBetw, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Average betweenness centrality") + 
+             theme_classic()
+
+avgBetwPlot
+
+isolatesPlotData = data.frame(isolates = c(zeroNumIsolates, smallNumIsolates, largeNumIsolates), 
+                            model = factor(c(rep("zeroPoi", trials), rep("smallPoi", trials), rep("largePoi", trials)),
+                                           levels = c("zeroPoi", "smallPoi", "largePoi")),
+                            runs = rep(1:trials, 3))
+
+isolatesPlot =  ggplot( data = isolatesPlotData,
+                    aes( x = isolates, col = model, fill = model)) + 
+             xlab("Number of isolates") + 
+             ylab("Frequency") +
+             geom_vline(xintercept = trueMetrics$avgBetw, col = "darkblue") + 
+             geom_density(alpha = 0.4) +
+             ggtitle("Diagnostics - Isolate count") + 
+             theme_classic()
+
+isolatesPlot
+```
+
+
+## More triangles
+
+Problem with the random network - it has relatively few triangles.
+
+So what I want is a random network, but with some triangles. This is simulated similarly to U|MAN graphs, but not quite, because triad counts can be quite complicated.
+
+
+
+```{r triMcmc}
+# some helper functions for the mcmc
+# function to swap ties
+
+swapTie = function(graph){
+  
+    
+  # grab the edge list
+  edgeList = which(graph == 1, arr.ind = TRUE)
+  
+  # and the null tie list
+  nullTieList = which(graph == 0, arr.ind = TRUE)
+  
+  # exclude the diagonals
+  nullTieDiag = (nullTieList[,1] == nullTieList[,2])
+  
+  # and subset
+  nullTieList = nullTieList[!nullTieDiag,]
+  
+  
+  # choose a random edge
+  edgeIndex = sample(1:nrow(edgeList), size = 1)
+  chosenEdge = edgeList[edgeIndex, ]
+  
+  # get the other edge (becuase undireced) and index
+  otherChosenEdge = edgeList[((edgeList[,1] == chosenEdge[2]) & (edgeList[,2] == chosenEdge[1])), ]
+  otherEdgeIndex = c(1:nrow(edgeList))[(edgeList[,1] == chosenEdge[2]) & (edgeList[,2] == chosenEdge[1])]
+  
+  # and now the same for the null ties
+  nullTieIndex = sample(1:nrow(nullTieList), size = 1)
+  chosenNullTie = nullTieList[nullTieIndex, ]
+  otherNullTie = nullTieList[((nullTieList[,1] == chosenNullTie[2]) & (nullTieList[,2] == chosenNullTie[1])), ]
+  otherNullTieIndex = c(1:nrow(nullTieList))[(nullTieList[,1] == chosenNullTie[2]) & (nullTieList[,2] == chosenNullTie[1])]
+  
+  # swap these two (... four.)
+  edgeList[edgeIndex, ] = nullTieList[nullTieIndex, ]
+  edgeList[otherEdgeIndex, ] = nullTieList[otherNullTieIndex, ]
+  nullTieList[nullTieIndex, ] = chosenEdge
+  nullTieList[otherNullTieIndex, ] = otherChosenEdge
+  
+  # and the resulting edge list would contain the same no. of edges but one of the null ties is a tie and vice versa
+  # reconstruct the graph
+  swappedGraph = matrix(data = 0, nrow = nrow(randGraph), ncol = ncol(randGraph))
+  
+  # ... loop.
+  for(edgeInd in 1:nrow(edgeList)){
+    
+    # turn into an edge
+    swappedGraph[edgeList[edgeInd,1], edgeList[edgeInd, 2]] = 1
+    
+  }
+  
+  # a check to make sure the edge lists are equal
+  checkEdgeList = which(swappedGraph==1, arr.ind = TRUE)
+  
+  # we want 0
+  if(sum(edgeList[order(edgeList), ] != checkEdgeList[order(checkEdgeList), ]) > 0){
+    
+    stop("Reconstructed graph has more edges than input graph")
+    
+  }
+  
+  # return the reconstrctued swapped graph
+  return(swappedGraph)
+  
+
+}
+
+# no. of triangles
+triCount = function(x){
+  as.numeric(triad.census(x)[,"300"])
+}
+
+# the objective function is
+triDiff = function(x, triTarget){
+  (triCount(x) - triTarget)^2
+}
+
+# target distribution woul dbe
+target = function(theta, triDiff){
+  
+  x = theta * triDiff
+  
+  return(ifelse(x<0,0,-x))
+}
+
+# the MCMC function
+triGraphMcmc = function(initGraph, tuningCons, triTarget, iterations){
+  
+  ## triGraphMcmc(graphArray, thetas, ...) is an MCMC that uses simulated annealing that samples a distribution
+  ## of fixed-density graphs that have been indexed by a parameter to achieve the target number of triangles.
+  ##
+  ## Input:
+  ## - initGraph: An n x n graph that initialises the sampler. Currently can only accommodate undirected graphs.
+  ##
+  ## - tuningCons: A float to increase (or decrease) the theta value after each iteration.
+  ##
+  ## - triTarget:  An integer for the target number of triangles.
+  ##
+  ## - iterations: An integer for the number of iterations for the sampler to run. Also the number of graphs
+  ##
+  ## Output: 
+  ## - graphArray: An n x n x #iterations array that contains #iterations graphs.
+  ##
+  ## - triDiffVec: A #iterations-long vector containing the squared difference between proposed and target
+  ##               triangle counts.
+  ##
+  ## - thetas:     A #iterations-long vector containing the parameter value that increases over time (annealing).
+  ##               This sole parameter weighs the squared difference between proposed and target triangle counts.
+  
+  
+  # initialising data structures
+  # the graph array
+  n = nrow(initGraph)
+  graphArray = array(data = NA, dim = c(n, n, iterations))
+  graphArray[,,1] = initGraph
+  
+  # the triangle difference vector
+  triDiffVec = rep(0, times = iterations)
+  initTriDiff = triDiff(x = initGraph, triTarget = triTarget)
+  triDiffVec[1] = initTriDiff
+  
+  # the parameter values
+  thetas = rep(0, times = iterations)
+  thetas[1] = 1
+  
+  # A quick branch to check if the initial graph has too few triangles
+  while(initTriDiff > 600){
+  
+  # raaaaandom
+  initGraph = rgnm(n = 1,
+                   nv = nrow(initGraph),
+                   m  = sum(initGraph)/2,
+                   mode = "graph")
+
+  graphArray[,,1] = initGraph
+  initTriDiff = triDiff(x = initGraph, triTarget = triTarget)
+  triDiffVec[1] = initTriDiff
+  }
+  
+  # loop
+  for(i in 2:iterations){
+    
+    # set current graph
+    currentGraph = graphArray[,,i-1]
+    thetas[i] = thetas[i-1] * tuningCons
+    currentTheta = thetas[i]
+    
+    # propose random graph
+    proposedGraph = swapTie(graph = currentGraph)
+    
+    # count triangles
+    proposedTriDiff = triDiff(x = proposedGraph, triTarget = triTarget)
+    currentTriDiff = triDiff(x = currentGraph, triTarget = triTarget)
+    
+    # save the tridiff
+    triDiffVec[i] = proposedTriDiff
+  
+    # then plug it into the target distribution
+    acceptRatio = target(theta = currentTheta, triDiff = proposedTriDiff) - target(theta = currentTheta, triDiff = currentTriDiff) 
+  
+    # accept the proposed changes or stay at current graph
+    if(log(runif(1)) < acceptRatio){
+      
+      # move
+      graphArray[,, i] = proposedGraph
+    } else{
+      
+      # stay
+      graphArray[,, i] = currentGraph
+    }
+  }
+  
+  # output stuff
+  # list because R
+  outList = list('graphArray' = graphArray,
+                 'triDiffVec' = triDiffVec,
+                 'thetas' = thetas)
+  return(outList)
+  
+}
+
+# and now we run, let's start at the bottom and work up to like... 200 triangles.
+randGraph = rgnm(n = 1,
+                 nv = 20,
+                 m  = 57,
+                 mode = "graph")
+
+# and run once
+triGraph = triGraphMcmc(initGraph = randGraph,
+                        tuningCons = 1.01,
+                        triTarget = 60,
+                        iterations = 1000)
+
+# a count of 60 seems sufficient...
+clustCoeffTriGraph = apply(triGraph$graphArray, MARGIN = 3, FUN = gtrans, mode = "graph")
+plot(ts(clustCoeffTriGraph))
+
+# high enough for me
+
+```
+
+
+
+
+## Simulated co-arrest network
+
+We're going to be using simulate bipartite graphs and performing a one-mode projection on them.
+
+The 'ideal' is a network which is densely connected for each co-arrest (event/2nd mode), but sparsely connected between the co-arrests. Think sparsely connected cliques.
+
+I can't seem to find a density conditioned bipartite graph simulation function so...
+
+```{r denscond bipar}
+# # given that bipartite graphs are rectangular, we don't need to account for the diagonal
+# # set some dimensions
+# peopleNo = 60
+# eventNo = 25
+# 
+# # set a density
+# fixDens = 0.2
+# 
+# # find the number of bipartite edges
+# bipOrder = floor(fixDens * eventNo * peopleNo)
+# 
+# # sampled that many edges in a random sequence
+# bipEdgeVector = c(rep(1, times = bipOrder), rep(0, times = ((peopleNo*eventNo) - bipOrder)))
+# 
+# # and randomly shuffle it
+# randBipEdges = sample(bipEdgeVector)
+# 
+# # plug that in a matrix
+# bipMat = matrix(randBipEdges, nrow = peopleNo, ncol = eventNo)
+# 
+# # it kind of works...?
+# gplot(bipMat, gmode = "twomode")
+
+# igraph has a sample_bipartite function
+
+# load
+library(igraph)
+
+# set some parameters of the bip net
+actorNo = 50
+eventNo = 10
+fixDens = 0.2
+
+# try it out
+sampledBip = sample_bipartite(n1 = actorNo,
+                              n2 = eventNo,
+                              type = "gnm",
+                              m = (fixDens * (actorNo * eventNo)))
+
+# can check the bip matrix
+bipMat = as_biadjacency_matrix(sampledBip)
+
+# and get the one-mode projections
+coEvent = bipartite_projection(sampledBip)$proj1
+
+# turn into a matrix, needs to be done twice because igraph
+coEventMat = as.matrix(as_adj(coEvent))
+
+# plot it
+gplot(coEventMat, gmode = "graph")
+
+# density is scaling really weird between the bip net and its one mode projection
+```
+
+
+Now that I've got the simulated graphs, can run all the line graph stuff on them
+
+
+
+

@@ -47,7 +47,7 @@ initMissAdj = function(n, propMiss, numSims = 1, mode = "graph", ...){
 
 
 ### simulation function
-simMissNet = function(model, coef){
+simMissNet = function(model, coef, nsim = 300){
   
   ## simMissNet(model, coef) takes a model and a set of coefficients for the model
   ## and plugs it in the simulate.ergm() function to return 1000 (can be modified..) networks
@@ -70,7 +70,7 @@ simMissNet = function(model, coef){
   # generate the simulated networks 
   simMissNets <- simulate(object = model, # put in the model object ,
                           coef = coef,  # I *do* need these. edges can be set to 0 when the constraint is in
-                          nsim = 1000,
+                          nsim = nsim,
                           control = control.simulate.formula(MCMC.burnin=20000,MCMC.interval=100), # a burnin to prepare the importance sampler
                           constraints = ~edges)   # this constraint fixes the 'density' (i.e., number of missing tie vars)
   

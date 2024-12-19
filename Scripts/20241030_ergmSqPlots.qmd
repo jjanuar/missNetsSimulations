@@ -1,0 +1,833 @@
+---
+title: "20241030_ergmSqPlots"
+format:
+  html:
+   toc: true
+   toc-depth: 3
+editor: visual
+---
+
+## Loading in stuff
+
+```{r load stuff in}
+# packages
+library(here)
+library(ergm)
+library(stringr)
+library(magrittr)
+library(ggplot2)
+library(dplyr)
+library(sna)
+library(gridExtra)
+
+# some reference values from other documents
+# some functions
+source(here("Scripts", "20230811_missNetFunctions.R"))
+
+# Load in some dataset
+load(here("Data", "20231006_missNetsEnMasse.RData"))
+
+# London gangs since it's an easy dataset with some attributes
+trueAdj = adjMatList[[6]]
+
+# get the true statistics for the given estimation model for reference
+trueNet = as.network(trueAdj, directed = FALSE)
+trueNet %v% 'Age' = scale(londonGangsAtt$Age)[,1]
+
+# get the 'true' values
+trueModel = trueNet ~ edges +
+  gwdegree(0.69, fixed = TRUE) +
+  gwesp(0.69, fixed = TRUE) +
+  nodecov("Age") +
+  absdiff("Age")
+
+trueStats = as.numeric(summary(trueModel))
+
+print(trueStats)
+
+
+# plot (and save coordinates)
+coord = gplot(trueAdj, gmode = "graph", xlab = "True network")
+
+chosenModel = 
+  initMissNet ~ edges + 
+  gwdegree(0.69, fixed = TRUE) +
+  gwesp(0.69, fixed = TRUE) +
+  dyadcov(trueAdj) 
+
+# for future purposes, the coefs are c(-4.409, 0.92919, 1.386, 0.163, -0.489)
+# cheat by using the natural mle parameters of the complete network to get initial parameters
+trueRes = ergm(trueModel,
+               control = control.ergm(init = c(-4.409, 0.92919, 1.386, 0.163, -0.489),
+                                      MCMC.burnin = 20000, 
+                                      MCMC.interval = 20000))
+trueCoef = trueRes$coefficients
+
+```
+
+### Sensitivity analysis
+
+```{r sensAna}
+# get the depleted network
+load(here("Data", "20241031_ergmSqOnlyEntrDepNet.RData"))
+
+# turn into edgelist to colour code the missing edges
+trueEdgeList = as.edgelist(as.network(trueAdj, directed = FALSE), n = 54)
+depletedEdgeList = as.edgelist(as.network(chosenDepletedNet, directed = FALSE), n = 54)
+
+# get a logical vector to see which edges are missing
+observedEdges = paste(trueEdgeList[,1], trueEdgeList[,2]) %in% paste(depletedEdgeList[,1], depletedEdgeList[,2])
+
+# use that for the edge colours
+edgeCol = rep('black', nrow(trueEdgeList))
+edgeCol[observedEdges == FALSE] = 'red'
+
+# plot it
+#par(mfrow = c(1, 2))
+par(bg=NA)
+
+coord = gplot(trueEdgeList, gmode = "graph")
+# dev.copy(png, "asnac24TrueNet.png")
+# dev.off()
+
+gplot(trueEdgeList, gmode = "graph", coord = coord, edge.col = edgeCol)
+# dev.copy(png, "asnac24DepNet.png")
+# dev.off()
+
+# just missing, colour obtained from grDevices::adjustcolour("white", alpha = 0.01)
+justMissCol = rep('#FFFFFF03', nrow(trueEdgeList))
+justMissCol[observedEdges == FALSE] = 'red'
+
+# just the observed and the missing edges for a visual in the presentation
+# par(mfrow = c(1, 2))
+gplot(depletedEdgeList, gmode = "graph", coord = coord)
+# dev.copy(png, "asnac24ObsEdges.png")
+# dev.off()
+
+gplot(trueEdgeList, gmode = "graph", coord = coord, edge.col = justMissCol)
+# dev.copy(png, "asnac24MissEdges.png")
+# dev.off()
+
+# check all file names in the chosen directory
+sensAnaOutFiles = list.files(here("Output", "20241025_ergmSqSensAna"))
+
+# get the relevant output files
+chosenSensAnaOutFiles = grep("20241104_ergmSqOut_entrVal", sensAnaOutFiles)
+
+# get the entrainment values
+outFileEntrValues = sensAnaOutFiles[chosenSensAnaOutFiles] %>% 
+  str_extract(., "(?<=entrVal)(.*)(?=.RData)") %>%    # match all strings after 'entrVal' and before '.RData'
+  as.numeric() %>%                                    # turn to numeric values
+  na.omit() %>%                                       # remove all missing values (mismatching strings)
+  sort()                                              # sort from smallest to largest
+  
+  
+## loading the relevant datafiles
+# initialise some objects
+sampledThetaList = list()
+impNetStatList = list()
+auxNetStatList = list()
+
+# loop to get the relevant files from the output object
+for (valInd in 1:length(outFileEntrValues)){
+  
+  # choose which file to load
+  load(here("Output", "20241025_ergmSqSensAna",
+            paste("20241104_ergmSqOut_entrVal",outFileEntrValues[valInd],".RData", sep = "")))
+  
+  # put stuff in lists
+  sampledThetaList[[valInd]] = output$sampledThetas
+  impNetStatList[[valInd]] = output$impNetStatMat
+  auxNetStatList[[valInd]] = output$auxNetStatMat
+
+}
+
+# remove the beeg object and collect the garbage for the next computation
+rm(output)
+gc()
+```
+
+### Sampling error
+
+```{r sampError, eval = F}
+# this object is beeg.
+load(here("Output", "20241022_ergmSqSampError", "20241021_ergmSquaredEntrSamples.RData"))
+
+# grab the specific items
+thetaSampErrorYesEntrList = list()
+impStatsSampErrorYesEntrList = list()
+auxStatsSampErrorYesEntrList = list()
+
+# loop to grab specific outputs
+for(depNetInd in 1:length(depletedNetList)){
+  
+  # take specific objects and put it in the lists
+  thetaSampErrorYesEntrList[[depNetInd]] = outputList[[depNetInd]]$sampledThetas
+  impStatsSampErrorYesEntrList[[depNetInd]] = outputList[[depNetInd]]$impNetStatMat
+  auxStatsSampErrorYesEntrList[[depNetInd]] = outputList[[depNetInd]]$auxNetStatMat
+  
+}
+
+# remove the object because that's a big object.
+rm(outputList)
+
+# code to grab the spartan output version of the parallelised output for the different depleted networks
+# check all file names in the chosen directory
+sampErrOutFiles = list.files(here("Output", "20241022_ergmSqSampError"))
+
+# get the depleted network indices
+outFileDepNets = sampErrOutFiles %>% 
+  str_extract(., "(?<=DepNet)(.*)(?=_entrVal)") %>%   # match all strings after 'DepNet' and before '_entrVal'
+  as.numeric() %>%                                    # turn to numeric values
+  na.omit() %>%                                       # remove all missing values (mismatching strings)
+  sort()                                              # sort from smallest to largest
+  
+# and then we loop to get the relevant objects
+thetaSampErrorNoEntrList = list()
+impStatsSampErrorNoEntrList = list()
+auxStatsSampErrorNoEntrList = list()
+
+for(depNetInd in 1:length(outFileDepNets)){
+  
+  # load the specific object
+    load(here("Output", "20241022_ergmSqSampError", paste("20241024_ergmSqOutDepNet",outFileDepNets[depNetInd],"_entrVal0.RData", sep = "")))
+
+  
+  # take specific objects and put it in the lists
+  thetaSampErrorNoEntrList[[depNetInd]] = outputNoEntrOut$sampledThetas
+  impStatsSampErrorNoEntrList[[depNetInd]] = outputNoEntrOut$impNetStatMat
+  auxStatsSampErrorNoEntrList[[depNetInd]] = outputNoEntrOut$auxNetStatMat
+  
+}
+
+# remove the big object
+rm(outputNoEntrOut)
+
+
+```
+
+## Plotting
+
+### Sensitivity analysis
+
+True missingness model coefficients are (0, 0, 0, 0.2)
+
+```{r sensAnaPlot}
+# prepare the plot data
+sensAnaThetaPlotData = data.frame(param = NA,
+                                   mean = NA,
+                                   lower = NA,
+                                   upper = NA,
+                                   entrVal = NA)
+
+sensAnaImpStatsPlotData = data.frame(param = NA,
+                                     mean = NA,
+                                     lower = NA,
+                                     upper = NA,
+                                     entrVal = NA)
+
+sensAnaAuxStatsPlotData = data.frame(param = NA,
+                                     mean = NA,
+                                     lower = NA,
+                                     upper = NA,
+                                     entrVal = NA)
+
+# I don't know how to vectorise this in the time it takes to loop this.
+trial = 1
+
+for(entrValInd in 1:length(outFileEntrValues)){
+  
+  # sampled thetas
+  sensAnaThetaPlotData[trial:(trial+4),'param'] = names(colMeans(sampledThetaList[[entrValInd]]))
+  sensAnaThetaPlotData[trial:(trial+4),'mean'] = colMeans(sampledThetaList[[entrValInd]])
+  sensAnaThetaPlotData[trial:(trial+4),'lower'] = as.numeric(apply(sampledThetaList[[entrValInd]], MARGIN = 2, FUN = quantile, probs = 0.025))
+  sensAnaThetaPlotData[trial:(trial+4),'upper'] = as.numeric(apply(sampledThetaList[[entrValInd]], MARGIN = 2, FUN = quantile, probs = 0.975))
+  sensAnaThetaPlotData[trial:(trial+4),'entrVal'] = outFileEntrValues[entrValInd]
+  
+  # imputed network statistics
+  sensAnaImpStatsPlotData[trial:(trial+4),'param'] = names(colMeans(impNetStatList[[entrValInd]]))
+  sensAnaImpStatsPlotData[trial:(trial+4),'mean'] = colMeans(impNetStatList[[entrValInd]])
+  sensAnaImpStatsPlotData[trial:(trial+4),'lower'] = as.numeric(apply(impNetStatList[[entrValInd]], MARGIN = 2, FUN = quantile, probs = 0.025))
+  sensAnaImpStatsPlotData[trial:(trial+4),'upper'] = as.numeric(apply(impNetStatList[[entrValInd]], MARGIN = 2, FUN = quantile, probs = 0.975))
+  sensAnaImpStatsPlotData[trial:(trial+4),'entrVal'] = outFileEntrValues[entrValInd]
+    
+  # auxiliary network statistics
+  sensAnaAuxStatsPlotData[trial:(trial+4),'param'] = names(colMeans(auxNetStatList[[entrValInd]]))
+  sensAnaAuxStatsPlotData[trial:(trial+4),'mean'] = colMeans(auxNetStatList[[entrValInd]])
+  sensAnaAuxStatsPlotData[trial:(trial+4),'lower'] = as.numeric(apply(auxNetStatList[[entrValInd]], MARGIN = 2, FUN = quantile, probs = 0.025))
+  sensAnaAuxStatsPlotData[trial:(trial+4),'upper'] = as.numeric(apply(auxNetStatList[[entrValInd]], MARGIN = 2, FUN = quantile, probs = 0.975))
+  sensAnaAuxStatsPlotData[trial:(trial+4),'entrVal'] = outFileEntrValues[entrValInd]  
+  
+  # advance the trial index
+  trial = trial + 5
+}
+
+# plot it individually
+sensAnaThetaPlotData %>% 
+  filter(param == 'edges') %>% 
+  ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+  geom_line() + 
+  geom_vline(xintercept = 0.2, col = "darkblue") +
+  geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+  labs(x = "Entrainment adjustment value", y = "Mean (95% CI) edges estimate") + 
+  ggtitle("Estimate - Edges") + 
+  theme_classic()
+
+sensAnaThetaPlotData %>% 
+  filter(param == 'gwdeg.fixed.0.69') %>% 
+  ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+  geom_line() + 
+  geom_vline(xintercept = 0.2, col = "darkblue") +
+  geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+  labs(x = "Entrainment adjustment value", y = "Mean (95% CI) Gwdeg estimate") + 
+  ggtitle("Estimate - GWDeg") + 
+  theme_classic()
+
+sensAnaThetaPlotData %>% 
+  filter(param == 'gwesp.fixed.0.69') %>% 
+  ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+  geom_line() + 
+  geom_vline(xintercept = 0.2, col = "darkblue") +
+  geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+  labs(x = "Entrainment adjustment value", y = "Mean (95% CI) GWESP estimate") + 
+  ggtitle("Estimate - GWESP") + 
+  theme_classic()
+
+sensAnaThetaPlotData %>% 
+  filter(param == 'nodecov.Age') %>% 
+  ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+  geom_line() + 
+  geom_vline(xintercept = 0.2, col = "darkblue") +
+  geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+  labs(x = "Entrainment adjustment value", y = "Mean (95% CI) age covariate estimate") + 
+  ggtitle("Estimate - Age covariate") + 
+  theme_classic()
+
+sensAnaThetaPlotData %>% 
+  filter(param == 'absdiff.Age') %>% 
+  ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+  geom_line() + 
+  geom_vline(xintercept = 0.2, col = "darkblue") +
+  geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+  labs(x = "Entrainment adjustment value", y = "Mean (95% CI) age difference estimate") + 
+  ggtitle("Estimate - Age difference") + 
+  theme_classic()
+
+# and now for the imputed network statistics
+sensAnaImpStatsPlotData %>% 
+  filter(param == 'edges') %>% 
+  ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+  geom_line() + 
+  geom_vline(xintercept = 0.2, col = "darkblue") +
+  geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+  labs(x = "Entrainment adjustment value", y = "Mean (95% CI) edges MVP") + 
+  ggtitle("Impnet stats - Edges") + 
+  theme_classic()
+
+sensAnaImpStatsPlotData %>% 
+  filter(param == 'gwdeg.fixed.0.69') %>% 
+  ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+  geom_line() + 
+  geom_vline(xintercept = 0.2, col = "darkblue") +
+  geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+  labs(x = "Entrainment adjustment value", y = "Mean (95% CI) Gwdeg MVP") + 
+  ggtitle("Impnet stats - GWDeg") + 
+  theme_classic()
+
+sensAnaImpStatsPlotData %>% 
+  filter(param == 'gwesp.fixed.0.69') %>% 
+  ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+  geom_line() + 
+  geom_vline(xintercept = 0.2, col = "darkblue") +
+  geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+  labs(x = "Entrainment adjustment value", y = "Mean (95% CI) GWESP MVP") + 
+  ggtitle("Impnet stats - GWESP") + 
+  theme_classic()
+
+sensAnaImpStatsPlotData %>% 
+  filter(param == 'nodecov.Age') %>% 
+  ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+  geom_line() + 
+  geom_vline(xintercept = 0.2, col = "darkblue") +
+  geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+  labs(x = "Entrainment adjustment value", y = "Mean (95% CI) age covariate MVP") + 
+  ggtitle("Impnet stats - Age covariate") + 
+  theme_classic()
+
+sensAnaImpStatsPlotData %>% 
+  filter(param == 'absdiff.Age') %>% 
+  ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+  geom_line() + 
+  geom_vline(xintercept = 0.2, col = "darkblue") +
+  geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+  labs(x = "Entrainment adjustment value", y = "Mean (95% CI) age difference MVP") + 
+  ggtitle("Impnet stats - Age difference") + 
+  theme_classic()
+
+# and auxiliary?
+## NOTE: their axes are really wide and not too useful.
+sensAnaAuxStatsPlotData %>%
+  filter(param == 'edges') %>%
+  ggplot(., mapping = aes(x = entrVal, y = mean)) +
+  geom_line() +
+  geom_hline(yintercept = trueStats[1], col = "darkblue") +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) +
+  labs(x = "Entrainment adjustment value", y = "Mean (95% CI) edges MVP") +
+  ggtitle("Auxnet - Edges") +
+  theme_classic()
+
+sensAnaAuxStatsPlotData %>%
+  filter(param == 'gwdeg.fixed.0.69') %>%
+  ggplot(., mapping = aes(x = entrVal, y = mean)) +
+  geom_line() +
+  geom_hline(yintercept = trueStats[2], col = "darkblue") +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) +
+  labs(x = "Entrainment adjustment value", y = "Mean (95% CI) Gwdeg MVP") +
+  ggtitle("Auxnet - GWDeg") +
+  theme_classic()
+
+sensAnaAuxStatsPlotData %>%
+  filter(param == 'gwesp.fixed.0.69') %>%
+  ggplot(., mapping = aes(x = entrVal, y = mean)) +
+  geom_line() +
+  geom_hline(yintercept = trueStats[3], col = "darkblue") +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) +
+  labs(x = "Entrainment adjustment value", y = "Mean (95% CI) GWESP MVP") +
+  ggtitle("Auxnet - GWESP") +
+  theme_classic()
+
+sensAnaAuxStatsPlotData %>%
+  filter(param == 'nodecov.Age') %>%
+  ggplot(., mapping = aes(x = entrVal, y = mean)) +
+  geom_line() +
+  geom_hline(yintercept = trueStats[4], col = "darkblue") +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) +
+  labs(x = "Entrainment adjustment value", y = "Mean (95% CI) age covariate MVP") +
+  ggtitle("Auxnet - Age covariate") +
+  theme_classic()
+
+sensAnaAuxStatsPlotData %>%
+  filter(param == 'absdiff.Age') %>%
+  ggplot(., mapping = aes(x = entrVal, y = mean)) +
+  geom_line() +
+  geom_hline(yintercept = trueStats[5], col = "darkblue") +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) +
+  labs(x = "Entrainment adjustment value", y = "Mean (95% CI) age difference MVP") +
+  ggtitle("Auxnet - Age difference") +
+  theme_classic()
+```
+
+### ASNAC figs
+
+```{r asnacFormatting, fig.height=8, fig.width=8 }
+# knitr::opts_chunk$set(dev.args=list(bg='transparent'))
+# 
+# # formatting for asnac
+# edgePara = 
+#   sensAnaThetaPlotData %>% 
+#     filter(param == 'edges') %>% 
+#       ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+#       geom_line() + 
+#       geom_vline(xintercept = 0.2, col = "darkblue") +
+#       geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+#       geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+#       labs(x = "Entrainment adjustment value", y = "Mean (95% CI) edges estimate") + 
+#       ggtitle("Estimate - Edges") + 
+#       theme_classic()+
+#        theme(
+#          panel.background = element_rect(fill='transparent'),
+#          plot.background = element_rect(fill='transparent', color=NA),
+#          panel.grid.major = element_blank(),
+#          panel.grid.minor = element_blank(),
+#          legend.background = element_rect(fill='transparent'),
+#          legend.box.background = element_rect(fill='transparent')
+#        )
+# 
+# edgeImpnet = 
+#   sensAnaImpStatsPlotData %>% 
+#     filter(param == 'edges') %>% 
+#       ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+#       geom_line() + 
+#       geom_vline(xintercept = 0.2, col = "darkblue") +
+#       geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+#       geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+#       labs(x = "Entrainment adjustment value", y = "Mean (95% CI) edges MVP") + 
+#       ggtitle("Impnet stats - Edges") + 
+#       theme_classic() +
+#        theme(
+#          panel.background = element_rect(fill='transparent'),
+#          plot.background = element_rect(fill='transparent', color=NA),
+#          panel.grid.major = element_blank(),
+#          panel.grid.minor = element_blank(),
+#          legend.background = element_rect(fill='transparent'),
+#          legend.box.background = element_rect(fill='transparent')
+#        )
+# 
+# edgeGrid = grid.arrange(edgePara, edgeImpnet, nrow = 2)
+# 
+# ggsave(filename = "edgeGrid.png", plot = edgeGrid, bg = "transparent")
+# 
+# gwdegPara = 
+#   sensAnaThetaPlotData %>% 
+#     filter(param == 'gwdeg.fixed.0.69') %>% 
+#       ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+#       geom_line() + 
+#       geom_vline(xintercept = 0.2, col = "darkblue") +
+#       geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+#       geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+#       labs(x = "Entrainment adjustment value", y = "Mean (95% CI) Gwdeg estimate") + 
+#       ggtitle("Estimate - GWDeg") + 
+#       theme_classic()+
+#        theme(
+#          panel.background = element_rect(fill='transparent'),
+#          plot.background = element_rect(fill='transparent', color=NA),
+#          panel.grid.major = element_blank(),
+#          panel.grid.minor = element_blank(),
+#          legend.background = element_rect(fill='transparent'),
+#          legend.box.background = element_rect(fill='transparent')
+#        )
+# 
+# gwdegImpnet = 
+#   sensAnaImpStatsPlotData %>% 
+#       filter(param == 'gwdeg.fixed.0.69') %>% 
+#         ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+#         geom_line() + 
+#         geom_vline(xintercept = 0.2, col = "darkblue") +
+#         geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+#         geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+#         labs(x = "Entrainment adjustment value", y = "Mean (95% CI) Gwdeg MVP") + 
+#         ggtitle("Impnet stats - GWDeg") + 
+#         theme_classic()+
+#        theme(
+#          panel.background = element_rect(fill='transparent'),
+#          plot.background = element_rect(fill='transparent', color=NA),
+#          panel.grid.major = element_blank(),
+#          panel.grid.minor = element_blank(),
+#          legend.background = element_rect(fill='transparent'),
+#          legend.box.background = element_rect(fill='transparent')
+#        )
+# 
+# 
+# gwdegGrid = grid.arrange(gwdegPara, gwdegImpnet, nrow = 2)
+# 
+# ggsave(filename = "gwdegGrid.png", plot = gwdegGrid, bg = "transparent")
+# 
+# 
+# gwespPara = 
+#   sensAnaThetaPlotData %>% 
+#     filter(param == 'gwesp.fixed.0.69') %>% 
+#       ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+#       geom_line() + 
+#       geom_vline(xintercept = 0.2, col = "darkblue") +
+#       geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+#       geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+#       labs(x = "Entrainment adjustment value", y = "Mean (95% CI) GWESP estimate") + 
+#       ggtitle("Estimate - GWESP") + 
+#       theme_classic()+
+#        theme(
+#          panel.background = element_rect(fill='transparent'),
+#          plot.background = element_rect(fill='transparent', color=NA),
+#          panel.grid.major = element_blank(),
+#          panel.grid.minor = element_blank(),
+#          legend.background = element_rect(fill='transparent'),
+#          legend.box.background = element_rect(fill='transparent')
+#        )
+# 
+# gwespImpnet = 
+#   sensAnaImpStatsPlotData %>% 
+#     filter(param == 'gwesp.fixed.0.69') %>% 
+#       ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+#       geom_line() + 
+#       geom_vline(xintercept = 0.2, col = "darkblue") +
+#       geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+#       geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+#       labs(x = "Entrainment adjustment value", y = "Mean (95% CI) GWESP MVP") + 
+#       ggtitle("Impnet stats - GWESP") + 
+#       theme_classic()+
+#        theme(
+#          panel.background = element_rect(fill='transparent'),
+#          plot.background = element_rect(fill='transparent', color=NA),
+#          panel.grid.major = element_blank(),
+#          panel.grid.minor = element_blank(),
+#          legend.background = element_rect(fill='transparent'),
+#          legend.box.background = element_rect(fill='transparent')
+#        )
+# 
+# gwespGrid = grid.arrange(gwespPara, gwespImpnet, nrow = 2)
+# 
+# ggsave(filename = "gwespGrid.png", plot = gwespGrid, bg = "transparent")
+# 
+# ageCovPara = 
+#   sensAnaThetaPlotData %>% 
+#     filter(param == 'nodecov.Age') %>% 
+#       ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+#       geom_line() + 
+#       geom_vline(xintercept = 0.2, col = "darkblue") +
+#       geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+#       geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+#       labs(x = "Entrainment adjustment value", y = "Mean (95% CI) age covariate estimate") + 
+#       ggtitle("Estimate - Age covariate") + 
+#       theme_classic()+
+#        theme(
+#          panel.background = element_rect(fill='transparent'),
+#          plot.background = element_rect(fill='transparent', color=NA),
+#          panel.grid.major = element_blank(),
+#          panel.grid.minor = element_blank(),
+#          legend.background = element_rect(fill='transparent'),
+#          legend.box.background = element_rect(fill='transparent')
+#        )
+# 
+# ageCovImpnet = 
+#   sensAnaImpStatsPlotData %>% 
+#     filter(param == 'nodecov.Age') %>% 
+#       ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+#       geom_line() + 
+#       geom_vline(xintercept = 0.2, col = "darkblue") +
+#       geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+#       geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+#       labs(x = "Entrainment adjustment value", y = "Mean (95% CI) age covariate MVP") + 
+#       ggtitle("Impnet stats - Age covariate") + 
+#       theme_classic()+
+#        theme(
+#          panel.background = element_rect(fill='transparent'),
+#          plot.background = element_rect(fill='transparent', color=NA),
+#          panel.grid.major = element_blank(),
+#          panel.grid.minor = element_blank(),
+#          legend.background = element_rect(fill='transparent'),
+#          legend.box.background = element_rect(fill='transparent')
+#        )
+# 
+# ageCovGrid = grid.arrange(ageCovPara, ageCovImpnet, nrow = 2)
+# 
+# ggsave(filename = "ageCovGrid.png", plot = ageCovGrid, bg = "transparent")
+# 
+# 
+# ageAbsdiffPara = 
+#   sensAnaThetaPlotData %>% 
+#     filter(param == 'absdiff.Age') %>% 
+#       ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+#       geom_line() + 
+#       geom_vline(xintercept = 0.2, col = "darkblue") +
+#       geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+#       geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+#       labs(x = "Entrainment adjustment value", y = "Mean (95% CI) age difference estimate") + 
+#       ggtitle("Estimate - Age difference") + 
+#       theme_classic()+
+#        theme(
+#          panel.background = element_rect(fill='transparent'),
+#          plot.background = element_rect(fill='transparent', color=NA),
+#          panel.grid.major = element_blank(),
+#          panel.grid.minor = element_blank(),
+#          legend.background = element_rect(fill='transparent'),
+#          legend.box.background = element_rect(fill='transparent')
+#        )
+# 
+# ageAbsdiffImpnet = 
+#   sensAnaImpStatsPlotData %>% 
+#     filter(param == 'absdiff.Age') %>% 
+#       ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+#       geom_line() + 
+#       geom_vline(xintercept = 0.2, col = "darkblue") +
+#       geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+#       geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+#       labs(x = "Entrainment adjustment value", y = "Mean (95% CI) age difference MVP") + 
+#       ggtitle("Impnet stats - Age difference") + 
+#       theme_classic()+
+#        theme(
+#          panel.background = element_rect(fill='transparent'),
+#          plot.background = element_rect(fill='transparent', color=NA),
+#          panel.grid.major = element_blank(),
+#          panel.grid.minor = element_blank(),
+#          legend.background = element_rect(fill='transparent'),
+#          legend.box.background = element_rect(fill='transparent')
+#        )
+# 
+# ageAbsdiffGrid = grid.arrange(ageAbsdiffPara, ageAbsdiffImpnet, nrow = 2)
+# 
+# ggsave(filename = "ageAbsdiffGrid.png", plot = ageAbsdiffGrid, bg = "transparent")
+
+
+```
+
+### Sampling error
+
+True missingness coefficients are (0, 0.4, 0.5, 0.4)
+
+```{r sampErrorPlot, eval = F}
+# in this case, I do want to see their individual trace plots to see if they're distinct
+# so I'm going to need to do some rbinding across the depleted networks
+thetaSampErrorNoEntr = do.call("rbind", thetaSampErrorNoEntrList)
+thetaSampErrorYesEntr= do.call("rbind", thetaSampErrorYesEntrList)
+impStatsSampErrorNoEntr = do.call('rbind', impStatsSampErrorNoEntrList)
+impStatsSampErrorYesEntr = do.call('rbind', impStatsSampErrorYesEntrList)
+auxStatsSampErrorNoEntr = do.call('rbind', auxStatsSampErrorNoEntrList)
+auxStatsSampErrorYesEntr = do.call('rbind', auxStatsSampErrorYesEntrList)
+
+# plot them
+plot(ts(thetaSampErrorNoEntr))
+plot(ts(thetaSampErrorYesEntr))
+plot(ts(impStatsSampErrorNoEntr))
+plot(ts(impStatsSampErrorYesEntr))
+plot(ts(auxStatsSampErrorNoEntr))
+plot(ts(auxStatsSampErrorYesEntr))
+
+# get the pooled means?
+colMeans(thetaSampErrorNoEntr)
+colMeans(thetaSampErrorYesEntr)
+colMeans(impStatsSampErrorNoEntr)
+colMeans(impStatsSampErrorYesEntr)
+```
+
+
+## Bernoulli estimation model
+
+Reruns the same code now with a Bernoulli estimation model to see if the weird parts (edge parameter going down as entrainment increases for some reason) go away
+
+The estimation model in this scenario is JUST the Bernoulli model (just edges) as a sanity check reference set of results. We can derive the analytical solutions so these are going to be useful for debugging the code and figuring out if anything's wrong.
+
+```{r bernLoad}
+# check all file names in the chosen directory
+bernSensAnaFiles = list.files(here("Output", "20241107_ergmSqBern"))
+
+# get the relevant output files
+chosenBernSensAnaFiles = grep("20241204_ergmSqOut_entrVal", bernSensAnaFiles)
+
+# get the entrainment values
+bernFileEntrValues = bernSensAnaFiles[chosenBernSensAnaFiles] %>% 
+  str_extract(., "(?<=entrVal)(.*)(?=.RData)") %>%    # match all strings after 'entrVal' and before '.RData'
+  as.numeric() %>%                                    # turn to numeric values
+  na.omit() %>%                                       # remove all missing values (mismatching strings)
+  sort()                                              # sort from smallest to largest
+  
+  
+## loading the relevant datafiles
+# initialise some objects
+sampledThetaList = list()
+impNetStatList = list()
+auxNetStatList = list()
+
+# loop to get the relevant files from the output object
+for (valInd in 1:length(bernFileEntrValues)){
+  
+  # choose which file to load
+  load(here("Output", "20241107_ergmSqBern",
+            paste("20241107_ergmSqOut_entrVal",bernFileEntrValues[valInd],".RData", sep = "")))
+  
+  # put stuff in lists
+  sampledThetaList[[valInd]] = output$sampledThetas
+  impNetStatList[[valInd]] = output$impNetStatMat
+  auxNetStatList[[valInd]] = output$auxNetStatMat
+
+}
+
+# remove the beeg object and collect the garbage for the next computation
+rm(output)
+gc()
+
+```
+
+### Plots
+
+```{r bernPlots}
+# prepare the plot data
+bernThetaPlotData = data.frame(param = NA,
+                                   mean = NA,
+                                   lower = NA,
+                                   upper = NA,
+                                   entrVal = NA)
+
+bernImpStatsPlotData = data.frame(param = NA,
+                                     mean = NA,
+                                     lower = NA,
+                                     upper = NA,
+                                     entrVal = NA)
+
+bernAuxStatsPlotData = data.frame(param = NA,
+                                     mean = NA,
+                                     lower = NA,
+                                     upper = NA,
+                                     entrVal = NA)
+
+# I don't know how to vectorise this in the time it takes to loop this.
+trial = 1
+
+for(entrValInd in 1:length(bernFileEntrValues)){
+  
+  # sampled thetas
+  bernThetaPlotData[trial:(trial+4),'param'] = names(colMeans(sampledThetaList[[entrValInd]]))
+  bernThetaPlotData[trial:(trial+4),'mean'] = colMeans(sampledThetaList[[entrValInd]])
+  bernThetaPlotData[trial:(trial+4),'lower'] = as.numeric(apply(sampledThetaList[[entrValInd]], MARGIN = 2, FUN = quantile, probs = 0.025))
+  bernThetaPlotData[trial:(trial+4),'upper'] = as.numeric(apply(sampledThetaList[[entrValInd]], MARGIN = 2, FUN = quantile, probs = 0.975))
+  bernThetaPlotData[trial:(trial+4),'entrVal'] = bernFileEntrValues[entrValInd]
+  
+  # imputed network statistics
+  bernImpStatsPlotData[trial:(trial+4),'param'] = names(colMeans(impNetStatList[[entrValInd]]))
+  bernImpStatsPlotData[trial:(trial+4),'mean'] = colMeans(impNetStatList[[entrValInd]])
+  bernImpStatsPlotData[trial:(trial+4),'lower'] = as.numeric(apply(impNetStatList[[entrValInd]], MARGIN = 2, FUN = quantile, probs = 0.025))
+  bernImpStatsPlotData[trial:(trial+4),'upper'] = as.numeric(apply(impNetStatList[[entrValInd]], MARGIN = 2, FUN = quantile, probs = 0.975))
+  bernImpStatsPlotData[trial:(trial+4),'entrVal'] = bernFileEntrValues[entrValInd]
+    
+  # auxiliary network statistics
+  bernAuxStatsPlotData[trial:(trial+4),'param'] = names(colMeans(auxNetStatList[[entrValInd]]))
+  bernAuxStatsPlotData[trial:(trial+4),'mean'] = colMeans(auxNetStatList[[entrValInd]])
+  bernAuxStatsPlotData[trial:(trial+4),'lower'] = as.numeric(apply(auxNetStatList[[entrValInd]], MARGIN = 2, FUN = quantile, probs = 0.025))
+  bernAuxStatsPlotData[trial:(trial+4),'upper'] = as.numeric(apply(auxNetStatList[[entrValInd]], MARGIN = 2, FUN = quantile, probs = 0.975))
+  bernAuxStatsPlotData[trial:(trial+4),'entrVal'] = bernFileEntrValues[entrValInd]  
+  
+  # advance the trial index
+  trial = trial + 5
+}
+
+# plot it individually
+bernThetaPlotData %>% 
+  filter(param == 'edges') %>% 
+  ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+  geom_line() + 
+  geom_vline(xintercept = 0.2, col = "darkblue") +
+  geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+  geom_hline(yintercept = -2.278, col = "forestgreen") +
+  labs(x = "Entrainment adjustment value", y = "Mean (95% CI) edges estimate") + 
+  ggtitle("Estimate - Edges") + 
+  theme_classic()
+
+
+# and now for the imputed network statistics
+bernImpStatsPlotData %>% 
+  filter(param == 'edges') %>% 
+  ggplot(., mapping = aes(x = entrVal, y = mean)) + 
+  geom_line() + 
+  geom_vline(xintercept = 0.2, col = "darkblue") +
+  geom_vline(xintercept = 0, col = "black", linetype = 'dotted') + 
+  geom_hline(yintercept = 133, col = "forestgreen") +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) + 
+  labs(x = "Entrainment adjustment value", y = "Mean (95% CI) edges MVP") + 
+  ggtitle("Impnet stats - Edges") + 
+  theme_classic()
+
+
+# and auxiliary?
+## NOTE: their axes are really wide and not too useful.
+bernAuxStatsPlotData %>%
+  filter(param == 'edges') %>%
+  ggplot(., mapping = aes(x = entrVal, y = mean)) +
+  geom_line() +
+  geom_hline(yintercept = trueStats[1], col = "forestgreen") +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.2) +
+  labs(x = "Entrainment adjustment value", y = "Mean (95% CI) edges MVP") +
+  ggtitle("Auxnet - Edges") +
+  theme_classic()
+
+
+```
+

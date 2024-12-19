@@ -596,7 +596,7 @@ gwStatPlot = function(statDist, chosenStat, metricLabel){
 ```{r loading in covnets}
 # loading in the covert networks
 library(here)
-load(here("Data", "20230726_missNetsEnMasse.RData"))
+load(here("Data", "20231006_missNetsEnMasse.RData"))
 
 # turn them into networks
 netObjList = lapply(adjMatList, as.network, directed = FALSE)
@@ -1060,3 +1060,8 @@ for(netInd in 1:length(netObjList)){
 
 ```
 
+## Doing the same with single parameters
+
+7th Feb 2024 update.
+
+And setting everything but that single parameter into a 0.
