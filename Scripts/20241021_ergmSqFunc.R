@@ -1,38 +1,42 @@
 ## Setting up the functional form of the sampler
-ergmSquaredSampler = function(formula, naNet, initParams, initStats, propSigma, iterations, entrainment, coefNames){
+ergmSquaredSampler = function(formula, naNet, initParams, initStats, propSigma, iterations, entrainment, coefNames, knownMissParams = NULL){
   
   ## ergmSquaredSampler(formula, naNet, initParams, ...) takes an ergm formula, an adjacency matrix with missingness, 
   ## some initial values, and an entrainment parameter value to sample generate model estimates under 
   ## a specific not-at-random missingness model with a specific entrainment value.
   ##
   ## Input:
-  ## - formula:     An R formula object following the ergm specifications of network ~ ergm terms
+  ## - formula:          An R formula object following the ergm specifications of network ~ ergm terms
   ##
-  ## - naNet:       A network object with missing edges. Missing values are ideally set to NA values.
-  ##                Currently only supports undirected networks.
+  ## - naNet:            A network object with missing edges. Missing values are ideally set to NA values.
+  ##                     Currently only supports undirected networks.
   ##
-  ## - initParams:  A p-long vector containing the initial parameters for the sampler. 
+  ## - initParams:       A p-long vector containing the initial parameters for the sampler. 
   ##
-  ## - initStats:   A p-long vector containing the initial statistics (mean value/observed parameters)
-  ##                to calculate the acceptance ratio in the sampler.
+  ## - initStats:        A p-long vector containing the initial statistics (mean value/observed parameters)
+  ##                     to calculate the acceptance ratio in the sampler.
   ##
-  ## - propSigma:   A p x p matrix reflecting the proposal covariance matrix. When the true network parameters
-  ##                are known, use the inverse covariance matrix scaled by some tuning constant.
+  ## - propSigma:        A p x p matrix reflecting the proposal covariance matrix. When the true network parameters
+  ##                     are known, use the inverse covariance matrix scaled by some tuning constant.
   ##
-  ## - iterations:  The number of iterations to run the sampler.
+  ## - iterations:       The number of iterations to run the sampler.
   ##
-  ## - entrainment: A single float corresponding to the entrainment parameter in the missingness model.
-  ##                Can be set to 0 to perform 'typical' miss ergm bayes assuming MAR.
+  ## - entrainment:      A single float corresponding to the entrainment parameter in the missingness model.
+  ##                     Can be set to 0 to perform 'typical' miss ergm bayes assuming MAR.
   ##
-  ## - coefNames:   A p-long vector of coefficient names in the specified estimation model. 
-  ##                Purely visual input, there's likely a way to refine this and get names from the formula object.
+  ## - coefNames:        A p-long vector of coefficient names in the specified estimation model. 
+  ##                     Purely visual input, there's likely a way to refine this and get names from the formula object.
+  ##
+  ## - knownMissParams:  An optional vector containing the parameters for the missingness model. Has priority over 'entrainment'.
+  ##                     If unspecified, will use the density of the missingness model and the entrainment parameter.
   ##
   ## Output: 
-  ## - output:      A list with 4 items,
-  ##                - sampledThetas is an iterations x p matrix containing the sampled parameter values
-  ##                - impNetList is a p-long list containing the imputed networks
-  ##                - impNetStatMat is an iterations x p matrix containing the imputed network statistics
-  ##                - auxNetStatMat is an iterations x p matrix containing the auxiliary network statistics
+  ## - output:           A list with 5 items,
+  ##                     - sampledThetas is an iterations x p matrix containing the sampled parameter values
+  ##                     - impNetList is a p-long list containing the imputed networks
+  ##                     - auxNetList is a p-long list containing the auxiliary networks
+  ##                     - impNetStatMat is an iterations x p matrix containing the imputed network statistics
+  ##                     - auxNetStatMat is an iterations x p matrix containing the auxiliary network statistics
   
   # requires the ergm and mvtnorm packages
   require(ergm)
@@ -66,9 +70,11 @@ ergmSquaredSampler = function(formula, naNet, initParams, initStats, propSigma, 
   # a list for the imputed networks
   impNetList = list()
   
+  # and another for the auxiliary networks
+  auxNetList = list()
+  
   ## sequentially printing some iterations to make sure the sampler's progressing
   printIter = floor(seq(from = 1, to = iterations, length.out = 5))
-  
   
   # get the list of free dyads
   # need the missingness indicator so we can work backwards from the adjmat
@@ -78,6 +84,16 @@ ergmSquaredSampler = function(formula, naNet, initParams, initStats, propSigma, 
   # calculate the alpha (intercept for D) value from the proportion of missing tie variables
   missDens = sum(missIndMat)/(nodeSize * (nodeSize - 1))
   alpha = log(missDens/(1 - missDens))
+  
+  # put all the values in some vector
+  missCoef = c(alpha, entrainment)
+  
+  # if the missingness model parameters are known, as this function only applies to dyad independent missingness,
+  if(!is.null(knownMissParams)){
+    missCoef = knownMissParams
+    }
+  
+
   
   ## Starting the sampler
   for(iter in 1:iterations){
@@ -105,17 +121,25 @@ ergmSquaredSampler = function(formula, naNet, initParams, initStats, propSigma, 
     auxTheta = rmvnorm(n = 1, mean = nextInitTheta, sigma = propSigma)
     
     # generate a network using the auxiliary parameters
-    auxNetStats = simulate( object = formula, 
+    auxNets = simulate( object = formula, 
                             coef = auxTheta,
-                            output = "stats",
+                            output = "network",
                             basis = naNet,
                             nsim = 1,
                             control = control.simulate(MCMC.burnin = 20000,
                                                        MCMC.interval = 2000))
     
+    # 20250303: same situation here with the MCMC.burnin?
+    
+    # grab the statistics
+    auxNetStats = attributes(auxNets)$stats
+    
     # saving its statistics
     auxNetStatMat[iter, ] = auxNetStats
     auxStats = as.numeric(auxNetStats)
+    
+    # save the auxiliary network
+    auxNetList[[iter]] = auxNets
     
     ## Calculate the acceptance ratio
     acceptRatio = (auxTheta - nextInitTheta) %*% (nextInitStats - auxStats)
@@ -132,15 +156,20 @@ ergmSquaredSampler = function(formula, naNet, initParams, initStats, propSigma, 
     }
     
     ## Generation of imputed network and statistics
-    # a log ratio penalty
-    logPenalty = log((1 + exp(alpha))/(1 + exp(alpha + entrainment)))
+    # 20250303: take out of loop, this doesn't change.
+    # a log ratio penalty, the one below works for the bern estimation model case
+   logPenalty = log((1 + exp(missCoef[1]))/(1 + exp(missCoef[1] + missCoef[2])))
+    
+    # ths one's another one johan derived with some (presumably) endogenous terms
+   # logPenalty = log((exp(alpha + entrainment) + 1)/(exp(alpha) + 1))
+    
     
     ## Generation of imputed network and statistics
     # use the most recent thetas with the MNAR model to impute the data
     psi[iter, ] = sampledThetas[iter, ]
     
     # add the entrainment parameter from the missingness model
-    psi[iter, 1] = sampledThetas[iter, 1] + entrainment + logPenalty
+    psi[iter, 1] = sampledThetas[iter, 1] + missCoef[2] + logPenalty
     
 
     # get the conditional distribution of the missing tie variables given the specified model
@@ -152,6 +181,10 @@ ergmSquaredSampler = function(formula, naNet, initParams, initStats, propSigma, 
                        constraints=~fixallbut(missTiesEdgeList),
                        control = control.simulate(MCMC.burnin = 20000,
                                                   MCMC.interval = 2000))
+    
+    # 20250303: check mcmc.interval when you are simulating 1 network (i.e., is it necessary?)
+    # more burnin? depending on the order of the network
+    # how much burnin is necessary for the chain to stabilise?
     
     # save the imputed networks
     impNetList[[iter]] = impNets
@@ -168,6 +201,7 @@ ergmSquaredSampler = function(formula, naNet, initParams, initStats, propSigma, 
   output = list(
     sampledThetas = sampledThetas,
     impNetList = impNetList,
+    auxNetList = auxNetList,
     impNetStatMat = impNetStatMat,
     auxNetStatMat = auxNetStatMat)
   
@@ -177,40 +211,44 @@ ergmSquaredSampler = function(formula, naNet, initParams, initStats, propSigma, 
 
 
 ## Setting up the functional form of the sampler
-bernErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSigma, iterations, entrainment, coefNames){
+bernErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSigma, iterations, entrainment, coefNames, knownMissParams = NULL){
   
   ## bernErgmSquaredSampler(formula, naNet, initParams, ...) takes a bernoulli ergm formula, an adjacency matrix with missingness, 
   ## some initial values, and an entrainment parameter value to sample generate model estimates under 
   ## a specific not-at-random missingness model with a specific entrainment value.
   ##
   ## Input:
-  ## - formula:     An R formula object following the ergm specifications of network ~ ergm terms
+  ## - formula:          An R formula object following the ergm specifications of network ~ ergm terms
   ##
-  ## - naNet:       A network object with missing edges. Missing values are ideally set to NA values.
-  ##                Currently only supports undirected networks.
+  ## - naNet:            A network object with missing edges. Missing values are ideally set to NA values.
+  ##                     Currently only supports undirected networks.
   ##
-  ## - initParams:  A p-long vector containing the initial parameters for the sampler. 
+  ## - initParams:       A p-long vector containing the initial parameters for the sampler. 
   ##
-  ## - initStats:   A p-long vector containing the initial statistics (mean value/observed parameters)
-  ##                to calculate the acceptance ratio in the sampler.
+  ## - initStats:        A p-long vector containing the initial statistics (mean value/observed parameters)
+  ##                     to calculate the acceptance ratio in the sampler.
   ##
-  ## - propSigma:   A p x p matrix reflecting the proposal covariance matrix. When the true network parameters
-  ##                are known, use the inverse covariance matrix scaled by some tuning constant.
+  ## - propSigma:        A p x p matrix reflecting the proposal covariance matrix. When the true network parameters
+  ##                     are known, use the inverse covariance matrix scaled by some tuning constant.
   ##
-  ## - iterations:  The number of iterations to run the sampler.
+  ## - iterations:       The number of iterations to run the sampler.
   ##
-  ## - entrainment: A single float corresponding to the entrainment parameter in the missingness model.
-  ##                Can be set to 0 to perform 'typical' miss ergm bayes assuming MAR.
+  ## - entrainment:      A single float corresponding to the entrainment parameter in the missingness model.
+  ##                     Can be set to 0 to perform 'typical' miss ergm bayes assuming MAR.
   ##
-  ## - coefNames:   A p-long vector of coefficient names in the specified estimation model. 
-  ##                Purely visual input, there's likely a way to refine this and get names from the formula object.
+  ## - coefNames:        A p-long vector of coefficient names in the specified estimation model. 
+  ##                     Purely visual input, there's likely a way to refine this and get names from the formula object.
+  ##
+  ## - knownMissParams:  An optional vector containing the parameters for the missingness model.
+  ##                     If unspecified, will use the density of the missingness model and the entrainment parameter.
   ##
   ## Output: 
-  ## - output:      A list with 4 items,
-  ##                - sampledThetas is an iterations x p matrix containing the sampled parameter values
-  ##                - impNetList is a p-long list containing the imputed networks
-  ##                - impNetStatMat is an iterations x p matrix containing the imputed network statistics
-  ##                - auxNetStatMat is an iterations x p matrix containing the auxiliary network statistics
+  ## - output:           A list with 5 items,
+  ##                     - sampledThetas is an iterations x p matrix containing the sampled parameter values
+  ##                     - impNetList is a p-long list containing the imputed networks
+  ##                     - auxNetList is a p-long list containing the auxiliary networks
+  ##                     - impNetStatMat is an iterations x p matrix containing the imputed network statistics
+  ##                     - auxNetStatMat is an iterations x p matrix containing the auxiliary network statistics
   
   # requires the ergm package
   require(ergm)
@@ -243,6 +281,9 @@ bernErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSig
   # a list for the imputed networks
   impNetList = list()
   
+  # and another for the auxiliary networks
+  auxNetList = list()
+  
   ## sequentially printing some iterations to make sure the sampler's progressing
   printIter = floor(seq(from = 1, to = iterations, length.out = 5))
   
@@ -254,6 +295,14 @@ bernErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSig
   # calculate the alpha (intercept for D) value from the proportion of missing tie variables
   missDens = sum(missIndMat)/(nodeSize * (nodeSize - 1))
   alpha = log(missDens/(1 - missDens))
+  
+  # put all the values in some vector
+  missCoef = c(alpha, entrainment)
+  
+  # if the missingness model parameters are known, as this function only applies to dyad independent missingness,
+  if(!is.null(knownMissParams)){
+    missCoef = knownMissParams
+  }  
   
   ## Starting the sampler
   for(iter in 1:iterations){
@@ -281,17 +330,23 @@ bernErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSig
     auxTheta = rnorm(n = 1, mean = nextInitTheta, sd = propSigma)
     
     # generate a network using the auxiliary parameters
-    auxNetStats = simulate( object = formula, 
-                            coef = auxTheta,
-                            output = "stats",
-                            basis = naNet,
-                            nsim = 1,
-                            control = control.simulate(MCMC.burnin = 20000,
-                                                       MCMC.interval = 2000))
+    auxNets = simulate( object = formula, 
+                        coef = auxTheta,
+                        output = "network",
+                        basis = naNet,
+                        nsim = 1,
+                        control = control.simulate(MCMC.burnin = 20000,
+                                                   MCMC.interval = 2000))
+    
+    # grab the statistics
+    auxNetStats = attributes(auxNets)$stats
     
     # saving its statistics
     auxNetStatMat[iter, ] = auxNetStats
     auxStats = as.numeric(auxNetStats)
+    
+    # save the auxiliary network
+    auxNetList[[iter]] = auxNets
     
     ## Calculate the acceptance ratio
     acceptRatio = (auxTheta - nextInitTheta) %*% (nextInitStats - auxStats)
@@ -309,14 +364,14 @@ bernErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSig
     
     
     # a log ratio penalty
-    logPenalty = log((1 + exp(alpha))/(1 + exp(alpha + entrainment)))
+    logPenalty = log((1 + exp(missCoef[1]))/(1 + exp(missCoef[1] + missCoef[2])))
     
     ## Generation of imputed network and statistics
     # use the most recent thetas with the MNAR model to impute the data
     psi[iter, ] = sampledThetas[iter, ]
     
     # add the entrainment parameter from the missingness model
-    psi[iter, 1] = sampledThetas[iter, 1] + entrainment + logPenalty
+    psi[iter, 1] = sampledThetas[iter, 1] + missCoef[2] + logPenalty
     
     # get the conditional distribution of the missing tie variables given the specified model
     impNets = simulate(object = formula,
@@ -342,7 +397,8 @@ bernErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSig
   # put all the output in a list
   output = list(
     sampledThetas = sampledThetas,
-    #impNetList = impNetList,
+    impNetList = impNetList,
+    auxNetList = auxNetList,
     impNetStatMat = impNetStatMat,
     auxNetStatMat = auxNetStatMat)
   
@@ -350,43 +406,53 @@ bernErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSig
   return(output) 
 }
 
+
+## toggle edge function for the chaos sampler
+
+### note: the most updated version of the sampler is in 20241217_ergmChangeStat (with edgeToggle).
+
 ## endogenous missingness mechanism
-chaosErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSigma, iterations, entrainment, coefNames, missModel){
+chaosErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSigma, iterations, entrainment, coefNames, missModel, knownMissParams = NULL){
   
   ## chaosErgmSquaredSampler(formula, naNet, initParams, ...) takes an ergm formula, an adjacency matrix with missingness, 
   ## some initial values, and an entrainment parameter value to sample generate model estimates under 
   ## a specific not-at-random missingness model with a specific entrainment value.
   ##
   ## Input:
-  ## - formula:     An R formula object following the ergm specifications of network ~ ergm terms
+  ## - formula:          An R formula object following the ergm specifications of network ~ ergm terms
   ##
-  ## - naNet:       A network object with missing edges. Missing values are ideally set to NA values.
-  ##                Currently only supports undirected networks.
+  ## - naNet:            A network object with missing edges. Missing values are ideally set to NA values.
+  ##                     Currently only supports undirected networks.
   ##
-  ## - initParams:  A p-long vector containing the initial parameters for the sampler. 
+  ## - initParams:       A p-long vector containing the initial parameters for the sampler. 
   ##
-  ## - initStats:   A p-long vector containing the initial statistics (mean value/observed parameters)
-  ##                to calculate the acceptance ratio in the sampler.
+  ## - initStats:        A p-long vector containing the initial statistics (mean value/observed parameters)
+  ##                     to calculate the acceptance ratio in the sampler.
   ##
-  ## - propSigma:   A p x p matrix reflecting the proposal covariance matrix. When the true network parameters
-  ##                are known, use the inverse covariance matrix scaled by some tuning constant.
+  ## - propSigma:        A p x p matrix reflecting the proposal covariance matrix. When the true network parameters
+  ##                     are known, use the inverse covariance matrix scaled by some tuning constant.
   ##
-  ## - iterations:  The number of iterations to run the sampler.
+  ## - iterations:       The number of iterations to run the sampler.
   ##
-  ## - entrainment: A single float corresponding to the entrainment parameter in the missingness model.
-  ##                Can be set to 0 to perform 'typical' miss ergm bayes assuming MAR.
+  ## - entrainment:      A single float corresponding to the entrainment parameter in the missingness model.
+  ##                     Can be set to 0 to perform 'typical' miss ergm bayes assuming MAR.
   ##
-  ## - coefNames:   A p-long vector of coefficient names in the specified estimation model. 
-  ##                Purely visual input, there's likely a way to refine this and get names from the formula object.
+  ## - coefNames:        A p-long vector of coefficient names in the specified estimation model. 
+  ##                     Purely visual input, there's likely a way to refine this and get names from the formula object.
   ##
-  ## - missModel:   A string object containing the RHS of a formula object for the missingness model.
+  ## - missModel:        A string object containing the RHS of a formula object for the missingness model.
   ##
+  ## - knownMissParams:  An optional vector containing the parameters for the missingness model.
+  ##                     If unspecified, will use the density of the missingness model and the entrainment parameter.
+  
   ## Output: 
-  ## - output:      A list with 4 items,
-  ##                - sampledThetas is an iterations x p matrix containing the sampled parameter values
-  ##                - impNetList is a p-long list containing the imputed networks
-  ##                - impNetStatMat is an iterations x p matrix containing the imputed network statistics
-  ##                - auxNetStatMat is an iterations x p matrix containing the auxiliary network statistics
+  ## - output:           A list with 5 items,
+  ##                     - sampledThetas is an iterations x p matrix containing the sampled parameter values
+  ##                     - impNetList is a p-long list containing the imputed networks
+  ##                     - auxNetList is a p-long list containing the auxiliary networks
+  ##                     - impNetStatMat is an iterations x p matrix containing the imputed network statistics
+  ##                     - auxNetStatMat is an iterations x p matrix containing the auxiliary network statistics
+  
   
   # requires the ergm and mvtnorm packages
   require(ergm)
@@ -420,9 +486,11 @@ chaosErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSi
   # a list for the imputed networks
   impNetList = list()
   
-  ## sequentially printing some iterations to make sure the sampler's progressing
-  printIter = floor(seq(from = 1, to = iterations, length.out = 5))
+  # and another for the auxiliary networks
+  auxNetList = list()
   
+  ## sequentially printing some iterations to make sure the sampler's progressing
+  printIter = floor(seq(from = 1, to = iterations, length.out = 50))
   
   # get the list of free dyads
   # need the missingness indicator so we can work backwards from the adjmat
@@ -434,6 +502,10 @@ chaosErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSi
   missDens = sum(missIndMat)/(nodeSize * (nodeSize - 1))
   missCoef = c(log(missDens/(1-missDens)), entrainment)
   
+  # if the missingness model parameters are known, this function can include dyad-dependent missingness so keep en eye on the vector length
+  if(!is.null(knownMissParams)){
+    missCoef = knownMissParams
+  }    
   
   # specify the model
   substepModel = as.formula(paste("substepNet ~ ", as.character(formula)[3], sep = "" ))
@@ -474,17 +546,23 @@ chaosErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSi
     auxTheta = rmvnorm(n = 1, mean = nextInitTheta, sigma = propSigma)
     
     # generate a network using the auxiliary parameters
-    auxNetStats = simulate( object = formula, 
-                            coef = auxTheta,
-                            output = "stats",
-                            basis = naNet,
-                            nsim = 1,
-                            control = control.simulate(MCMC.burnin = 20000,
-                                                       MCMC.interval = 2000))
+    auxNets = simulate( object = formula, 
+                        coef = auxTheta,
+                        output = "network",
+                        basis = naNet,
+                        nsim = 1,
+                        control = control.simulate(MCMC.burnin = 20000,
+                                                   MCMC.interval = 2000))
+    
+    # grab the statistics
+    auxNetStats = attributes(auxNets)$stats
     
     # saving its statistics
     auxNetStatMat[iter, ] = auxNetStats
     auxStats = as.numeric(auxNetStats)
+    
+    # save the auxiliary network
+    auxNetList[[iter]] = auxNets
     
     ## Calculate the acceptance ratio
     acceptRatio = (auxTheta - nextInitTheta) %*% (nextInitStats - auxStats)
@@ -500,17 +578,25 @@ chaosErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSi
       sampledThetas[iter, ] = nextInitTheta 
     }
     
-    
     # grab the specific network for the substep to initialise
     # for subsequent steps, use the most recently imputed network
     if(iter != 1){
       
       # use the previous imputed network
-      substepNet = impNetList[[iter]]
+      # note that some missingness can come from not accepting the change
+      substepNet = impNetList[[iter-1]]
+      noNaSubstepNet = as.matrix(substepNet)
+      noNaSubstepNet[is.na(noNaSubstepNet) ] = 0
+      # i think we re-initialise the missingness indicator to fix d_r = 1 for subsequent iterations....
+      # probably....?
+      substepMissInd =  as.network(missIndMat, directed = FALSE)
+      
       
     } else {
       # if it's the first step, use the adjmat with missingness
       substepNet = naNet
+      noNaSubstepNet = as.matrix(substepNet)
+      noNaSubstepNet[is.na(noNaSubstepNet) ] = 0
       
     }
     
@@ -596,12 +682,12 @@ chaosErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSi
       # computers can't sum across missing values so we need to temporarily zero-out the missingness to compute the starting
       # missingness model statisics
       # needs to be a matrix to be use as a dyadic covariate
-      noNaSubstepNet = as.matrix(propSubstepNet)
-      noNaSubstepNet[is.na(noNaSubstepNet)] = 0
+      noNaPropSubstepNet = as.matrix(propSubstepNet)
+      noNaPropSubstepNet[is.na(noNaPropSubstepNet)] = 0
       
       # overwriting the change stat'd tie variable with the drawn tie variable for the next step
-      noNaSubstepNet[head, tail] = substepNetDraw 
-      noNaSubstepNet[tail, head] = substepNetDraw 
+      noNaPropSubstepNet[head, tail] = substepNetDraw 
+      noNaPropSubstepNet[tail, head] = substepNetDraw 
       
       # grab the starting statistics
       startSubstepMissStats = summary(substepMissModel)
@@ -650,7 +736,7 @@ chaosErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSi
       propSubstepNet[tail, head] = substepNetDraw 
       
       # swap with some probability
-      acceptRatio = (missCoef[2] * (substepMissDraw - substepMissInd[head, tail]) * (substepNet[head, tail] - substepTieDraw))
+      acceptRatio = (missCoef[2] * (substepMissDraw - substepMissInd[head, tail]) * (noNaSubstepNet[head, tail] - substepNetDraw))
       + sampledThetas[iter, ] %*% (summary(substepModel) - summary(propSubstepModel))
       
       ## parameter swap
@@ -668,7 +754,7 @@ chaosErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSi
     impNetList[[iter]] = tempImpNet
     
     # get its stats
-    impNetStats = attributes(impNets)$stats
+    impNetStats = summary(as.formula(paste('tempImpNet ~', as.character(formula)[3], sep = "" )))
     
     # save stuff in the structures specified beforehand
     impNetStatMat[iter,] = impNetStats
@@ -679,6 +765,7 @@ chaosErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSi
   output = list(
     sampledThetas = sampledThetas,
     impNetList = impNetList,
+    auxNetList = auxNetList,
     impNetStatMat = impNetStatMat,
     auxNetStatMat = auxNetStatMat)
   

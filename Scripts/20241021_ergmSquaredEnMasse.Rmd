@@ -1,0 +1,456 @@
+---
+title: "20241021_ergmSquaredEnMasse"
+author: "Jon Januar"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This document contains the 'finalised' version of the ergm squared sampler and tests them out with multiple realisations of the specified missingness model (i.e., en masse).
+
+## Setup
+
+```{r functions}
+# copy-pasting the functions used
+## Setting up the functional form of the sampler
+ergmSquaredSampler = function(formula, adjMat, initParams, initStats, propSigma, iterations, entrainment, coefNames){
+  
+  ## ergmSquaredSampler(formula, adjMat, initParams, ...) takes an ergm formula, an adjacency matrix with missingness, 
+  ## some initial values, and an entrainment parameter value to sample generate model estimates under 
+  ## a specific not-at-random missingness model with a specific entrainment value.
+  ##
+  ## Input:
+  ## - formula:     An R formula object following the ergm specifications of network ~ ergm terms
+  ##
+  ## - adjMat:      An n x n adjacency matrix with some amount of missingness. Ideally the missing
+  ##                values are set to NA values. Currently only supports undirected networks.
+  ##
+  ## - initParams:  A p-long vector containing the initial parameters for the sampler. 
+  ##
+  ## - initStats:   A p-long vector containing the initial statistics (mean value/observed parameters)
+  ##                to calculate the acceptance ratio in the sampler.
+  ##
+  ## - propSigma:   A p x p matrix reflecting the proposal covariance matrix. When the true network parameters
+  ##                are known, use the inverse covariance matrix scaled by some tuning constant.
+  ##
+  ## - iterations:  The number of iterations to run the sampler.
+  ##
+  ## - entrainment: A single float corresponding to the entrainment parameter in the missingness model.
+  ##                Can be set to 0 to perform 'typical' miss ergm bayes assuming MAR.
+  ##
+  ## - coefNames:   A p-long vector of coefficient names in the specified estimation model. 
+  ##                Purely visual input, there's likely a way to refine this and get names from the formula object.
+  ##
+  ## Output: 
+  ## - output:      A list with 4 items,
+  ##                - sampledThetas is an iterations x p matrix containing the sampled parameter values
+  ##                - impNetList is a p-long list containing the imputed networks
+  ##                - impNetStatMat is an iterations x p matrix containing the imputed network statistics
+  ##                - auxNetStatMat is an iterations x p matrix containing the auxiliary network statistics
+  
+  # requires the ergm and mvtnorm packages
+  require(ergm)
+  require(mvtnorm)
+  
+  # get some values
+  numberPara = length(initParams)
+  
+  ## initialising some storage objects
+  # the sampled parameters
+  sampledThetas = matrix(data = NA, nrow = iterations, ncol = numberPara) 
+  colnames(sampledThetas) = coefNames
+  
+  # auxiliary and imputed network statistics
+  auxNetStatMat = matrix(data = NA, nrow = iterations, ncol = numberPara)
+  colnames(auxNetStatMat) = coefNames
+  
+  impNetStatMat = matrix(data = NA, nrow = iterations, ncol = numberPara)
+  colnames(impNetStatMat) = coefNames
+
+  # parameters with entrainment adjustment to the density
+  psi = matrix(data = NA, nrow = iterations, ncol = numberPara)
+  colnames(psi) = coefNames
+
+  # a list for the imputed networks
+  impNetList = list()
+  
+  ## sequentially printing some iterations to make sure the sampler's progressing
+  printIter = floor(seq(from = 1, to = iterations, length.out = 5))
+  
+  ## Starting the sampler
+  for(iter in 1:iterations){
+    
+    # if current iteration is in any of the specified printing iterations
+    if(iter %in% printIter){
+      
+      # print something out to show that the sampler's progressing
+      message(paste("Current sampler iteration is", iter))
+    }
+    
+      # set something up for the first iteration
+      if(iter == 1){
+        nextInitTheta = initParams
+        nextInitStats = initStats
+        
+      } else {
+      # and for the rest of the iterations
+      nextInitTheta = sampledThetas[iter-1, ]
+      nextInitStats = impNetStatMat[iter-1, ]
+      }
+    
+
+          
+    ## Generating a proposal theta and auxiliary network
+    # auxiliary parameters drawn from a multivariate normal distribution
+    auxTheta = rmvnorm(n = 1, mean = nextInitTheta, sigma = propSigma)
+    
+    # generate a network using the auxiliary parameters
+    auxNetStats = simulate( object = formula, 
+                            coef = auxTheta,
+                            output = "stats",
+                            basis = adjMat,
+                            nsim = 1,
+                            control = control.simulate(MCMC.burnin = 20000,
+                                                        MCMC.interval = 2000))
+    
+    # saving its statistics
+    auxNetStatMat[iter, ] = auxNetStats
+    auxStats = as.numeric(auxNetStats)
+    
+    ## Calculate the acceptance ratio
+    acceptRatio = (auxTheta - nextInitTheta) %*% (nextInitStats - auxStats)
+    
+    ## parameter swap
+    if(log(runif(1)) < acceptRatio){
+      
+      # swap parameters if acceptance ratio is larger than random
+      sampledThetas[iter, ] = auxTheta
+      } else {
+      
+      # keep the previous params
+      sampledThetas[iter, ] = nextInitTheta 
+      }
+    
+    ## Generation of imputed network and statistics
+    # use the most recent thetas with the MNAR model to impute the data
+    psi[iter, ] = sampledThetas[iter, ]
+    
+    # add the entrainment parameter from the missingness model
+    psi[iter, 1] = sampledThetas[iter, 1] + entrainment
+    
+    # get the list of free dyads
+    # need the missingness indicator so we can work backwards from the adjmat
+    missIndMat = (as.matrix(is.na(adjMat)) * 1)
+    missTiesEdgeList = as.edgelist(as.network(missIndMat, directed=FALSE), n = nrow(missIndMat))
+    
+    # get the conditional distribution of the missing tie variables given the specified model
+    impNets = simulate(object = formula,
+                       coef = psi[iter, ],
+                       output = "network",
+                       basis = adjMat,
+                       nsim = 1,
+                       constraints=~fixallbut(missTiesEdgeList),
+                       control = control.simulate(MCMC.burnin = 20000,
+                                                  MCMC.interval = 2000))
+    
+    # save the imputed networks
+    impNetList[[iter]] = impNets
+    
+    # get its stats
+    impNetStats = attributes(impNets)$stats
+    
+    # save stuff in the structures specified beforehand
+    impNetStatMat[iter,] = impNetStats
+    
+  }
+  
+  # put all the output in a list
+  output = list(
+    sampledThetas = sampledThetas,
+    impNetList = impNetList,
+    impNetStatMat = impNetStatMat,
+    auxNetStatMat = auxNetStatMat)
+  
+  # and return it
+  return(output)
+}
+
+```
+
+
+## Initialisation
+
+### Static objects
+
+```{r staticInits}
+# packages
+library(here)
+library(sna)
+library(mvtnorm)
+library(ergm)
+
+# some functions
+source(here("Scripts", "20230811_missNetFunctions.R"))
+
+# Load in some dataset
+load(here("Data", "20231006_missNetsEnMasse.RData"))
+
+# London gangs since it's an easy dataset with some attributes
+trueAdj = adjMatList[[6]]
+
+# get the true statistics for the given estimation model for reference
+trueNet = as.network(trueAdj, directed = FALSE)
+trueNet %v% 'Age' = scale(londonGangsAtt$Age)[,1]
+
+# get the 'true' values
+trueModel = trueNet ~ edges +
+  gwdegree(0.69, fixed = TRUE) +
+  gwesp(0.69, fixed = TRUE) +
+  nodecov("Age") +
+  absdiff("Age")
+
+trueStats = as.numeric(summary(trueModel))
+
+print(trueStats)
+
+
+# plot (and save coordinates)
+coord = gplot(trueAdj, gmode = "graph", xlab = "True network")
+
+# some (randomly specified) proportion of missingness
+propMiss = 0.3
+
+## generate the initial missingness matrix
+initAdj = initMissAdj(n = nrow(trueAdj), propMiss = propMiss)
+
+# turn into a network object
+initMissNet = network::as.network(initAdj, directed = FALSE)
+initMissNet %v% 'degree' = rowSums(trueAdj)
+
+# setting coefficients for the ERGM to make the MNAR mechanism
+missCoefs = c(0, 0, 0, 0.2)  # everything set to positive is dangerous for mcmc explosions, but fixed density helps.
+
+## specify a model for the missingness
+# Note: 0.69 is chosen for the decay value because that's what log(2) is. Rounding lets the diagnostic plots be more interpretable
+
+## this specification was chosen for a couple of reasons:
+# a) social circuit assumptions are difficult to justify substantively for missingness
+#    but if the point I want to make is that 'dependency maters for missingness', they will suffice
+#    because markov model parameters are known to be difficult to work with
+# b) dyadCov for the true network (an entrainment effect) to weigh the probability of missingness
+#    on the presence of a tie in the true network (either positive or negative weights can be justiied)
+# removed the degree covariate since I want a simpler missingness model with only entrainment as the effect conditional on the network
+
+chosenModel = 
+  initMissNet ~ edges + 
+  gwdegree(0.69, fixed = TRUE) +
+  gwesp(0.69, fixed = TRUE) +
+  dyadcov(trueAdj) 
+
+# and now we simulate
+missErgmSimNets = simMissNet(model = chosenModel, coef = missCoefs)
+
+# and check diagnostics
+missSimDiag(simObj = missErgmSimNets)
+
+# for future purposes, the coefs are c(-4.409, 0.92919, 1.386, 0.163, -0.489)
+# cheat by using the natural mle parameters of the complete network to get initial parameters
+trueRes = ergm(trueModel,
+               control = control.ergm(init = c(-4.409, 0.92919, 1.386, 0.163, -0.489),
+                                      MCMC.burnin = 20000, 
+                                      MCMC.interval = 20000))
+initTrueTheta = trueRes$coefficients
+
+initTrueStats = summary(trueModel)
+
+# coefficient names
+coefNames = names(coef(trueRes))
+
+# setting up a scheme for the variance of the multivariate normal
+tuningConst = 1
+
+# simulate networks given the starting parameters that were either set or previously initialised for the warming phase
+# cheating once again with the complete network
+tempStats <- simulate( trueModel,                                                     # model formula
+                       coef = initTrueTheta,                                           # coefficients
+                       output = "stats",                                              # save statistical output (not network objects)
+                       basis = trueNet,                                               # starting network
+                       nsim = 3000,                                                   # number of saved simulated networks
+                       control = control.simulate(MCMC.burnin = 1,                    # various MCMC controls
+                                                  MCMC.prop.weights='default',
+                                                  MCMC.interval = 2000) )
+
+
+# calculate the statistics for the model after some burn in
+tempStats <- tempStats[2001:3000,]
+
+# calculate the parameter covariance matrix by using the inverse covariance matrix scaled by some tuning constant
+propSigma <-  solve(cov(tempStats)) * tuningConst 
+
+# can specify some estimation model
+peterModel = peterAdjmat ~ edges + gwdegree(0.69, fixed = TRUE) + gwesp(0.69, fixed = TRUE) + nodecov("Age") + absdiff("Age")
+
+
+```
+
+### Iterating objects
+
+```{r iteratingInits}
+# specify number of sampled missingness indicators
+missIndSampled = 1
+
+# randomly sampling from the simulated random networks
+chosenErgmMissInd = sample(1:length(missErgmSimNets), size = missIndSampled)
+cat("Your chosen missingness indicators for the ERGM-simulated missingness are", chosenErgmMissInd, "\t")
+
+# initialising a list for the depleted network and model specification
+depletedNetList = list()
+
+# take the networks out
+for(missIndIndex in 1:missIndSampled){
+  
+  # grabbing the missingness indicator
+  chosenMissInd = as.matrix(missErgmSimNets[[chosenErgmMissInd[missIndIndex]]])
+  
+  # and degrade
+  chosenDepletedNet = degradeAdj(trueNet = trueAdj,
+                                 missAdj = chosenMissInd)
+  
+  # and plot
+  par(mfrow = c(1,1))
+  gplot(chosenDepletedNet, gmode = "graph", xlab = paste("Depleted network", missIndIndex), coord = coord)
+  
+  
+  # save the depleted network
+  depletedNetList[[missIndIndex]] = chosenDepletedNet
+}
+
+# # one off save for the network to be used in the sensitivity analysis version of the script
+# save(chosenDepletedNet, missCoefs, file = "20241031_ergmSqOnlyEntrDepNet.RData")
+
+
+```
+
+## Runs
+
+### With entrainment adjustment
+
+```{r samplerMnarRuns}
+### this chunk has the entrainment adjustment
+# initialising output object, further wrangling after all the objects exist (...which is bad, but I'm sorry future me.)
+outputList = list()
+
+# and because this is a rush job is going to be done using a loop.
+# TODO: look into a parallel version of this code
+for( chosenDepInd in 1:missIndSampled ){
+  
+  ## Initialising the network
+  peterAdjmat = as.network(depletedNetList[[chosenDepInd]], directed = FALSE)
+  
+  # normalise the age so the variance doesn't get too big
+  # add the age attribute
+  peterAdjmat %v% 'Age' = scale(londonGangsAtt$Age)[,1]
+  
+  # try it out
+  tryOut = ergmSquaredSampler(formula = peterModel, 
+                             adjMat = peterAdjmat,
+                             initParams = initTrueTheta,
+                             initStats = initTrueStats,
+                             propSigma = propSigma,
+                             iterations = 5000,
+                             entrainment = missCoefs[4],
+                             coefNames = coefNames)
+  
+  # save output
+  outputList[[chosenDepInd]] = tryOut
+}
+
+#save(outputList, depletedNetList, file = "20241021_ergmSquaredEntrSamples.RData")
+
+```
+
+```{r mnarplotcode}
+### code to get the relevant data structures and plot stuff
+
+## sampled thetas
+# set plotting dimensions
+par(mfrow = c(3, 2))
+
+# a loop to go through all the coefficients
+for(coefInd in 1:length(coefNames)){
+  plot(ts(outputList[[1]]$sampledTheta[, coefInd]), ylab = coefNames[coefInd])
+  abline(h = initTrueTheta[coefInd], col = "red")
+}
+
+# set a title for the plots
+mtext(paste("Depleted network", 1), outer = TRUE, line = -3, cex = 1, font = 2)
+
+
+# set plotting dimensions again to avoid any plots being put in the previous set
+par(mfrow = c(3, 2))
+
+# another similar loop
+for(coefInd in 1:length(coefNames)){
+  plot(ts(outputList[[1]]$impNetStatMat[, coefInd]), ylab = coefNames[coefInd])
+  abline(h = as.numeric(trueStats[coefInd]), col = "red")
+}
+
+mtext(paste("Depleted network", 1), outer = TRUE, line = -3, cex = 1, font = 2)
+
+# lastly for the auxiliary networks
+# set plotting dimensions again to avoid any plots being put in the previous set
+par(mfrow = c(3, 2))
+
+# another similar loop
+for(coefInd in 1:length(coefNames)){
+  plot(ts(outputList[[1]]$auxNetStatMat[, coefInd]), ylab = coefNames[coefInd])
+  abline(h = as.numeric(trueStats[coefInd]), col = "red")
+}
+
+mtext(paste("Depleted network", 1), outer = TRUE, line = -3, cex = 1, font = 2)
+
+```
+
+
+### Without entrainment adjustment
+
+
+```{r samplerMarRuns}
+### this chunk doesn't have the entrainment adjustments
+# and thus assumes the missingness is MAR (which it isn't)
+# this is done to produce a reference distribution
+
+# same code, no entrainment adjustment.
+
+# initialising output object, further wrangling after all the objects exist (...which is bad, but I'm sorry future me.)
+outputNoEntrList = list()
+
+# and because this is a rush job is going to be done using a loop.
+# TODO: look into a parallel version of this code
+for( chosenDepInd in 1:missIndSampled ){
+  
+  ## Initialising the network
+  peterAdjmat = as.network(depletedNetList[[chosenDepInd]], directed = FALSE)
+  
+  # normalise the age so the variance doesn't get too big
+  # add the age attribute
+  peterAdjmat %v% 'Age' = scale(londonGangsAtt$Age)[,1]
+  
+  # try it out
+  tryOut = ergmSquaredSampler(formula = peterModel, 
+                             adjMat = peterAdjmat,
+                             initParams = initTrueTheta,
+                             initStats = initTrueStats,
+                             propSigma = propSigma,
+                             iterations = 5000,
+                             entrainment = 0,
+                             coefNames = coefNames)
+  
+  # save output
+  outputNoEntrList[[chosenDepInd]] = tryOut
+}
+```
+
