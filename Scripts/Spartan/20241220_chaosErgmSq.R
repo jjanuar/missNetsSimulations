@@ -48,7 +48,6 @@ trueStats = as.numeric(summary(trueModel))
 print(trueStats)
 
 
-
 # for future purposes, the coefs are c(-4.409, 0.92919, 1.386, 0.163, -0.489)
 # cheat by using the natural mle parameters of the complete network to get initial parameters
 trueRes = ergm(trueModel,
@@ -87,7 +86,7 @@ propSigma <-  solve(cov(tempStats)) * tuningConst
 peterModel = peterNet ~ edges + gwdegree(0.69, fixed = TRUE) + gwesp(0.69, fixed = TRUE) + nodecov("Age") + absdiff("Age")
 
 # loading just the depleted networks
-load(here("Data", "20241212_chosenMissInd.RData"))
+load(here("Data", "20250307_chosenEndoMissInd.RData"))
 
 ## Initialising the network
 peterAdjmat =  degradeAdj(trueNet = trueAdj,
@@ -101,7 +100,7 @@ peterNet %v% 'Age' = scale(londonGangsAtt$Age)[,1]
 
 
 # add the missingness model
-missModel = "edges + dyadcov(noNaPropSubstepNet)"
+missModel = "edges + dyadcov(noNaPropSubstepNet) + gwdegree(decay=0.69, fixed = TRUE) + gwesp(decay=0.69, fixed = TRUE)"
 
 # try it out
 output = chaosErgmSquaredSampler(formula = peterModel, 
@@ -109,12 +108,13 @@ output = chaosErgmSquaredSampler(formula = peterModel,
                                  initParams = initTrueTheta,
                                  initStats = initTrueStats,
                                  propSigma = propSigma,
-                                 iterations = 5000,
+                                 iterations = 1500,
                                  entrainment = chosenEntrValue,
                                  coefNames = coefNames,
-                                 missModel = missModel)
+                                 missModel = missModel,
+                                 knownMissParams = c(-0.84, 0.2, 0.4, 0.5))
 
 # and save the object
 save(output, 
-     file = here("Output", "20241220_chaosErgmSq", 
+     file = here("Output", "20250307_chaosErgmSq", 
                  paste(format(Sys.Date(), "%Y%m%d"), "_chaosErgmSqOut_entrVal", chosenEntrValue,".RData", sep = "")))

@@ -1,0 +1,373 @@
+---
+title: "20250308_statnetSimCheck"
+author: "Jon Januar"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The purpose of this document is to inspect what the most consistent simulated networks through some 'basic' statnet functionality. This is an inspection to figure out some ergm squared sampler stability.
+
+A bernoulli model will do because 
+
+
+## Loading stuff
+
+```{r load}
+# checking statnet simulations
+library(ergm)
+library(here)
+
+# some network
+data("faux.mesa.high")
+fmhModel = faux.mesa.high ~ edges + nodematch("Grade")
+
+fmhFit <- ergm(fmhModel)
+
+# check simulation stability
+fmhSim = simulate(fmhModel, 
+                  nsim = 1,
+                  coef = c(-6.034, 2.831),
+                  control = snctrl(MCMC.burnin = 20000, MCMC.interval = 20000))
+
+fmhTarget = summary(fmhModel)
+```
+
+
+## Running sims
+
+```{r runsim}
+
+# a couple of conditions, 100 sim nets ea to check stability, 
+iters = 300
+
+# since the interval affects the sampled networks i'm doing this crudely and looping this.
+# default options
+fmhSimDef = list()
+
+for(index in 1:iters){
+  fmhSimDef[[index]] = simulate(fmhModel, 
+                                nsim = 1,
+                                coef = c(-6.034, 2.831))
+}
+
+# 20000 burnin
+fmhSimBrn = list()
+
+for(index in 1:iters){
+  fmhSimBrn[[index]] = simulate(fmhModel, 
+                                nsim = 1,
+                                coef = c(-6.034, 2.831),
+                                control = snctrl(MCMC.burnin = 20000))
+}
+
+
+# 20000 burnin and interval
+fmhSimBrnInt = list()
+
+for(index in 1:iters){
+  fmhSimBrnInt[[index]] = simulate(fmhModel, 
+                                  nsim = 1,
+                                  coef = c(-6.034, 2.831),
+                                  control = snctrl(MCMC.burnin = 20000, MCMC.interval = 20000))
+}
+
+
+
+# 20000 burnin and interval, 2 simulated networks and take the second one
+fmhSimBrnInt2 = list()
+
+for(index in 1:iters){
+ tempNetList = simulate(fmhModel, 
+                        nsim = 2,
+                        coef = c(-6.034, 2.831),
+                        control = snctrl(MCMC.burnin = 20000, MCMC.interval = 20000))
+ 
+ fmhSimBrnInt2[[index]] = tempNetList[[2]]
+}
+
+```
+
+## Checking simulations
+
+```{r grabstats}
+# check the statistics
+defStats = lapply(fmhSimDef, FUN = function(x){summary(x~edges + nodematch("Grade"))})
+brnStats = lapply(fmhSimBrn, FUN = function(x){summary(x~edges + nodematch("Grade"))})
+brnIntStats = lapply(fmhSimBrnInt, FUN = function(x){summary(x~edges + nodematch("Grade"))})
+brnInt2Stats = lapply(fmhSimBrnInt2, FUN = function(x){summary(x~edges + nodematch("Grade"))})
+
+# grab the simulated statistics
+grabEdges = function(statList){
+  unlist(lapply(statList, FUN = function(x){x[1]}))
+}
+
+grabGrade = function(statList){
+  unlist(lapply(statList, FUN = function(x){x[2]}))
+}
+
+# and do this for all the lists
+defEdges = grabEdges(defStats)
+brnEdges = grabEdges(brnStats)
+brnIntEdges = grabEdges(brnIntStats)
+brnInt2Edges = grabEdges(brnInt2Stats)
+
+# and grade
+defGrade = grabGrade(defStats)
+brnGrade = grabGrade(brnStats)
+brnIntGrade = grabGrade(brnIntStats)
+brnInt2Grade = grabGrade(brnInt2Stats)
+
+```
+
+
+```{r plot}
+# plot and check
+plot(density(defEdges), main = paste("default edges, sd =", sd(defEdges)))
+abline(v = fmhTarget[1], col = "red")
+
+plot(density(brnEdges), main = paste("brn edges, sd =", sd(brnEdges)))
+abline(v = fmhTarget[1], col = "red")
+
+plot(density(brnIntEdges), main = paste("brnInt edges, sd =", sd(brnIntEdges)))
+abline(v = fmhTarget[1], col = "red")
+
+plot(density(brnInt2Edges), main = paste("brnInt2 edges, sd =", sd(brnInt2Edges)))
+abline(v = fmhTarget[1], col = "red")
+
+# grade stats
+plot(density(defGrade), main = paste("default Grade, sd =", sd(defGrade)))
+abline(v = fmhTarget[2], col = "red")
+
+plot(density(brnGrade), main = paste("brn Grade, sd =", sd(brnGrade)))
+abline(v = fmhTarget[2], col = "red")
+
+plot(density(brnIntGrade), main = paste("brnInt Grade, sd =", sd(brnIntGrade)))
+abline(v = fmhTarget[2], col = "red")
+
+plot(density(brnInt2Grade), main = paste("brnInt2 Grade, sd =", sd(brnInt2Grade)))
+abline(v = fmhTarget[2], col = "red")
+
+```
+
+
+## The same with an endogenous model
+
+Since this functionality's used for the auxiliary networks in the chaos sampler...
+
+```{r endosetup}
+# grab data, good ol london gangs
+# Load in some dataset
+load(here("Data", "20231006_missNetsEnMasse.RData"))
+
+# London gangs since it's an easy dataset with some attributes
+trueAdj = adjMatList[[6]]
+
+# get the true statistics for the given estimation model for reference
+trueNet = as.network(trueAdj, directed = FALSE)
+trueNet %v% 'Age' = scale(londonGangsAtt$Age)[,1]
+
+# get the 'true' values
+trueModel = trueNet ~ edges +
+  gwdegree(0.69, fixed = TRUE) +
+  gwesp(0.69, fixed = TRUE) +
+  nodecov("Age") +
+  absdiff("Age")
+
+trueStats = as.numeric(summary(trueModel))
+
+print(trueStats)
+
+
+# for future purposes, the coefs are c(-4.409, 0.92919, 1.386, 0.163, -0.489)
+# cheat by using the natural mle parameters of the complete network to get initial parameters
+trueRes = ergm(trueModel,
+               control = control.ergm(init = c(-4.409, 0.92919, 1.386, 0.163, -0.489),
+                                      MCMC.burnin = 20000, 
+                                      MCMC.interval = 20000))
+
+```
+
+## Gangs sims
+
+```{r runsim}
+# a couple of conditions, 100 sim nets ea to check stability, 
+iters = 300
+
+# since the interval affects the sampled networks i'm doing this crudely and looping this.
+# default options
+gangSimDef = list()
+
+for(index in 1:iters){
+  gangSimDef[[index]] = simulate(trueModel, 
+                                nsim = 1,
+                                coef = c(-4.409, 0.92919, 1.386, 0.163, -0.489))
+}
+
+# 20000 burnin
+gangSimBrn = list()
+
+for(index in 1:iters){
+  gangSimBrn[[index]] = simulate(trueModel, 
+                                nsim = 1,
+                                coef = c(-4.409, 0.92919, 1.386, 0.163, -0.489),
+                                control = snctrl(MCMC.burnin = 20000))
+}
+
+
+# 20000 burnin and interval
+gangSimBrnInt = list()
+
+for(index in 1:iters){
+  gangSimBrnInt[[index]] = simulate(trueModel, 
+                                  nsim = 1,
+                                  coef = c(-4.409, 0.92919, 1.386, 0.163, -0.489),
+                                  control = snctrl(MCMC.burnin = 20000, MCMC.interval = 20000))
+}
+
+
+
+# 20000 burnin and interval, 2 simulated networks and take the second one
+gangSimBrnInt2 = list()
+
+for(index in 1:iters){
+ tempNetList = simulate(trueModel, 
+                        nsim = 2,
+                        coef = c(-4.409, 0.92919, 1.386, 0.163, -0.489),
+                        control = snctrl(MCMC.burnin = 20000, MCMC.interval = 20000))
+ 
+ gangSimBrnInt2[[index]] = tempNetList[[2]]
+}
+
+```
+
+## Gangs check
+
+```{r grabstats}
+# check the statistics
+defStats = lapply(gangSimDef, FUN = function(x){summary(x~edges +
+  gwdegree(0.69, fixed = TRUE) +
+  gwesp(0.69, fixed = TRUE) +
+  nodecov("Age") +
+  absdiff("Age"))})
+brnStats = lapply(gangSimBrn, FUN = function(x){summary(x~edges +
+  gwdegree(0.69, fixed = TRUE) +
+  gwesp(0.69, fixed = TRUE) +
+  nodecov("Age") +
+  absdiff("Age"))})
+brnIntStats = lapply(gangSimBrnInt, FUN = function(x){summary(x~edges +
+  gwdegree(0.69, fixed = TRUE) +
+  gwesp(0.69, fixed = TRUE) +
+  nodecov("Age") +
+  absdiff("Age"))})
+brnInt2Stats = lapply(gangSimBrnInt2, FUN = function(x){summary(x~edges +
+  gwdegree(0.69, fixed = TRUE) +
+  gwesp(0.69, fixed = TRUE) +
+  nodecov("Age") +
+  absdiff("Age"))})
+
+# grab the simulated statistics
+grabPar = function(statList, parInd){
+  unlist(lapply(statList, FUN = function(x){x[parInd]}))
+}
+
+# and do this for all the lists
+defEdges = grabPar(defStats, 1)
+brnEdges = grabPar(brnStats, 1)
+brnIntEdges = grabPar(brnIntStats, 1)
+brnInt2Edges = grabPar(brnInt2Stats, 1)
+
+defGwdeg = grabPar(defStats, 2)
+brnGwdeg = grabPar(brnStats, 2)
+brnIntGwdeg = grabPar(brnIntStats, 2)
+brnInt2Gwdeg = grabPar(brnInt2Stats, 2)
+
+defGwesp = grabPar(defStats, 3)
+brnGwesp = grabPar(brnStats, 3)
+brnIntGwesp = grabPar(brnIntStats, 3)
+brnInt2Gwesp = grabPar(brnInt2Stats, 3)
+
+defAgecov = grabPar(defStats, 4)
+brnAgecov = grabPar(brnStats, 4)
+brnIntAgecov = grabPar(brnIntStats, 4)
+brnInt2Agecov = grabPar(brnInt2Stats, 4)
+
+
+defAgediff = grabPar(defStats, 5)
+brnAgediff = grabPar(brnStats, 5)
+brnIntAgediff = grabPar(brnIntStats, 5)
+brnInt2Agediff = grabPar(brnInt2Stats, 5)
+
+```
+
+
+```{r plot}
+# plot and check
+plot(density(defEdges), main = paste("default edges, sd =", sd(defEdges)))
+abline(v = trueStats[1], col = "red")
+
+plot(density(brnEdges), main = paste("brn edges, sd =", sd(brnEdges)))
+abline(v = trueStats[1], col = "red")
+
+plot(density(brnIntEdges), main = paste("brnInt edges, sd =", sd(brnIntEdges)))
+abline(v = trueStats[1], col = "red")
+
+plot(density(brnInt2Edges), main = paste("brnInt2 edges, sd =", sd(brnInt2Edges)))
+abline(v = trueStats[1], col = "red")
+
+# gwdeg stats
+plot(density(defGwdeg), main = paste("default gwdeg, sd =", sd(defGwdeg)))
+abline(v = trueStats[2], col = "red")
+
+plot(density(brnGwdeg), main = paste("brn gwdeg, sd =", sd(brnGwdeg)))
+abline(v = trueStats[2], col = "red")
+
+plot(density(brnIntGwdeg), main = paste("brnInt gwdeg, sd =", sd(brnIntGwdeg)))
+abline(v = trueStats[2], col = "red")
+
+plot(density(brnInt2Gwdeg), main = paste("brnInt2 gwdeg, sd =", sd(brnInt2Gwdeg)))
+abline(v = trueStats[2], col = "red")
+
+# gwesp stats
+plot(density(defGwesp), main = paste("default gwesp, sd =", sd(defGwesp)))
+abline(v = trueStats[3], col = "red")
+
+plot(density(brnGwesp), main = paste("brn gwesp, sd =", sd(brnGwesp)))
+abline(v = trueStats[3], col = "red")
+
+plot(density(brnIntGwesp), main = paste("brnInt gwesp, sd =", sd(brnIntGwesp)))
+abline(v = trueStats[3], col = "red")
+
+plot(density(brnInt2Gwesp), main = paste("brnInt2 gwesp, sd =", sd(brnInt2Gwesp)))
+abline(v = trueStats[3], col = "red")
+
+# agecov stats
+plot(density(defAgecov), main = paste("default agecov, sd =", sd(defAgecov)))
+abline(v = trueStats[4], col = "red")
+
+plot(density(brnAgecov), main = paste("brn agecov, sd =", sd(brnAgecov)))
+abline(v = trueStats[4], col = "red")
+
+plot(density(brnIntAgecov), main = paste("brnInt agecov, sd =", sd(brnIntAgecov)))
+abline(v = trueStats[4], col = "red")
+
+plot(density(brnInt2Agecov), main = paste("brnInt2 agecov, sd =", sd(brnInt2Agecov)))
+abline(v = trueStats[4], col = "red")
+
+# agediff stats
+plot(density(defAgediff), main = paste("default agediff, sd =", sd(defAgediff)))
+abline(v = trueStats[5], col = "red")
+
+plot(density(brnAgediff), main = paste("brn agediff, sd =", sd(brnAgediff)))
+abline(v = trueStats[5], col = "red")
+
+plot(density(brnIntAgediff), main = paste("brnInt agediff, sd =", sd(brnIntAgediff)))
+abline(v = trueStats[5], col = "red")
+
+plot(density(brnInt2Agediff), main = paste("brnInt2 agediff, sd =", sd(brnInt2Agediff)))
+abline(v = trueStats[5], col = "red")
+
+```
