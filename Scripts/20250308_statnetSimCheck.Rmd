@@ -158,7 +158,7 @@ abline(v = fmhTarget[2], col = "red")
 
 Since this functionality's used for the auxiliary networks in the chaos sampler...
 
-```{r endosetup}
+```{r gangsetup}
 # grab data, good ol london gangs
 # Load in some dataset
 load(here("Data", "20231006_missNetsEnMasse.RData"))
@@ -193,7 +193,7 @@ trueRes = ergm(trueModel,
 
 ## Gangs sims
 
-```{r runsim}
+```{r gangsim}
 # a couple of conditions, 100 sim nets ea to check stability, 
 iters = 300
 
@@ -246,7 +246,7 @@ for(index in 1:iters){
 
 ## Gangs check
 
-```{r grabstats}
+```{r gangcheck}
 # check the statistics
 defStats = lapply(gangSimDef, FUN = function(x){summary(x~edges +
   gwdegree(0.69, fixed = TRUE) +
@@ -304,7 +304,7 @@ brnInt2Agediff = grabPar(brnInt2Stats, 5)
 ```
 
 
-```{r plot}
+```{r gangplot}
 # plot and check
 plot(density(defEdges), main = paste("default edges, sd =", sd(defEdges)))
 abline(v = trueStats[1], col = "red")
