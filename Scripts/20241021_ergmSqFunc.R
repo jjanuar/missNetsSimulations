@@ -127,7 +127,7 @@ ergmSquaredSampler = function(formula, naNet, initParams, initStats, propSigma, 
                             basis = naNet,
                             nsim = 1,
                             control = control.simulate(MCMC.burnin = 20000,
-                                                       MCMC.interval = 2000))
+                                                       MCMC.interval = 20000))
     
     # 20250303: same situation here with the MCMC.burnin?
     
@@ -180,7 +180,7 @@ ergmSquaredSampler = function(formula, naNet, initParams, initStats, propSigma, 
                        nsim = 1,
                        constraints=~fixallbut(missTiesEdgeList),
                        control = control.simulate(MCMC.burnin = 20000,
-                                                  MCMC.interval = 2000))
+                                                  MCMC.interval = 20000))
     
     # 20250303: check mcmc.interval when you are simulating 1 network (i.e., is it necessary?)
     # more burnin? depending on the order of the network
@@ -336,7 +336,7 @@ bernErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSig
                         basis = naNet,
                         nsim = 1,
                         control = control.simulate(MCMC.burnin = 20000,
-                                                   MCMC.interval = 2000))
+                                                   MCMC.interval = 20000))
     
     # grab the statistics
     auxNetStats = attributes(auxNets)$stats
@@ -381,7 +381,7 @@ bernErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSig
                        nsim = 1,
                        constraints=~fixallbut(missTiesEdgeList),
                        control = control.simulate(MCMC.burnin = 20000,
-                                                  MCMC.interval = 2000))
+                                                  MCMC.interval = 20000))
     
     # save the imputed networks
     impNetList[[iter]] = impNets
@@ -407,12 +407,8 @@ bernErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSig
 }
 
 
-## toggle edge function for the chaos sampler
-
-### note: the most updated version of the sampler is in 20241217_ergmChangeStat (with edgeToggle).
-
 ## endogenous missingness mechanism
-chaosErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSigma, iterations, entrainment, coefNames, missModel, knownMissParams = NULL){
+chaosErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSigma, iterations, entrainment, coefNames, missModel, knownMissParams = NULL, returnNets = TRUE){
   
   ## chaosErgmSquaredSampler(formula, naNet, initParams, ...) takes an ergm formula, an adjacency matrix with missingness, 
   ## some initial values, and an entrainment parameter value to sample generate model estimates under 
@@ -444,6 +440,9 @@ chaosErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSi
   ##
   ## - knownMissParams:  An optional vector containing the parameters for the missingness model.
   ##                     If unspecified, will use the density of the missingness model and the entrainment parameter.
+  ##
+  ## - returnNets:       A logical value to return the imputed and auxiliary network objects
+  ##                     Default is TRUE. Switch to FALSE to only get the statistics and not the networks.
   
   ## Output: 
   ## - output:           A list with 5 items,
@@ -453,10 +452,165 @@ chaosErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSi
   ##                     - impNetStatMat is an iterations x p matrix containing the imputed network statistics
   ##                     - auxNetStatMat is an iterations x p matrix containing the auxiliary network statistics
   
-  
   # requires the ergm and mvtnorm packages
   require(ergm)
   require(mvtnorm)
+  
+  # an edge toggle function as some kinda helper function
+  edgeToggle = function(net, head, tail, directed = FALSE, keepAttrs = TRUE){
+    
+    ## edgeToggle(net, head, tail, ...) takes network (can be matrix), some edge identifiers and some specifications
+    ## to toggle the specified edge for the given network. To keep the operations clear, I'll be using matrices.
+    ## It can support both directed and undirected graphs and will retain any covariates in the network object.
+    ##
+    ## Input:
+    ## - net:         The input network. Can be either a network object (needs the package) or a matrix.
+    ##
+    ## - head:        The head/sender of the specified edge to be toggled.
+    ##
+    ## - tail:        The tail/receiver of the specified edge to be toggled.
+    ##
+    ## - directed:    A logical value to indicate whether the network is directed or undirected
+    ##
+    ## - keepAttrs:   A logical value to indicate whether attributes from the network object are kept
+    ##  
+    ##
+    ## Output:
+    ## - toggledNet:  A network object with the specified tie variable toggled. Missing values (NA) and 0s are
+    ##                toggled to an edge (1) while edges are toggled to 0s.
+    ##                NOTE: the attributes' object type may need to be changed once they are put back in (i.e., as.numeric or something)
+    
+    
+    # requires the network package
+    require(network)
+    
+    # grab the matrix
+    adjMat = net
+    
+    # if the object is a network object, 
+    if(any(class(net) == "network")){
+      
+      # turn the network into a matrix
+      adjMat = as.matrix(net)
+      
+      # branch to keep attributes
+      if(keepAttrs == TRUE){
+        
+        # any possible vertex attributes
+        # initialising a matrix for the vertex attributes
+        vertexAtts = matrix(data = NA, nrow = nrow(adjMat), ncol = length(list.vertex.attributes(net))) 
+        
+        # get the vertex attribute names
+        vertexAttNames = list.vertex.attributes(net)
+        
+        # grab and loop (cause lazy, probably a better way to do this) into the matrix
+        for(vertexAttInd in 1:length(vertexAttNames)){
+          
+          # grab the chosen vertex attribute
+          tempVertexAtt = get.vertex.attribute(x = net, attrname = vertexAttNames[vertexAttInd])
+          
+          # plug into the matrix
+          vertexAtts[, vertexAttInd] = tempVertexAtt
+        }
+        
+        
+        # same thing with the edge attributes
+        # initialising a matrix for the edge attributes
+        # get number of edges for the initialisation matrix
+        numEdges = network.edgecount(net)
+        edgeAtts = matrix(data = NA, nrow = numEdges, ncol = length(list.edge.attributes(net)) - 1) # - 1 for 
+        
+        # get the vertex attribute names
+        edgeAttNames = list.edge.attributes(net)
+        
+        # 'na' while not always seen is always there so remove that from the list of attribute names
+        # since it will mess up the count of observed/missing edges
+        edgeNaInd = which(edgeAttNames == "na")
+        
+        # remove it.
+        edgeAttNames = edgeAttNames[-edgeNaInd]
+        
+        # branch for null edge attributes since 'na' is always included but is hidden and can be messy
+        if(length(edgeAttNames) != 0){
+          
+          # grab and loop (cause lazy, probably a better way to do this) into the matrix
+          for(edgeAttInd in 1:length(edgeAttNames)){
+            
+            # grab the chosen edge attribute
+            tempEdgeAtt = get.edge.attribute(x = net, attrname = edgeAttNames[edgeAttInd])
+            
+            # plug into the matrix
+            edgeAtts[, edgeAttInd] = tempEdgeAtt
+          }
+        }
+      }
+    }
+    # at this point, we have the matrix as well as any network attributes
+    
+    ## Now we sort out the toggling part
+    # a branch to make the NA value computable
+    if(is.na(adjMat[head, tail])){
+      
+      # while this form of 'imputation' isn't very good, the toggled value from 'nothing' should be an edge to compute a change statistic
+      adjMat[head, tail] = 0
+      
+      # same for the other side if undirected
+      if(directed == FALSE){
+        adjMat[tail, head] = 0
+      }
+      
+    }
+    
+    # grab specified tie variable 
+    chosenTieVar = adjMat[head, tail]
+    
+    # 1s become 0s, 0s become 1s.
+    adjMat[head, tail] = 1 - chosenTieVar
+    
+    # branch to symmetrise if the matrix is undirected
+    if(directed == FALSE){
+      adjMat[tail, head] = 1 - chosenTieVar
+      
+      # spit out an error if something's wrong, only matters for undirected networks
+      if(adjMat[tail, head] != adjMat[head, tail]){
+        stop("Undirected matrix is NOT symmetric")
+      }
+    }
+    
+    
+    
+    # now we start assembling the output object
+    toggledNet = as.network(adjMat, directed = directed)
+    
+    # plug back the attributes if specified to do so
+    if(keepAttrs == TRUE){
+      
+      # vertex attributes
+      # loop for all specified vertex attributes
+      for(vertexAttInd in 1:length(vertexAttNames)){
+        
+        # set the chosen vertex attribute, with some kind of 'appropriate' type conversion.
+        set.vertex.attribute(x = toggledNet, attrname = vertexAttNames[vertexAttInd], value = type.convert(vertexAtts[, vertexAttInd], as.is = TRUE))
+      }
+      
+      # same thing for edge attributes, if there *are* any remaining edge attributes
+      if(length(edgeAttNames) != 0){
+        
+        # loop for all specified edge attributes
+        for(edgeAttInd in 1:length(edgeAttNames)){
+          
+          # set the chosen edge attribute, with some kind of 'appropriate' type conversion.
+          set.edge.attribute(x = toggledNet, attrname = edgeAttNames[edgeAttInd], value = type.convert(edgeAtts[, edgeAttInd], as.is = TRUE))
+        }
+      }
+    }
+    
+    # return the toggled network
+    return(toggledNet)
+  }
+  
+  
+  ## chaos ergm proper:
   
   # have the adjMat for computation purposes
   adjMat = as.matrix(naNet)
@@ -490,7 +644,7 @@ chaosErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSi
   auxNetList = list()
   
   ## sequentially printing some iterations to make sure the sampler's progressing
-  printIter = floor(seq(from = 1, to = iterations, length.out = 50))
+  printIter = floor(seq(from = 1, to = iterations, length.out = 20))
   
   # get the list of free dyads
   # need the missingness indicator so we can work backwards from the adjmat
@@ -552,7 +706,7 @@ chaosErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSi
                         basis = naNet,
                         nsim = 1,
                         control = control.simulate(MCMC.burnin = 20000,
-                                                   MCMC.interval = 2000))
+                                                   MCMC.interval = 20000))
     
     # grab the statistics
     auxNetStats = attributes(auxNets)$stats
@@ -624,35 +778,46 @@ chaosErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSi
       # if the value is missing, then we need to handle it differently.
       # this should only apply for the first iteration since we'll have imputed networks in the subsequent ones
       
-      # the following if branch evaluates three possible cases with two possible outcomes
-      # due to logical operations not working with missing values, we're going with a nested branch
-      # we first consider the case where the selected tie variable is missing
-      if(is.na(propSubstepNet[head, tail]) == TRUE){
-        
-        # realistically only taking place in the first iteration where x_r = NA
-        propSubstepNet = add.edge(x = propSubstepNet,
+      # # the following if branch evaluates three possible cases with two possible outcomes
+      # # due to logical operations not working with missing values, we're going with a nested branch
+      # # we first consider the case where the selected tie variable is missing
+      # if(is.na(propSubstepNet[head, tail]) == TRUE){
+      #   
+      #   # realistically only taking place in the first iteration where x_r = NA
+      #   propSubstepNet = edgeToggle(net = propSubstepNet,
+      #                               tail = tail,
+      #                               head = head,
+      #                               directed = FALSE,
+      #                               keepAttrs = TRUE)
+      # } else {
+      #   # I despite nested branches, but I can't have the code rerun after adding the edge.
+      #   if(propSubstepNet[head, tail] == 1){
+      #     
+      #     # this is the only case where we would want to delete the edge to get a change statistic
+      #     propSubstepNet = edgeToggle(net = propSubstepNet,
+      #                                 tail = tail,
+      #                                 head = head,
+      #                                 directed = FALSE,
+      #                                 keepAttrs = TRUE)
+      #   } else {
+      #     # this branch evaluates the last case when the tie variable is a null tie (x^*_r = 0)
+      #     
+      #     # add an edge so we HAVE a change statistic
+      #     propSubstepNet = edgeToggle(net = propSubstepNet,
+      #                               tail = tail,
+      #                               head = head,
+      #                               directed = FALSE,
+      #                               keepAttrs = TRUE)
+      #   }
+      #   
+      # }
+      
+      # since we're now using an edge toggle function that accommodates missing entries, no branches necessary
+      propSubstepNet = edgeToggle(net = propSubstepNet,
                                   tail = tail,
-                                  head = head)
-      } else {
-        # I despite nested branches, but I can't have the code rerun after adding the edge.
-        if(propSubstepNet[head, tail] == 1){
-          
-          # grab the edge id
-          deleteNetEdgeId = get.edgeIDs(x = propSubstepNet, v = head, alter = tail)
-          
-          # this is the only case where we would want to delete the edge to get a change statistic
-          propSubstepNet = delete.edges(x = propSubstepNet,
-                                        eid = deleteNetEdgeId)
-        } else {
-          # this branch evaluates the last case when the tie variable is a null tie (x^*_r = 0)
-          
-          # add an edge so we HAVE a change statistic
-          propSubstepNet = add.edge(x = propSubstepNet,
-                                    tail = tail,
-                                    head = head)
-        }
-        
-      }
+                                  head = head,
+                                  directed = FALSE,
+                                  keepAttrs = TRUE)
       
       # re-compute the statistics
       endSubstepNetStats = summary(propSubstepModel)
@@ -694,22 +859,30 @@ chaosErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSi
       
       # the following might not need to be a branch since we're assuming d_r = 1 at all times
       # no additional branch for missingness required since the missingness indicator can't have missing values
-      if(substepMissInd[head, tail] == 1){
-        
-        # grab the edge id, this one is likely equivalent to the missInd index, but I don't know if it's consistent.
-        deleteMissEdgeId = get.edgeIDs(x = substepMissInd, v = head, alter = tail)
-        
-        # delete the missingness indicator since that's the change
-        substepMissInd = delete.edges(x = substepMissInd,
-                                      eid = deleteMissEdgeId)
-      } else {
-        
-        # this code SHOULD be useless since it's only if the chosen tie variable isn't missing (d_r = 0)
-        # add an edge to have a change statistic
-        substepMissInd = add.edge(x = substepMissInd,
+      # if(substepMissInd[head, tail] == 1){
+      #   
+      #   # grab the edge id, this one is likely equivalent to the missInd index, but I don't know if it's consistent.
+      #   deleteMissEdgeId = get.edgeIDs(x = substepMissInd, v = head, alter = tail)
+      #   
+      #   # delete the missingness indicator since that's the change
+      #   substepMissInd = delete.edges(x = substepMissInd,
+      #                                 eid = deleteMissEdgeId)
+      # } else {
+      #   
+      #   # this code SHOULD be useless since it's only if the chosen tie variable isn't missing (d_r = 0)
+      #   # add an edge to have a change statistic
+      #   substepMissInd = add.edge(x = substepMissInd,
+      #                             tail = tail,
+      #                             head = head)
+      # }
+      
+      # same situation with the edge toggle, though this one should also always be deleting missingness indicators
+      substepMissInd = edgeToggle(net = substepMissInd,
                                   tail = tail,
-                                  head = head)
-      }
+                                  head = head,
+                                  directed = FALSE,
+                                  keepAttrs = TRUE)
+      
       # re-compute the statistics
       endSubstepMissStats = summary(substepMissModel)
       
@@ -764,10 +937,15 @@ chaosErgmSquaredSampler = function(formula, naNet, initParams, initStats, propSi
   # put all the output in a list
   output = list(
     sampledThetas = sampledThetas,
-    impNetList = impNetList,
-    auxNetList = auxNetList,
     impNetStatMat = impNetStatMat,
     auxNetStatMat = auxNetStatMat)
+  
+  # branch to return the network objects
+  if(returnNets == TRUE){
+    output[["impNetList"]] = impNetList
+    output[["auxNetList"]] = auxNetList
+  }
+  
   
   # and return it
   return(output)
@@ -919,7 +1097,7 @@ ergmSqSensSampler = function(formula, naNet, initParams, initStats, propSigma, i
                         basis = naNet,
                         nsim = 1,
                         control = control.simulate(MCMC.burnin = 20000,
-                                                   MCMC.interval = 2000))
+                                                   MCMC.interval = 20000))
     
     # 20250303: same situation here with the MCMC.burnin?
     
@@ -962,9 +1140,10 @@ ergmSqSensSampler = function(formula, naNet, initParams, initStats, propSigma, i
                        nsim = 1,
                        constraints=~fixallbut(missTiesEdgeList),
                        control = control.simulate(MCMC.burnin = 20000,
-                                                  MCMC.interval = 2000))
+                                                  MCMC.interval = 20000))
     
     # 20250303: check mcmc.interval when you are simulating 1 network (i.e., is it necessary?)
+    # answer: burn + int at high values seems good enough...
     # more burnin? depending on the order of the network
     # how much burnin is necessary for the chain to stabilise?
     
